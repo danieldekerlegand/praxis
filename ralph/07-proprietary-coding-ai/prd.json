@@ -1,0 +1,142 @@
+{
+  "project": "ai-tutor",
+  "branchName": "ralph/proprietary-coding-ai",
+  "description": "Proprietary Models & Coding AI \u2014 Hosted model APIs and AI coding assistants/IDEs.",
+  "userStories": [
+    {
+      "id": "T7-001",
+      "title": "Complete: Google Gemini",
+      "description": "Write the Google Gemini refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "file: notebooks/07-proprietary-coding-ai/google-gemini.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T7-002",
+      "title": "Complete: Google Vertex AI",
+      "description": "Write the Google Vertex AI refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "file: notebooks/07-proprietary-coding-ai/google-vertex.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T7-009",
+      "title": "Complete: Grok",
+      "description": "Write the Grok refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "file: notebooks/07-proprietary-coding-ai/grok.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T7-011",
+      "title": "Complete: LLaMA",
+      "description": "Write the LLaMA refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "file: notebooks/07-proprietary-coding-ai/llama.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T7-012",
+      "title": "Complete: Mistral",
+      "description": "Write the Mistral refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "file: notebooks/07-proprietary-coding-ai/mistral.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T7-013",
+      "title": "Complete: Anthropic Claude API",
+      "description": "Write the Anthropic Claude API refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "file: notebooks/07-proprietary-coding-ai/anthropic-claude-api.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T7-014",
+      "title": "Complete: Perplexity API",
+      "description": "Write the Perplexity API refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "file: notebooks/07-proprietary-coding-ai/perplexity.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T7-015",
+      "title": "Complete: DeepSeek",
+      "description": "Write the DeepSeek refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "file: notebooks/07-proprietary-coding-ai/deepseek.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T7-016",
+      "title": "Complete: Qwen",
+      "description": "Write the Qwen refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "file: notebooks/07-proprietary-coding-ai/qwen.ipynb; runnable: True; recommended: True"
+    }
+  ]
+}

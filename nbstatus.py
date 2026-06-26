@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+"""Shared notebook status detection, used by the launcher, tests, and Ralph generator.
+
+Three states:
+  scaffold  - blank ai-tutor scaffold, or a legacy template with placeholder text
+  partial   - has real content but is thin / still below the rubric bar
+  complete  - substantive content, no placeholders, enough sections and code
+
+This is a heuristic for the UI badge and for *selecting* which notebooks Ralph
+should work on. The authoritative gate is tests/test_notebooks.py.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+# Placeholder markers left by the legacy generator/enhancer templates.
+STUB_MARKERS = (
+    "provide description here",
+    "add code here",
+    "feature 1 | description",
+    "[add architecture diagram here]",
+    "add benchmarking code",
+    "- benefit 1",
+    "this notebook provides practical examples and best practices",
+)
+
+REQUIRED_HINTS = ("## ", "import ", "```")  # cheap "has real structure" signals
+
+
+def _text(nb: dict) -> str:
+    return "".join("".join(c.get("source", [])) for c in nb.get("cells", []))
+
+
+def notebook_status(path: str | Path) -> tuple[str, dict]:
+    """Return (status, metrics) for a notebook path."""
+    path = Path(path)
+    try:
+        nb = json.loads(path.read_text())
+    except Exception as exc:  # unreadable / invalid JSON
+        return "error", {"error": str(exc)}
+
+    meta = nb.get("metadata", {}).get("ai_tutor", {})
+    cells = nb.get("cells", [])
+    code_cells = [c for c in cells if c.get("cell_type") == "code"]
+    text = _text(nb)
+    low = text.lower()
+    chars = len(text)
+
+    metrics = {
+        "cells": len(cells),
+        "code_cells": len(code_cells),
+        "chars": chars,
+        "runnable": meta.get("runnable", True),
+        "recommended": meta.get("recommended", False),
+    }
+
+    # Explicit scaffold sentinel, or any legacy placeholder text.
+    if meta.get("status") == "scaffold" or any(m in low for m in STUB_MARKERS):
+        return "scaffold", metrics
+
+    # Heuristic completeness for filled notebooks.
+    has_structure = sum(h in text for h in REQUIRED_HINTS) >= 2
+    runnable = metrics["runnable"]
+    enough_code = (len(code_cells) >= 2) if runnable else True
+    if chars >= 6000 and has_structure and enough_code:
+        return "complete", metrics
+    return "partial", metrics
+
+
+BADGE = {"scaffold": "🔴", "partial": "🟡", "complete": "✅", "error": "⚠️"}

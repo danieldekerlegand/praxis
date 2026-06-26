@@ -1,0 +1,247 @@
+{
+  "project": "ai-tutor",
+  "branchName": "ralph/procedural-generation",
+  "description": "Procedural Generation \u2014 Algorithms for generating content: noise, grammars, automata, and PCG.",
+  "userStories": [
+    {
+      "id": "T9-001",
+      "title": "Complete: Tracery",
+      "description": "Write the Tracery refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "file: notebooks/09-procedural-generation/tracery.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T9-002",
+      "title": "Complete: Perlin Noise",
+      "description": "Write the Perlin Noise refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "file: notebooks/09-procedural-generation/perlin-noise.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T9-003",
+      "title": "Complete: Wave Function Collapse",
+      "description": "Write the Wave Function Collapse refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "file: notebooks/09-procedural-generation/wave-function-collapse.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T9-004",
+      "title": "Complete: L-Systems",
+      "description": "Write the L-Systems refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "file: notebooks/09-procedural-generation/l-systems.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T9-005",
+      "title": "Complete: Markov Chains",
+      "description": "Write the Markov Chains refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "file: notebooks/09-procedural-generation/markov-chains.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T9-006",
+      "title": "Complete: Context-Free Grammars",
+      "description": "Write the Context-Free Grammars refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "file: notebooks/09-procedural-generation/context-free-grammars.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T9-007",
+      "title": "Complete: Cellular Automata",
+      "description": "Write the Cellular Automata refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "file: notebooks/09-procedural-generation/cellular-automata.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T9-008",
+      "title": "Complete: Noise Functions (Simplex, Worley)",
+      "description": "Write the Noise Functions (Simplex, Worley) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "file: notebooks/09-procedural-generation/noise-simplex-worley.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T9-009",
+      "title": "Complete: PCG Algorithms (overview)",
+      "description": "Write the PCG Algorithms (overview) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "file: notebooks/09-procedural-generation/pcg-algorithms.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T9-010",
+      "title": "Complete: Rule-Based Generation",
+      "description": "Write the Rule-Based Generation refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "file: notebooks/09-procedural-generation/rule-based-generation.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T9-011",
+      "title": "Complete: Poisson-Disk Sampling",
+      "description": "Write the Poisson-Disk Sampling refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "file: notebooks/09-procedural-generation/poisson-disk-sampling.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T9-012",
+      "title": "Complete: Voronoi / Delaunay",
+      "description": "Write the Voronoi / Delaunay refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "file: notebooks/09-procedural-generation/voronoi-delaunay.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T9-013",
+      "title": "Complete: Diamond-Square (heightmaps)",
+      "description": "Write the Diamond-Square (heightmaps) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "file: notebooks/09-procedural-generation/diamond-square.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T9-014",
+      "title": "Complete: BSP Dungeon Generation",
+      "description": "Write the BSP Dungeon Generation refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "file: notebooks/09-procedural-generation/bsp-dungeon-generation.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T9-015",
+      "title": "Complete: Drunkard's Walk",
+      "description": "Write the Drunkard's Walk refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "file: notebooks/09-procedural-generation/drunkards-walk.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T9-016",
+      "title": "Complete: GAN/Diffusion for PCG",
+      "description": "Write the GAN/Diffusion for PCG refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "file: notebooks/09-procedural-generation/gan-diffusion-pcg.ipynb; runnable: True; recommended: True"
+    }
+  ]
+}

@@ -1,0 +1,337 @@
+{
+  "project": "ai-tutor",
+  "branchName": "ralph/architectures",
+  "description": "Architectures \u2014 Neural-network building blocks, implemented from scratch in PyTorch.",
+  "userStories": [
+    {
+      "id": "T8-001",
+      "title": "Complete: Recurrent Neural Networks (RNN)",
+      "description": "Write the Recurrent Neural Networks (RNN) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/rnn.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T8-002",
+      "title": "Complete: Convolutional Neural Networks (CNN)",
+      "description": "Write the Convolutional Neural Networks (CNN) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/cnn.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T8-003",
+      "title": "Complete: Long Short-Term Memory (LSTM)",
+      "description": "Write the Long Short-Term Memory (LSTM) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/lstm.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T8-004",
+      "title": "Complete: Generative Adversarial Networks (GAN)",
+      "description": "Write the Generative Adversarial Networks (GAN) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/gan.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T8-005",
+      "title": "Complete: BERT",
+      "description": "Write the BERT refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/bert.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T8-006",
+      "title": "Complete: Transformer",
+      "description": "Write the Transformer refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/transformer.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T8-007",
+      "title": "Complete: T5",
+      "description": "Write the T5 refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/t5.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T8-008",
+      "title": "Complete: Attention Mechanisms",
+      "description": "Write the Attention Mechanisms refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/attention-mechanisms.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T8-009",
+      "title": "Complete: Encoder-Decoder Models",
+      "description": "Write the Encoder-Decoder Models refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/encoder-decoder.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T8-010",
+      "title": "Complete: Variational Autoencoders (VAE)",
+      "description": "Write the Variational Autoencoders (VAE) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/vae.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T8-011",
+      "title": "Complete: ResNet",
+      "description": "Write the ResNet refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/resnet.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T8-012",
+      "title": "Complete: U-Net",
+      "description": "Write the U-Net refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/u-net.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T8-013",
+      "title": "Complete: Graph Neural Networks (GNN)",
+      "description": "Write the Graph Neural Networks (GNN) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/gnn.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T8-014",
+      "title": "Complete: Diffusion Models",
+      "description": "Write the Diffusion Models refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/diffusion-models.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T8-015",
+      "title": "Complete: Mixture of Experts (MoE)",
+      "description": "Write the Mixture of Experts (MoE) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/mixture-of-experts.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T8-016",
+      "title": "Complete: Mamba / State-Space Models",
+      "description": "Write the Mamba / State-Space Models refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/mamba-ssm.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T8-017",
+      "title": "Complete: Vision Transformer (ViT)",
+      "description": "Write the Vision Transformer (ViT) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/vision-transformer.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T8-018",
+      "title": "Complete: CLIP",
+      "description": "Write the CLIP refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/clip.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T8-019",
+      "title": "Complete: Diffusion Transformer (DiT)",
+      "description": "Write the Diffusion Transformer (DiT) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/diffusion-transformer.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T8-020",
+      "title": "Complete: Flow Matching",
+      "description": "Write the Flow Matching refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/flow-matching.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T8-021",
+      "title": "Complete: Normalizing Flows",
+      "description": "Write the Normalizing Flows refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/normalizing-flows.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T8-022",
+      "title": "Complete: Autoencoders (vanilla/denoising)",
+      "description": "Write the Autoencoders (vanilla/denoising) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": "file: notebooks/08-architectures/autoencoders.ipynb; runnable: True; recommended: True"
+    }
+  ]
+}

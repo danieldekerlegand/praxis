@@ -1,0 +1,532 @@
+{
+  "project": "ai-tutor",
+  "branchName": "ralph/devops-mlops-infra",
+  "description": "DevOps/MLOps & Infra \u2014 The legacy library: self-hosting AI/ML on Kubernetes/AWS \u2014 serving, distributed training, GPU components, orchestration, storage, networking. Topics are discovered from the filesystem (relocated from the original repo root).",
+  "userStories": [
+    {
+      "id": "T11-001",
+      "title": "Complete: Bedrock",
+      "description": "Finish the legacy notebook for Bedrock.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/bedrock.ipynb"
+    },
+    {
+      "id": "T11-002",
+      "title": "Complete: Efa",
+      "description": "Finish the legacy notebook for Efa.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/efa.ipynb"
+    },
+    {
+      "id": "T11-003",
+      "title": "Complete: Ena",
+      "description": "Finish the legacy notebook for Ena.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/ena.ipynb"
+    },
+    {
+      "id": "T11-004",
+      "title": "Complete: Runai",
+      "description": "Finish the legacy notebook for Runai.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/job-orchestration-tools/runai.ipynb"
+    },
+    {
+      "id": "T11-005",
+      "title": "Complete: Karpenter Cluster Autoscaler",
+      "description": "Finish the legacy notebook for Karpenter Cluster Autoscaler.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/karpenter-cluster-autoscaler.ipynb"
+    },
+    {
+      "id": "T11-006",
+      "title": "Complete: Deepspeed Mii",
+      "description": "Finish the legacy notebook for Deepspeed Mii.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/model-serving-libraries/deepspeed-mii.ipynb"
+    },
+    {
+      "id": "T11-007",
+      "title": "Complete: Fastapi Serving",
+      "description": "Finish the legacy notebook for Fastapi Serving.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/model-serving-libraries/fastapi-serving.ipynb"
+    },
+    {
+      "id": "T11-008",
+      "title": "Complete: Lmdeploy",
+      "description": "Finish the legacy notebook for Lmdeploy.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/model-serving-libraries/lmdeploy.ipynb"
+    },
+    {
+      "id": "T11-009",
+      "title": "Complete: Mosec",
+      "description": "Finish the legacy notebook for Mosec.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/model-serving-libraries/mosec.ipynb"
+    },
+    {
+      "id": "T11-010",
+      "title": "Complete: Sglang",
+      "description": "Finish the legacy notebook for Sglang.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/model-serving-libraries/sglang.ipynb"
+    },
+    {
+      "id": "T11-011",
+      "title": "Complete: Models",
+      "description": "Finish the legacy notebook for Models.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/models.ipynb"
+    },
+    {
+      "id": "T11-012",
+      "title": "Complete: Dcgm Exporter",
+      "description": "Finish the legacy notebook for Dcgm Exporter.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/nvidia-gpu-components/dcgm-exporter.ipynb"
+    },
+    {
+      "id": "T11-013",
+      "title": "Complete: Dynamic Resource Allocation",
+      "description": "Finish the legacy notebook for Dynamic Resource Allocation.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/nvidia-gpu-components/dynamic-resource-allocation.ipynb"
+    },
+    {
+      "id": "T11-014",
+      "title": "Complete: Gpu Feature Discovery",
+      "description": "Finish the legacy notebook for Gpu Feature Discovery.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/nvidia-gpu-components/gpu-feature-discovery.ipynb"
+    },
+    {
+      "id": "T11-015",
+      "title": "Complete: Gpudirect Storage",
+      "description": "Finish the legacy notebook for Gpudirect Storage.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/nvidia-gpu-components/gpudirect-storage.ipynb"
+    },
+    {
+      "id": "T11-016",
+      "title": "Complete: Mig Manager",
+      "description": "Finish the legacy notebook for Mig Manager.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/nvidia-gpu-components/mig-manager.ipynb"
+    },
+    {
+      "id": "T11-017",
+      "title": "Complete: Multi Instance Gpus",
+      "description": "Finish the legacy notebook for Multi Instance Gpus.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/nvidia-gpu-components/multi-instance-gpus.ipynb"
+    },
+    {
+      "id": "T11-018",
+      "title": "Complete: Multi Process Service",
+      "description": "Finish the legacy notebook for Multi Process Service.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/nvidia-gpu-components/multi-process-service.ipynb"
+    },
+    {
+      "id": "T11-019",
+      "title": "Complete: Nvidia Container Toolkit",
+      "description": "Finish the legacy notebook for Nvidia Container Toolkit.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/nvidia-gpu-components/nvidia-container-toolkit.ipynb"
+    },
+    {
+      "id": "T11-020",
+      "title": "Complete: Nvidia Gpu Operator Mig",
+      "description": "Finish the legacy notebook for Nvidia Gpu Operator Mig.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/nvidia-gpu-components/nvidia-gpu-operator-mig.ipynb"
+    },
+    {
+      "id": "T11-021",
+      "title": "Complete: Time Slicing",
+      "description": "Finish the legacy notebook for Time Slicing.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/nvidia-gpu-components/time-slicing.ipynb"
+    },
+    {
+      "id": "T11-022",
+      "title": "Complete: Sagemaker",
+      "description": "Finish the legacy notebook for Sagemaker.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/sagemaker.ipynb"
+    },
+    {
+      "id": "T11-023",
+      "title": "Complete: Storage Csi Drivers",
+      "description": "Finish the legacy notebook for Storage Csi Drivers.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/storage-csi-drivers.ipynb"
+    },
+    {
+      "id": "T11-024",
+      "title": "Complete: Container Image Pre Pulling",
+      "description": "Finish the legacy notebook for Container Image Pre Pulling.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/techniques/container-image-pre-pulling.ipynb"
+    },
+    {
+      "id": "T11-025",
+      "title": "Complete: Continued Pre Training",
+      "description": "Finish the legacy notebook for Continued Pre Training.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/techniques/continued-pre-training.ipynb"
+    },
+    {
+      "id": "T11-026",
+      "title": "Complete: Domain Specific Fine Tuning",
+      "description": "Finish the legacy notebook for Domain Specific Fine Tuning.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/techniques/domain-specific-fine-tuning.ipynb"
+    },
+    {
+      "id": "T11-027",
+      "title": "Complete: Full Parameter Fine Tuning",
+      "description": "Finish the legacy notebook for Full Parameter Fine Tuning.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/techniques/full-parameter-fine-tuning.ipynb"
+    },
+    {
+      "id": "T11-028",
+      "title": "Complete: Inference",
+      "description": "Finish the legacy notebook for Inference.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/techniques/inference.ipynb"
+    },
+    {
+      "id": "T11-029",
+      "title": "Complete: Instruction Fine Tuning",
+      "description": "Finish the legacy notebook for Instruction Fine Tuning.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/techniques/instruction-fine-tuning.ipynb"
+    },
+    {
+      "id": "T11-030",
+      "title": "Complete: Model Deployment",
+      "description": "Finish the legacy notebook for Model Deployment.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/techniques/model-deployment.ipynb"
+    },
+    {
+      "id": "T11-031",
+      "title": "Complete: Parameter Efficient Fine Tuning",
+      "description": "Finish the legacy notebook for Parameter Efficient Fine Tuning.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/techniques/parameter-efficient-fine-tuning.ipynb"
+    },
+    {
+      "id": "T11-032",
+      "title": "Complete: Reinforcement Learning",
+      "description": "Finish the legacy notebook for Reinforcement Learning.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/techniques/reinforcement-learning.ipynb"
+    },
+    {
+      "id": "T11-033",
+      "title": "Complete: Sequential Fine Tuning",
+      "description": "Finish the legacy notebook for Sequential Fine Tuning.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/techniques/sequential-fine-tuning.ipynb"
+    },
+    {
+      "id": "T11-034",
+      "title": "Complete: Supervised Fine Tuning",
+      "description": "Finish the legacy notebook for Supervised Fine Tuning.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/techniques/supervised-fine-tuning.ipynb"
+    },
+    {
+      "id": "T11-035",
+      "title": "Complete: Transfer Learning",
+      "description": "Finish the legacy notebook for Transfer Learning.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": "file: notebooks/11-devops-mlops-infra/techniques/transfer-learning.ipynb"
+    }
+  ]
+}

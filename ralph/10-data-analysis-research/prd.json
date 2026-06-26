@@ -1,0 +1,232 @@
+{
+  "project": "ai-tutor",
+  "branchName": "ralph/data-analysis-research",
+  "description": "Data Analysis & Research \u2014 Statistical analysis, qualitative tools, and research workflows.",
+  "userStories": [
+    {
+      "id": "T10-001",
+      "title": "Complete: R",
+      "description": "Write the R refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "file: notebooks/10-data-analysis-research/r-language.ipynb; runnable: False; recommended: False"
+    },
+    {
+      "id": "T10-002",
+      "title": "Complete: lme4 (mixed models)",
+      "description": "Write the lme4 (mixed models) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "file: notebooks/10-data-analysis-research/lme4.ipynb; runnable: False; recommended: False"
+    },
+    {
+      "id": "T10-003",
+      "title": "Complete: Montreal Forced Aligner",
+      "description": "Write the Montreal Forced Aligner refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "file: notebooks/10-data-analysis-research/montreal-forced-aligner.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T10-005",
+      "title": "Complete: Python: NumPy, Pandas, SciPy",
+      "description": "Write the Python: NumPy, Pandas, SciPy refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "file: notebooks/10-data-analysis-research/numpy-pandas-scipy.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T10-006",
+      "title": "Complete: Matplotlib",
+      "description": "Write the Matplotlib refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "file: notebooks/10-data-analysis-research/matplotlib.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T10-007",
+      "title": "Complete: ggplot2",
+      "description": "Write the ggplot2 refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "file: notebooks/10-data-analysis-research/ggplot2.ipynb; runnable: False; recommended: False"
+    },
+    {
+      "id": "T10-010",
+      "title": "Complete: Statistical Modeling",
+      "description": "Write the Statistical Modeling refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "file: notebooks/10-data-analysis-research/statistical-modeling.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T10-011",
+      "title": "Complete: Mixed-Effects Models",
+      "description": "Write the Mixed-Effects Models refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "file: notebooks/10-data-analysis-research/mixed-effects-models.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T10-012",
+      "title": "Complete: Polars",
+      "description": "Write the Polars refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "file: notebooks/10-data-analysis-research/polars.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T10-013",
+      "title": "Complete: DuckDB",
+      "description": "Write the DuckDB refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "file: notebooks/10-data-analysis-research/duckdb.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T10-014",
+      "title": "Complete: statsmodels",
+      "description": "Write the statsmodels refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "file: notebooks/10-data-analysis-research/statsmodels.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T10-015",
+      "title": "Complete: PyMC (Bayesian)",
+      "description": "Write the PyMC (Bayesian) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "file: notebooks/10-data-analysis-research/pymc.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T10-016",
+      "title": "Complete: seaborn",
+      "description": "Write the seaborn refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "file: notebooks/10-data-analysis-research/seaborn.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T10-017",
+      "title": "Complete: Plotly",
+      "description": "Write the Plotly refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "file: notebooks/10-data-analysis-research/plotly.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T10-018",
+      "title": "Complete: Quarto",
+      "description": "Write the Quarto refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "file: notebooks/10-data-analysis-research/quarto.ipynb; runnable: False; recommended: True"
+    }
+  ]
+}

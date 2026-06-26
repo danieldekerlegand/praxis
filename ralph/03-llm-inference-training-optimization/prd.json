@@ -1,0 +1,427 @@
+{
+  "project": "ai-tutor",
+  "branchName": "ralph/llm-inference-training-optimization",
+  "description": "LLM Inference, Training & Optimization \u2014 Training LLMs from scratch, RAG, embeddings, prompting, and efficiency.",
+  "userStories": [
+    {
+      "id": "T3-001",
+      "title": "Complete: Open-R1",
+      "description": "Write the Open-R1 refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/open-r1.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T3-002",
+      "title": "Complete: minGPT",
+      "description": "Write the minGPT refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/mingpt.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T3-003",
+      "title": "Complete: Megatron-LM",
+      "description": "Write the Megatron-LM refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/megatron-lm.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T3-004",
+      "title": "Complete: finetune-transformer-lm (GPT)",
+      "description": "Write the finetune-transformer-lm (GPT) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/finetune-transformer-lm.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T3-005",
+      "title": "Complete: DSPy",
+      "description": "Write the DSPy refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/dspy.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T3-006",
+      "title": "Complete: Retrieval-Augmented Generation (RAG)",
+      "description": "Write the Retrieval-Augmented Generation (RAG) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/rag.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T3-007",
+      "title": "Complete: FAISS",
+      "description": "Write the FAISS refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/faiss.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T3-008",
+      "title": "Complete: ChromaDB",
+      "description": "Write the ChromaDB refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/chromadb.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T3-009",
+      "title": "Complete: Pinecone",
+      "description": "Write the Pinecone refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/pinecone.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T3-010",
+      "title": "Complete: Vector Embeddings",
+      "description": "Write the Vector Embeddings refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/vector-embeddings.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T3-011",
+      "title": "Complete: Semantic Search",
+      "description": "Write the Semantic Search refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/semantic-search.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T3-012",
+      "title": "Complete: Prompt Engineering",
+      "description": "Write the Prompt Engineering refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/prompt-engineering.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T3-013",
+      "title": "Complete: Few-Shot Learning",
+      "description": "Write the Few-Shot Learning refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/few-shot-learning.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T3-014",
+      "title": "Complete: Chain-of-Thought Prompting",
+      "description": "Write the Chain-of-Thought Prompting refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/chain-of-thought.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T3-015",
+      "title": "Complete: LoRA & ControlNet",
+      "description": "Write the LoRA & ControlNet refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/lora-controlnet.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T3-016",
+      "title": "Complete: vLLM (inference)",
+      "description": "Write the vLLM (inference) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/vllm.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T3-017",
+      "title": "Complete: GGUF & llama.cpp quantized inference",
+      "description": "Write the GGUF & llama.cpp quantized inference refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/gguf-llama-cpp.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T3-018",
+      "title": "Complete: Quantization: GPTQ / AWQ / bitsandbytes",
+      "description": "Write the Quantization: GPTQ / AWQ / bitsandbytes refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/quantization-gptq-awq.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T3-019",
+      "title": "Complete: Flash Attention",
+      "description": "Write the Flash Attention refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/flash-attention.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T3-020",
+      "title": "Complete: Speculative Decoding",
+      "description": "Write the Speculative Decoding refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/speculative-decoding.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T3-021",
+      "title": "Complete: KV-Cache & Paged Attention",
+      "description": "Write the KV-Cache & Paged Attention refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/kv-cache.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T3-022",
+      "title": "Complete: QLoRA",
+      "description": "Write the QLoRA refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/qlora.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T3-023",
+      "title": "Complete: TRL: RLHF / PPO / DPO",
+      "description": "Write the TRL: RLHF / PPO / DPO refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/trl-rlhf-dpo.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T3-024",
+      "title": "Complete: Unsloth (fast finetuning)",
+      "description": "Write the Unsloth (fast finetuning) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/unsloth.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T3-025",
+      "title": "Complete: GraphRAG",
+      "description": "Write the GraphRAG refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/graphrag.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T3-026",
+      "title": "Complete: LlamaIndex",
+      "description": "Write the LlamaIndex refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/llamaindex.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T3-027",
+      "title": "Complete: Rerankers (cross-encoders)",
+      "description": "Write the Rerankers (cross-encoders) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/rerankers.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T3-028",
+      "title": "Complete: Vector DBs: Weaviate / Qdrant / Milvus / pgvector",
+      "description": "Write the Vector DBs: Weaviate / Qdrant / Milvus / pgvector refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": "file: notebooks/03-llm-inference-training-optimization/vector-db-comparison.ipynb; runnable: True; recommended: True"
+    }
+  ]
+}

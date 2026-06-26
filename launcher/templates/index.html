@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ai-tutor · {{ active.title }}</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header>
+  <div class="brand">📚 ai-tutor</div>
+  <div class="progress">
+    <div class="bar"><span style="width: {{ pct }}%"></span></div>
+    <div class="legend">
+      {{ pct }}% complete ·
+      {{ badge['complete'] }} {{ counts['complete'] }} ·
+      {{ badge['partial'] }} {{ counts['partial'] }} ·
+      {{ badge['scaffold'] }} {{ counts['scaffold'] }}
+      &nbsp;/&nbsp; {{ total }} notebooks
+    </div>
+  </div>
+  <div class="lab">live notebooks via <code>ai-tutor-lab</code> → <a href="{{ lab_base }}/lab" target="_blank">{{ lab_base }}</a></div>
+</header>
+
+<div class="layout">
+  <nav class="sidebar">
+    {% for d in domains %}
+    <a class="domain {% if d.dir == active.dir %}active{% endif %}" href="/?domain={{ d.dir }}">
+      <span class="dname">{{ d.name }}</span>
+      <span class="dcount">{{ d.done }}/{{ d.n }}</span>
+    </a>
+    {% endfor %}
+  </nav>
+
+  <main>
+    <h1>{{ active.title }}</h1>
+    <p class="blurb">{{ active.blurb }}</p>
+    <ul class="topics">
+      {% for t in active.topics %}
+      <li class="topic status-{{ t.status }}">
+        <span class="badge">{{ badge[t.status] }}</span>
+        <span class="ttitle">{{ t.title }}
+          {% if t.recommended %}<span class="rec" title="recommended addition">⭐</span>{% endif %}
+          {% if t.note %}<span class="note">{{ t.note }}</span>{% endif %}
+        </span>
+        <span class="actions">
+          <a class="open" href="{{ lab_base }}/lab/tree/notebooks/{{ t.rel }}" target="_blank">open in Lab ↗</a>
+          <a class="view" href="/render/{{ t.rel }}" target="_blank">render</a>
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+  </main>
+</div>
+</body>
+</html>

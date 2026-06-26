@@ -1,0 +1,217 @@
+{
+  "project": "ai-tutor",
+  "branchName": "ralph/ai-ml-tooling",
+  "description": "AI/ML Tooling \u2014 Core frameworks and experiment/lifecycle tooling for building ML.",
+  "userStories": [
+    {
+      "id": "T2-001",
+      "title": "Complete: PyTorch",
+      "description": "Write the PyTorch refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "file: notebooks/02-ai-ml-tooling/pytorch.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T2-002",
+      "title": "Complete: Keras",
+      "description": "Write the Keras refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "file: notebooks/02-ai-ml-tooling/keras.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T2-003",
+      "title": "Complete: TensorFlow",
+      "description": "Write the TensorFlow refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "file: notebooks/02-ai-ml-tooling/tensorflow.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T2-004",
+      "title": "Complete: MLflow",
+      "description": "Write the MLflow refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "file: notebooks/02-ai-ml-tooling/mlflow.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T2-005",
+      "title": "Complete: Jupyter",
+      "description": "Write the Jupyter refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "file: notebooks/02-ai-ml-tooling/jupyter.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T2-006",
+      "title": "Complete: Hugging Face (Transformers/Datasets/Hub)",
+      "description": "Write the Hugging Face (Transformers/Datasets/Hub) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "file: notebooks/02-ai-ml-tooling/huggingface.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T2-007",
+      "title": "Complete: scikit-learn",
+      "description": "Write the scikit-learn refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "file: notebooks/02-ai-ml-tooling/scikit-learn.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T2-008",
+      "title": "Complete: JAX & Flax",
+      "description": "Write the JAX & Flax refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "file: notebooks/02-ai-ml-tooling/jax-flax.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T2-009",
+      "title": "Complete: PyTorch Lightning",
+      "description": "Write the PyTorch Lightning refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "file: notebooks/02-ai-ml-tooling/pytorch-lightning.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T2-010",
+      "title": "Complete: ONNX & ONNX Runtime",
+      "description": "Write the ONNX & ONNX Runtime refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "file: notebooks/02-ai-ml-tooling/onnx-runtime.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T2-011",
+      "title": "Complete: Weights & Biases",
+      "description": "Write the Weights & Biases refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "file: notebooks/02-ai-ml-tooling/weights-and-biases.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T2-012",
+      "title": "Complete: DVC (Data Version Control)",
+      "description": "Write the DVC (Data Version Control) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "file: notebooks/02-ai-ml-tooling/dvc.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T2-013",
+      "title": "Complete: Optuna (hyperparameter optimization)",
+      "description": "Write the Optuna (hyperparameter optimization) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "file: notebooks/02-ai-ml-tooling/optuna.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T2-014",
+      "title": "Complete: Gradio",
+      "description": "Write the Gradio refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "file: notebooks/02-ai-ml-tooling/gradio.ipynb; runnable: True; recommended: True"
+    }
+  ]
+}

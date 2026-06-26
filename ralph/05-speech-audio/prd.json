@@ -1,0 +1,337 @@
+{
+  "project": "ai-tutor",
+  "branchName": "ralph/speech-audio",
+  "description": "Speech & Audio \u2014 STT, TTS, voice, phonetics, and audio processing.",
+  "userStories": [
+    {
+      "id": "T5-001",
+      "title": "Complete: ffmpeg",
+      "description": "Write the ffmpeg refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/ffmpeg.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T5-002",
+      "title": "Complete: Whisper STT",
+      "description": "Write the Whisper STT refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/whisper-stt.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T5-003",
+      "title": "Complete: Coqui TTS",
+      "description": "Write the Coqui TTS refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/coqui-tts.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T5-004",
+      "title": "Complete: Piper TTS",
+      "description": "Write the Piper TTS refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/piper-tts.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T5-005",
+      "title": "Complete: ElevenLabs",
+      "description": "Write the ElevenLabs refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/elevenlabs.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T5-006",
+      "title": "Complete: Google Cloud TTS",
+      "description": "Write the Google Cloud TTS refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/google-cloud-tts.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T5-007",
+      "title": "Complete: espeak-ng",
+      "description": "Write the espeak-ng refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/espeak-ng.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T5-010",
+      "title": "Complete: Azure Speech Services",
+      "description": "Write the Azure Speech Services refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/azure-speech.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T5-011",
+      "title": "Complete: Amazon Polly",
+      "description": "Write the Amazon Polly refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/amazon-polly.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T5-012",
+      "title": "Complete: Wav2Vec 2.0",
+      "description": "Write the Wav2Vec 2.0 refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/wav2vec.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T5-013",
+      "title": "Complete: DeepSpeech",
+      "description": "Write the DeepSpeech refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/deepspeech.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T5-014",
+      "title": "Complete: Tacotron 2",
+      "description": "Write the Tacotron 2 refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/tacotron.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T5-015",
+      "title": "Complete: VITS",
+      "description": "Write the VITS refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/vits.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T5-016",
+      "title": "Complete: Phoneme Analysis",
+      "description": "Write the Phoneme Analysis refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/phoneme-analysis.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T5-017",
+      "title": "Complete: NVIDIA NeMo",
+      "description": "Write the NVIDIA NeMo refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/nvidia-nemo.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T5-018",
+      "title": "Complete: SpeechBrain",
+      "description": "Write the SpeechBrain refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/speechbrain.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T5-019",
+      "title": "Complete: faster-whisper / WhisperX",
+      "description": "Write the faster-whisper / WhisperX refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/faster-whisper-whisperx.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T5-020",
+      "title": "Complete: pyannote (speaker diarization)",
+      "description": "Write the pyannote (speaker diarization) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/pyannote-diarization.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T5-021",
+      "title": "Complete: Bark (generative TTS)",
+      "description": "Write the Bark (generative TTS) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/bark.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T5-022",
+      "title": "Complete: StyleTTS 2",
+      "description": "Write the StyleTTS 2 refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/styletts2.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T5-023",
+      "title": "Complete: librosa & torchaudio",
+      "description": "Write the librosa & torchaudio refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/librosa-torchaudio.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T5-024",
+      "title": "Complete: Demucs (source separation)",
+      "description": "Write the Demucs (source separation) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": "file: notebooks/05-speech-audio/demucs.ipynb; runnable: True; recommended: True"
+    }
+  ]
+}

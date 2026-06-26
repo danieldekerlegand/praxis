@@ -1,0 +1,232 @@
+{
+  "project": "ai-tutor",
+  "branchName": "ralph/symbolic-ai-logic",
+  "description": "Symbolic AI & Logic \u2014 Logic programming, knowledge representation, reasoning, and the semantic web.",
+  "userStories": [
+    {
+      "id": "T1-001",
+      "title": "Complete: SWI-Prolog",
+      "description": "Write the SWI-Prolog refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "file: notebooks/01-symbolic-ai-logic/swi-prolog.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T1-002",
+      "title": "Complete: Datalog",
+      "description": "Write the Datalog refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "file: notebooks/01-symbolic-ai-logic/datalog.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T1-003",
+      "title": "Complete: Answer Set Programming (ASP / clingo)",
+      "description": "Write the Answer Set Programming (ASP / clingo) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "file: notebooks/01-symbolic-ai-logic/answer-set-programming.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T1-004",
+      "title": "Complete: CLIPS Expert System",
+      "description": "Write the CLIPS Expert System refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "file: notebooks/01-symbolic-ai-logic/clips.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T1-005",
+      "title": "Complete: Pyke (Python Knowledge Engine)",
+      "description": "Write the Pyke (Python Knowledge Engine) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "file: notebooks/01-symbolic-ai-logic/pyke.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T1-006",
+      "title": "Complete: Knowledge Graphs",
+      "description": "Write the Knowledge Graphs refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "file: notebooks/01-symbolic-ai-logic/knowledge-graphs.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T1-007",
+      "title": "Complete: OWL (Web Ontology Language)",
+      "description": "Write the OWL (Web Ontology Language) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "file: notebooks/01-symbolic-ai-logic/owl.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T1-008",
+      "title": "Complete: SPARQL",
+      "description": "Write the SPARQL refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "file: notebooks/01-symbolic-ai-logic/sparql.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T1-012",
+      "title": "Complete: RDF & Turtle with rdflib",
+      "description": "Write the RDF & Turtle with rdflib refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "file: notebooks/01-symbolic-ai-logic/rdflib.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T1-013",
+      "title": "Complete: Z3 / SMT Solving",
+      "description": "Write the Z3 / SMT Solving refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "file: notebooks/01-symbolic-ai-logic/z3-smt.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T1-014",
+      "title": "Complete: miniKanren (relational programming)",
+      "description": "Write the miniKanren (relational programming) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "file: notebooks/01-symbolic-ai-logic/minikanren.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T1-015",
+      "title": "Complete: ProbLog (probabilistic logic)",
+      "description": "Write the ProbLog (probabilistic logic) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "file: notebooks/01-symbolic-ai-logic/problog.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T1-016",
+      "title": "Complete: MiniZinc (constraint programming)",
+      "description": "Write the MiniZinc (constraint programming) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "file: notebooks/01-symbolic-ai-logic/minizinc.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T1-017",
+      "title": "Complete: Description-Logic Reasoners (HermiT/Pellet)",
+      "description": "Write the Description-Logic Reasoners (HermiT/Pellet) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "file: notebooks/01-symbolic-ai-logic/description-logic-reasoners.ipynb; runnable: False; recommended: True"
+    },
+    {
+      "id": "T1-018",
+      "title": "Complete: The Rete Algorithm",
+      "description": "Write the The Rete Algorithm refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "file: notebooks/01-symbolic-ai-logic/rete-algorithm.ipynb; runnable: True; recommended: True"
+    }
+  ]
+}

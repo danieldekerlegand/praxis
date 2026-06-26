@@ -1,0 +1,247 @@
+{
+  "project": "ai-tutor",
+  "branchName": "ralph/agentic-ai",
+  "description": "Agentic AI \u2014 Agent frameworks, protocols, orchestration, and reasoning loops.",
+  "userStories": [
+    {
+      "id": "T4-001",
+      "title": "Complete: Model Context Protocol (MCP)",
+      "description": "Write the Model Context Protocol (MCP) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "file: notebooks/04-agentic-ai/model-context-protocol.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T4-002",
+      "title": "Complete: Agent-to-Agent (A2A)",
+      "description": "Write the Agent-to-Agent (A2A) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "file: notebooks/04-agentic-ai/agent-to-agent.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T4-003",
+      "title": "Complete: Agent Development Kit (ADK)",
+      "description": "Write the Agent Development Kit (ADK) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "file: notebooks/04-agentic-ai/agent-development-kit.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T4-004",
+      "title": "Complete: LangChain",
+      "description": "Write the LangChain refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "file: notebooks/04-agentic-ai/langchain.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T4-005",
+      "title": "Complete: LangGraph",
+      "description": "Write the LangGraph refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "file: notebooks/04-agentic-ai/langgraph.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T4-006",
+      "title": "Complete: CrewAI",
+      "description": "Write the CrewAI refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "file: notebooks/04-agentic-ai/crewai.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T4-007",
+      "title": "Complete: AutoGen",
+      "description": "Write the AutoGen refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "file: notebooks/04-agentic-ai/autogen.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T4-008",
+      "title": "Complete: BabyAGI",
+      "description": "Write the BabyAGI refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "file: notebooks/04-agentic-ai/babyagi.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T4-010",
+      "title": "Complete: Semantic Kernel",
+      "description": "Write the Semantic Kernel refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "file: notebooks/04-agentic-ai/semantic-kernel.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T4-011",
+      "title": "Complete: ReAct (Reasoning + Acting)",
+      "description": "Write the ReAct (Reasoning + Acting) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "file: notebooks/04-agentic-ai/react.ipynb; runnable: True; recommended: False"
+    },
+    {
+      "id": "T4-014",
+      "title": "Complete: LlamaIndex Agents",
+      "description": "Write the LlamaIndex Agents refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "file: notebooks/04-agentic-ai/llamaindex-agents.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T4-015",
+      "title": "Complete: OpenAI Agents SDK / Swarm",
+      "description": "Write the OpenAI Agents SDK / Swarm refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "file: notebooks/04-agentic-ai/openai-agents-sdk.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T4-016",
+      "title": "Complete: Haystack",
+      "description": "Write the Haystack refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "file: notebooks/04-agentic-ai/haystack.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T4-017",
+      "title": "Complete: PydanticAI",
+      "description": "Write the PydanticAI refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "file: notebooks/04-agentic-ai/pydanticai.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T4-018",
+      "title": "Complete: smolagents",
+      "description": "Write the smolagents refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "file: notebooks/04-agentic-ai/smolagents.ipynb; runnable: True; recommended: True"
+    },
+    {
+      "id": "T4-019",
+      "title": "Complete: Letta / MemGPT (agent memory)",
+      "description": "Write the Letta / MemGPT (agent memory) refresher to the rubric.",
+      "acceptanceCriteria": [
+        "- No placeholder/TODO text remains anywhere in the notebook",
+        "- The notebook is valid nbformat and opens in JupyterLab",
+        "- Content is accurate and genuinely useful as a refresher",
+        "- tests/test_notebooks.py passes for this notebook",
+        "- The launcher shows this notebook as \u2705 complete"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": "file: notebooks/04-agentic-ai/letta-memgpt.ipynb; runnable: True; recommended: True"
+    }
+  ]
+}

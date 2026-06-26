@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-tutor"
+version = "0.1.0"
+description = "A browsable, launchable study-notebook library across AI/ML, symbolic AI, agents, speech, graphics, and infra."
+requires-python = ">=3.10"
+dependencies = [
+    "nbformat>=5.9",
+]
+
+[project.optional-dependencies]
+# The launcher UI + live notebooks. Kept optional so the core (curriculum,
+# scaffolder, Ralph generators) stays dependency-light.
+launch = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "jinja2>=3.1",
+    "jupyterlab>=4.0",
+    "nbconvert>=7.0",
+]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+ai-tutor-launch = "launcher.app:main"
+ai-tutor-lab = "launcher.app:launch_lab"
+
+[tool.setuptools]
+# This is a notebook library, not an importable package tree; ship the helper
+# modules as top-level modules and the launcher package.
+py-modules = ["curriculum", "scaffold_notebooks"]
+packages = ["launcher"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
