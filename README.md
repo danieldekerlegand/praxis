@@ -1,4 +1,4 @@
-# ai-tutor
+# Praxis
 
 A browsable, launchable **study-notebook library** for refreshing a broad span of
 technologies — symbolic AI, ML tooling, LLM training/optimization, agents, speech,
