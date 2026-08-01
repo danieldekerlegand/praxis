@@ -9,3 +9,5 @@ __pycache__/
 # Jupyter / launcher runtime
 .jupyter/
 *.DS_Store
+# Chief runner state (only state/ is transient; config, verify.sh, agent-context.md are tracked)
+.chief/state/

@@ -1,0 +1,61 @@
+{
+  "name": null,
+  "project": "praxis",
+  "branchName": "chief/20-user-defined-subjects",
+  "baseBranch": "main",
+  "description": "Core generation, 20-band. Turn Praxis from a fixed 10-domain curriculum into a tool where a user defines ANY subject and AI generates a curriculum + scaffolds notebooks for it. This generalizes the existing curriculum.py (the hardcoded domain manifest) and scaffold_notebooks.py (which scaffolds blank rubric-shaped notebooks) into a subject-agnostic, AI-driven flow, and introduces the shared BYO-key LLM client the later bands reuse. Depends on the Tauri shell + preserved core from 10. Anti-fabrication: the generated curriculum + scaffolds must actually be produced and land on disk as valid rubric-shaped notebooks with 🔴 status — a story passes only when a newly defined subject really yields scaffolded notebooks and the gate is green.",
+  "parked": false,
+  "dependsOn": ["10-rebrand-and-tauri-shell"],
+  "touches": [
+    "src-tauri/",
+    "ui/",
+    "praxis/",
+    "llm/",
+    "curriculum.py",
+    "scaffold_notebooks.py",
+    "tests/"
+  ],
+  "iters": 9,
+  "warmup": [
+    "head -60 scaffold_notebooks.py",
+    "head -40 curriculum.py 2>/dev/null || grep -rl curriculum . | head",
+    "cat docs/notebook-rubric.md | sed -n '1,40p'",
+    "ls notebooks/ | head; echo '--- an example scaffold ---'; find notebooks -name '*.ipynb' | head -1"
+  ],
+  "userStories": [
+    {
+      "id": "US-1",
+      "title": "BYO-key LLM client (agora optional)",
+      "acceptanceCriteria": [
+        "A small LLM client (in the Python construction core, e.g. llm/ or praxis/llm.py) reads provider + API key from config/env for at least OpenAI, Anthropic, and a local/OpenAI-compatible endpoint.",
+        "When AGORA_BASE_URL is set, calls route through agora's provider-router instead; when unset, they go direct — documented in the README.",
+        "No API key is committed; keys come only from env/config. A unit test exercises the client against a mocked response for each routing mode.",
+        "Gate green: pytest passes."
+      ],
+      "passes": false
+    },
+    {
+      "id": "US-2",
+      "title": "User-defined subject → AI-generated curriculum",
+      "acceptanceCriteria": [
+        "From the app, a user enters an arbitrary subject/goal (free text) and the AI generates a structured curriculum for it (modules → topics), each topic sized to work as one notebook, using the LLM client from US-1.",
+        "curriculum.py is generalized so the curriculum is data-driven per subject rather than the fixed 10 built-in domains (the built-ins remain as seed/example curricula).",
+        "The generated curriculum is persisted and shown in-app for review before scaffolding.",
+        "Gate green: pytest covers curriculum generation (with a mocked LLM) and passes."
+      ],
+      "passes": false
+    },
+    {
+      "id": "US-3",
+      "title": "Scaffold rubric-shaped notebooks for any generated curriculum",
+      "acceptanceCriteria": [
+        "scaffold_notebooks.py is generalized to scaffold blank notebooks for ANY generated curriculum — each notebook carries the 8 rubric sections (docs/notebook-rubric.md) and reports 🔴 scaffold via nbstatus.py — not only the built-in manifest.",
+        "Defining a new subject end-to-end (subject → curriculum → scaffold) produces real .ipynb files on disk under a per-subject path, visible in the library from tasklist 10.",
+        "Re-scaffolding is idempotent: it never clobbers a notebook that already has content.",
+        "Gate green: pytest (including a test that scaffolds a generated subject) passes."
+      ],
+      "passes": false
+    }
+  ],
+  "mergedToMain": false
+}

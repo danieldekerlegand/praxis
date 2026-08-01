@@ -1,0 +1,48 @@
+{
+  "name": null,
+  "project": "praxis",
+  "branchName": "chief/40-gated-progression",
+  "baseBranch": "main",
+  "description": "Learner experience, 40-band. Turn constructed notebooks into GATED tutorials: later sections/topics unlock only when the learner passes embedded knowledge checks that exercise their understanding. This generalizes nbstatus.py + tests/test_notebooks.py from an author-side 'is it built?' gate into a learner-side progression gate, and extends the construction agent (30) to also emit the knowledge checks. Depends on 30 (there must be constructed tutorials to gate). Anti-fabrication: gating must be real — a learner cannot advance without actually passing the check; auto-graded checks must truly assert, and LLM-graded checks must be recorded with the learner's answer. A story passes only when progression is genuinely blocked/unblocked by check results and the gate is green.",
+  "parked": false,
+  "dependsOn": ["30-agentic-construction"],
+  "touches": [
+    "src-tauri/",
+    "ui/",
+    "praxis/",
+    "nbstatus.py",
+    "notebooks/",
+    "tests/"
+  ],
+  "iters": 9,
+  "warmup": [
+    "cat docs/notebook-rubric.md | sed -n '1,50p'",
+    "sed -n '1,60p' tests/test_notebooks.py",
+    "echo '--- how status is computed today ---'; head -60 nbstatus.py"
+  ],
+  "userStories": [
+    {
+      "id": "US-1",
+      "title": "AI-generated knowledge checks per section",
+      "acceptanceCriteria": [
+        "The construction flow (from 30) also generates knowledge-check items for each section/topic that exercise the concept — a mix suited to the content: code-assertion exercises (auto-graded), multiple-choice (auto-graded), and short-answer (graded by the LLM client with the learner's answer recorded).",
+        "Checks are stored alongside the notebook in a defined, testable format and regenerate idempotently.",
+        "A test verifies that a constructed topic yields well-formed, gradable checks.",
+        "Gate green: pytest passes."
+      ],
+      "passes": false
+    },
+    {
+      "id": "US-2",
+      "title": "Gated progression in the app",
+      "acceptanceCriteria": [
+        "In the app, sections/topics after the first are LOCKED until the learner passes the prior section's checks; passing unlocks the next; the learner cannot skip a gate.",
+        "Per-learner progress (which checks passed, which sections unlocked) is tracked and persists across restarts.",
+        "The UI shows locked/unlocked state and check results clearly.",
+        "Gate green: cargo build + npm run build pass and a progression smoke test confirms a failed check keeps the next section locked while a passed check unlocks it (document it in the progress log)."
+      ],
+      "passes": false
+    }
+  ],
+  "mergedToMain": false
+}

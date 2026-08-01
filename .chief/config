@@ -1,0 +1,5 @@
+# .chief/config — Chief project configuration (sourced as bash by the engine).
+# Praxis: a constructor for interactive, gated notebook tutorials on any subject.
+CHIEF_TOOL=claude
+CHIEF_BASE_BRANCH=main
+# CHIEF_AUTO_MERGE=1   # 1 = verify + merge completed branches; 0 = leave for review
