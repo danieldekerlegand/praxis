@@ -1,5 +1,5 @@
 {
-  "project": "ai-tutor",
+  "project": "praxis",
   "branchName": "ralph/procedural-generation",
   "description": "Procedural Generation \u2014 Algorithms for generating content: noise, grammars, automata, and PCG.",
   "userStories": [

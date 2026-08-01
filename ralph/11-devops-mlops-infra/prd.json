@@ -1,5 +1,5 @@
 {
-  "project": "ai-tutor",
+  "project": "praxis",
   "branchName": "ralph/devops-mlops-infra",
   "description": "DevOps/MLOps & Infra \u2014 The legacy library: self-hosting AI/ML on Kubernetes/AWS \u2014 serving, distributed training, GPU components, orchestration, storage, networking. Topics are discovered from the filesystem (relocated from the original repo root).",
   "userStories": [

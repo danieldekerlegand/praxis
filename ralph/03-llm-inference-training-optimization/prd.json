@@ -1,5 +1,5 @@
 {
-  "project": "ai-tutor",
+  "project": "praxis",
   "branchName": "ralph/llm-inference-training-optimization",
   "description": "LLM Inference, Training & Optimization \u2014 Training LLMs from scratch, RAG, embeddings, prompting, and efficiency.",
   "userStories": [

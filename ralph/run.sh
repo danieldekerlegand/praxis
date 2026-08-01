@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fill the ai-tutor study notebooks with ralphy (michaelshimeles/ralphy).
+# Fill the Praxis seed tutorial notebooks with ralphy (michaelshimeles/ralphy).
 #
 # Each tasklist is a ralphy JSON file (tasks.json) with one task per notebook that
 # isn't complete yet. ralphy fills the notebook to docs/notebook-rubric.md and the
@@ -41,7 +41,7 @@ if [ ! -d .git ]; then
   echo "Initializing git repository (ralphy commits after each task)..."
   git init -b main >/dev/null
   git add -A
-  git commit -m "chore: ai-tutor scaffolds, launcher, and ralphy tasklists" >/dev/null
+  git commit -m "chore: Praxis scaffolds, launcher, and ralphy tasklists" >/dev/null
 fi
 
 # Select which tasklists to run, BY DOMAIN NUMBER (the NN- prefix, not array
@@ -110,4 +110,4 @@ python3 generate_docs.py >/dev/null 2>&1 || true
 
 echo ""
 echo "All $total selected tasklist(s) completed in order."
-echo "Run 'python generate_docs.py' and 'ai-tutor-launch' to see updated status."
+echo "Run 'python generate_docs.py' and 'praxis-launch' to see updated status."

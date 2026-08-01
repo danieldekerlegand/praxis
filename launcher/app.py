@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""ai-tutor launcher — a read-only FastAPI app.
+"""Praxis launcher — a read-only FastAPI app.
 
 Left sidebar = the 11 domains. Each topic shows a completion badge (🔴/🟡/✅) and
 links to the live notebook in JupyterLab and to a rendered read-only HTML view.
 
 Run the two pieces (separate terminals):
-    ai-tutor-lab        # JupyterLab rooted at the repo, on :8888 (no token)
-    ai-tutor-launch     # this app, on :8000
+    praxis-lab        # JupyterLab rooted at the repo, on :8888 (no token)
+    praxis-launch     # this app, on :8000
 """
 
 import os
@@ -21,8 +21,8 @@ sys.path.insert(0, str(ROOT))
 from curriculum import DOMAINS, NOTEBOOKS_DIR, Domain  # noqa: E402
 from nbstatus import BADGE, notebook_status  # noqa: E402
 
-LAB_PORT = int(os.environ.get("AI_TUTOR_LAB_PORT", "8888"))
-LAB_BASE = os.environ.get("AI_TUTOR_LAB_URL", f"http://localhost:{LAB_PORT}")
+LAB_PORT = int(os.environ.get("PRAXIS_LAB_PORT", "8888"))
+LAB_BASE = os.environ.get("PRAXIS_LAB_URL", f"http://localhost:{LAB_PORT}")
 
 
 def _short(domain: Domain) -> str:
@@ -105,7 +105,7 @@ def create_app():
 
     here = Path(__file__).resolve().parent
     templates = Jinja2Templates(directory=str(here / "templates"))
-    app = FastAPI(title="ai-tutor launcher")
+    app = FastAPI(title="Praxis launcher")
     app.mount("/static", StaticFiles(directory=str(here / "static")), name="static")
 
     @app.get("/", response_class=HTMLResponse)
@@ -146,16 +146,16 @@ app = create_app() if _FASTAPI_ERR is None else None
 
 
 def main() -> None:
-    """Console script: ai-tutor-launch."""
+    """Console script: praxis-launch."""
     import uvicorn
-    host = os.environ.get("AI_TUTOR_HOST", "127.0.0.1")
-    port = int(os.environ.get("AI_TUTOR_PORT", "8000"))
-    print(f"ai-tutor launcher -> http://{host}:{port}  (notebooks open in {LAB_BASE})")
+    host = os.environ.get("PRAXIS_HOST", "127.0.0.1")
+    port = int(os.environ.get("PRAXIS_PORT", "8000"))
+    print(f"Praxis launcher -> http://{host}:{port}  (notebooks open in {LAB_BASE})")
     uvicorn.run("launcher.app:app", host=host, port=port, reload=False)
 
 
 def launch_lab() -> None:
-    """Console script: ai-tutor-lab — JupyterLab rooted at the repo."""
+    """Console script: praxis-lab — JupyterLab rooted at the repo."""
     cmd = [
         sys.executable, "-m", "jupyterlab",
         f"--port={LAB_PORT}",

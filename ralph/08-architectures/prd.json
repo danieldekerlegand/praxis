@@ -1,5 +1,5 @@
 {
-  "project": "ai-tutor",
+  "project": "praxis",
   "branchName": "ralph/architectures",
   "description": "Architectures \u2014 Neural-network building blocks, implemented from scratch in PyTorch.",
   "userStories": [

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Single source of truth for the ai-tutor study library.
+"""Single source of truth for the Praxis seed tutorial library.
 
 Defines the 11 study domains and their topics. Drives:
   - scaffold_notebooks.py   (creates blank notebook scaffolds + reorgs the legacy 64)
