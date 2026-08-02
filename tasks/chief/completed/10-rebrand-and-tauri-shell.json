@@ -3,7 +3,7 @@
   "project": "praxis",
   "branchName": "chief/10-rebrand-and-tauri-shell",
   "baseBranch": "main",
-  "description": "Foundation, 10-band. Reframe this repo from `ai-tutor` (a static study-notebook library) into **Praxis** \u2014 a constructor for interactive, gated notebook tutorials on any subject \u2014 and stand up a Tauri desktop/web shell AROUND the existing reusable core without discarding it. The core to preserve and build on: docs/notebook-rubric.md (the definition of a complete tutorial), scaffold_notebooks.py + curriculum.py (the scaffolder), nbstatus.py + tests/test_notebooks.py (the completion gate), launcher/ (the FastAPI browse/launch/render UI), and notebooks/ (221 seed notebooks). This tasklist only establishes the app skeleton + rebrand; the subject-definition, AI-construction, gating, and storage capabilities come in later bands (20/30/40/50). Note: the GitHub repo rename (ai-tutor -> praxis) and the local directory rename are MANUAL steps for the owner; this tasklist does the in-repo rebrand only. Anti-fabrication: the app must actually build and launch \u2014 a story passes only when the relevant gate (cargo build / npm run build / pytest) is green, never on a scaffold that doesn't compile.",
+  "description": "Foundation, 10-band. Reframe this repo from `ai-tutor` (a static study-notebook library) into **Praxis** — a constructor for interactive, gated notebook tutorials on any subject — and stand up a Tauri desktop/web shell AROUND the existing reusable core without discarding it. The core to preserve and build on: docs/notebook-rubric.md (the definition of a complete tutorial), scaffold_notebooks.py + curriculum.py (the scaffolder), nbstatus.py + tests/test_notebooks.py (the completion gate), launcher/ (the FastAPI browse/launch/render UI), and notebooks/ (221 seed notebooks). This tasklist only establishes the app skeleton + rebrand; the subject-definition, AI-construction, gating, and storage capabilities come in later bands (20/30/40/50). Note: the GitHub repo rename (ai-tutor -> praxis) and the local directory rename are MANUAL steps for the owner; this tasklist does the in-repo rebrand only. Anti-fabrication: the app must actually build and launch — a story passes only when the relevant gate (cargo build / npm run build / pytest) is green, never on a scaffold that doesn't compile.",
   "parked": false,
   "dependsOn": [],
   "touches": [
@@ -27,7 +27,7 @@
       "id": "US-1",
       "title": "In-repo rebrand from ai-tutor to Praxis, preserving the reusable core",
       "acceptanceCriteria": [
-        "README.md is reframed from a 'study-notebook library' to Praxis \u2014 a constructor for interactive, gated notebook tutorials on any subject \u2014 with a short vision statement and an explicit map of the reusable core (rubric, scaffolder, gate, launcher, seed notebooks) it builds on.",
+        "README.md is reframed from a 'study-notebook library' to Praxis — a constructor for interactive, gated notebook tutorials on any subject — with a short vision statement and an explicit map of the reusable core (rubric, scaffolder, gate, launcher, seed notebooks) it builds on.",
         "pyproject.toml name/description and any `ai-tutor`/`ai_tutor` package or code identifiers are updated to praxis; imports still resolve.",
         "The reusable core is PRESERVED, not deleted: docs/notebook-rubric.md, scaffold_notebooks.py, curriculum.py, nbstatus.py, tests/, launcher/, and notebooks/ all remain and still work.",
         "A note records that the GitHub-repo and local-directory renames are manual owner steps outside this tasklist.",
@@ -50,13 +50,13 @@
       "id": "US-3",
       "title": "The existing notebook library browses inside the shell",
       "acceptanceCriteria": [
-        "The app browses the existing notebooks/ library \u2014 reusing the launcher's browse/launch/render (run the FastAPI launcher as a Tauri sidecar, or port its endpoints), not a reimplementation.",
-        "Each topic shows its status badge from nbstatus.py (\ud83d\udd34 scaffold \u00b7 \ud83d\udfe1 partial \u00b7 \u2705 complete), and opening a topic renders/launches its notebook.",
+        "The app browses the existing notebooks/ library — reusing the launcher's browse/launch/render (run the FastAPI launcher as a Tauri sidecar, or port its endpoints), not a reimplementation.",
+        "Each topic shows its status badge from nbstatus.py (🔴 scaffold · 🟡 partial · ✅ complete), and opening a topic renders/launches its notebook.",
         "The 221 seed notebooks across the 10 domains are visible and openable in-app.",
         "Gate green: cargo build + npm run build pass, and a smoke check confirms the library loads (document the check in the progress log)."
       ],
       "passes": true
     }
   ],
-  "mergedToMain": false
+  "mergedToMain": "ef8c81d"
 }
