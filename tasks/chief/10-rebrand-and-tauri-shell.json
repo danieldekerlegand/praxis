@@ -44,7 +44,7 @@
         "The app launches to a window/dev-server showing a Praxis landing screen (no real features yet).",
         "Gate green: cargo build + npm run build both pass (verify.sh path-scoped checks)."
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-3",
