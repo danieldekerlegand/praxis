@@ -3,7 +3,7 @@
   "project": "praxis",
   "branchName": "chief/60-package-and-distribute",
   "baseBranch": "main",
-  "description": "Ship, 60-band. Package Praxis for distribution: Tauri desktop bundles (and an optional web build), CI that runs the gates on every PR, and end-user docs that carry a clean first-run through the whole loop (define a subject \u2192 AI constructs the tutorials \u2192 gated learning). Depends on the full feature set (40 gated learning + 50 storage). Anti-fabrication: the ship story passes only when `tauri build` actually produces a runnable bundle and the documented first-run works end-to-end on a clean machine profile \u2014 never on an untested build.",
+  "description": "Ship, 60-band. Package Praxis for distribution: Tauri desktop bundles (and an optional web build), CI that runs the gates on every PR, and end-user docs that carry a clean first-run through the whole loop (define a subject → AI constructs the tutorials → gated learning). Depends on the full feature set (40 gated learning + 50 storage). Anti-fabrication: the ship story passes only when `tauri build` actually produces a runnable bundle and the documented first-run works end-to-end on a clean machine profile — never on an untested build.",
   "parked": false,
   "dependsOn": [
     "40-gated-progression",
@@ -27,7 +27,7 @@
       "title": "Tauri bundles + CI gate",
       "acceptanceCriteria": [
         "`tauri build` produces a desktop bundle for at least macOS (note the path for Windows/Linux even if not built here), and an optional web build target is documented.",
-        "A CI workflow (.github/workflows) runs the path-scoped gates \u2014 cargo build, npm run build, and pytest \u2014 on every PR to main, mirroring .chief/verify.sh.",
+        "A CI workflow (.github/workflows) runs the path-scoped gates — cargo build, npm run build, and pytest — on every PR to main, mirroring .chief/verify.sh.",
         "Gate green: the workflow passes on this branch."
       ],
       "passes": true
@@ -37,11 +37,11 @@
       "title": "User docs + verified first-run",
       "acceptanceCriteria": [
         "README documents install, BYO-key setup (and the optional AGORA_BASE_URL), defining a subject, AI construction, gated learning, and choosing a storage backend.",
-        "A clean first-run is walked end-to-end (define \u2192 construct \u2192 learn \u2192 progress persists) and documented, with any prerequisites (e.g. Jupyter kernel) called out.",
+        "A clean first-run is walked end-to-end (define → construct → learn → progress persists) and documented, with any prerequisites (e.g. Jupyter kernel) called out.",
         "Gate green: build + pytest pass; the first-run walkthrough is recorded in the progress log as actually performed."
       ],
       "passes": true
     }
   ],
-  "mergedToMain": false
+  "mergedToMain": "6ca7bef"
 }
