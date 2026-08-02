@@ -52,7 +52,16 @@ def notebook_status(path: str | Path) -> tuple[str, dict]:
         nb = json.loads(path.read_text())
     except Exception as exc:  # unreadable / invalid JSON
         return "error", {"error": str(exc)}
+    return status_from_dict(nb)
 
+
+def status_from_dict(nb: dict) -> tuple[str, dict]:
+    """Return (status, metrics) for a notebook already in memory.
+
+    The badge rules live here and only here; the constructor grades a notebook it has
+    just written *before* saving it, so it needs the same call without a round trip
+    through the filesystem.
+    """
     meta = notebook_meta(nb)
     cells = nb.get("cells", [])
     code_cells = [c for c in cells if c.get("cell_type") == "code"]

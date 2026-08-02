@@ -56,6 +56,27 @@ notebook that depends on where the file sits (the rubric backlink, for one) must
 computed from `Domain.dir`'s depth: a seed domain is one level under `notebooks/`, a
 subject's module is three.
 
+## Construction: filling a scaffold to the rubric
+
+`praxis/construct.py` is the third write, after "define" and "scaffold": it asks the model
+for the notebook's cells as JSON, assembles them, **grades the result, and only then
+writes**. The grader is `praxis/rubric.py` — the single machine-readable definition of
+"complete", shared with the gate:
+
+- `gate_failures(nb)` is exactly what `tests/test_notebooks.py` asserts (placeholders,
+  the 8 sections, size, code-cell count). Both callers use it, so they cannot drift.
+- `construction_failures(nb)` is that plus the three things a model will fake: the ✅
+  badge from `status_from_dict()`, real `https://` URLs under Resources, and code cells
+  that `compile()`. Tighten *this* one when you find a new fabrication — the seed
+  library is only held to `gate_failures`, so it stays green.
+
+Two invariants worth keeping: content that fails the grader is **never written** (the
+scaffold survives, the failures come back in `ConstructionResult.failures`), and an
+already-✅ notebook is **skipped, not rewritten**, unless `force=True` — same idempotence
+rule as the scaffolder, and what makes a batch run resumable. A failed attempt is fed
+back to the model with the grader's own sentences (`_repair_prompt`) rather than retried
+blind.
+
 ## Gates
 
 `python3 -m pytest -q tests/` (notebook core + launcher API), `npm run build` in `ui/`,
