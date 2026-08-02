@@ -32,7 +32,7 @@
         "No API key is committed; keys come only from env/config. A unit test exercises the client against a mocked response for each routing mode.",
         "Gate green: pytest passes."
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-2",
