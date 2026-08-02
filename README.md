@@ -27,6 +27,7 @@ replace it.
 | [`notebooks/`](notebooks/) | **221 seed notebooks across 10 domains** (+ the legacy DevOps/MLOps library). |
 | [`CURRICULUM.md`](CURRICULUM.md) | Generated human index with live status badges. |
 | [`ralph/`](ralph/README.md) | Tasklists that drive agents to fill notebooks autonomously. |
+| [`src-tauri/`](src-tauri/) + [`ui/`](ui/) | The desktop/web shell — Rust backend, TS/React frontend. |
 
 Notebooks live under `notebooks/<NN-domain>/<topic>.ipynb` and carry their Praxis state
 under `metadata.praxis` (`status`, `runnable`, `recommended`). The original MLOps/AWS/GPU
@@ -42,10 +43,31 @@ library is preserved under [`notebooks/11-devops-mlops-infra/`](notebooks/11-dev
   provider-router. Never hardcode or commit a key. Praxis is standalone — no hard
   dependency on any other system.
 
-The app shell and the subject-definition, AI-construction, gating, and storage
-capabilities land incrementally; the core above is what they build on.
+The subject-definition, AI-construction, gating, and storage capabilities land
+incrementally; the core above is what they build on.
 
-## Quick start
+## The desktop shell
+
+```bash
+cd ui && npm ci && npm run build    # the frontend bundle src-tauri embeds
+cd ../src-tauri && cargo run        # opens the Praxis window
+```
+
+For live-reload development, `cargo tauri dev` (or `npm --prefix ui run dev` plus
+`cargo run`) serves the frontend from Vite on :1420.
+
+Today the shell is a landing screen only — the library browser and the construction
+flow are wired up in later steps. Two things to know about how it builds:
+
+- `src-tauri` embeds `ui/dist` at **compile** time, so build the frontend before the
+  Rust side. `ui/dist` is generated, not committed; if it is missing, `src-tauri/build.rs`
+  embeds a placeholder page so `cargo build` still succeeds on a fresh checkout — a green
+  `cargo build` alone does not mean the real UI is inside.
+- The window is defined in [`src-tauri/tauri.conf.json`](src-tauri/tauri.conf.json); the
+  frontend talks to Rust through `invoke` (see [`ui/src/tauri.ts`](ui/src/tauri.ts)) and
+  degrades to a plain browser preview when there is no backend.
+
+## Quick start (the launcher)
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
