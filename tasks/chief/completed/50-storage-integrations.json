@@ -3,7 +3,7 @@
   "project": "praxis",
   "branchName": "chief/50-storage-integrations",
   "baseBranch": "main",
-  "description": "Storage, 50-band. Persist a user's subjects, generated curricula/tutorials, and learning progress across three interchangeable backends \u2014 local app storage, a mounted drive, and cloud storage \u2014 so users pick what fits (privacy, portability, sync). Depends only on the shell from 10; runs in parallel with the generation bands. Anti-fabrication: each backend must actually round-trip real data (write then read back after restart); a story passes only when the selected backend genuinely persists and restores, and the gate is green.",
+  "description": "Storage, 50-band. Persist a user's subjects, generated curricula/tutorials, and learning progress across three interchangeable backends — local app storage, a mounted drive, and cloud storage — so users pick what fits (privacy, portability, sync). Depends only on the shell from 10; runs in parallel with the generation bands. Anti-fabrication: each backend must actually round-trip real data (write then read back after restart); a story passes only when the selected backend genuinely persists and restores, and the gate is green.",
   "parked": false,
   "dependsOn": [
     "10-rebrand-and-tauri-shell"
@@ -41,5 +41,5 @@
       "passes": true
     }
   ],
-  "mergedToMain": false
+  "mergedToMain": "707cc24"
 }
