@@ -49,23 +49,36 @@ incrementally; the core above is what they build on.
 ## The desktop shell
 
 ```bash
+pip install -e '.[launch]'          # the shell runs the launcher behind the window
 cd ui && npm ci && npm run build    # the frontend bundle src-tauri embeds
 cd ../src-tauri && cargo run        # opens the Praxis window
 ```
 
-For live-reload development, `cargo tauri dev` (or `npm --prefix ui run dev` plus
-`cargo run`) serves the frontend from Vite on :1420.
+The window opens on the **seed library**: subjects on the left, topics with their live
+status badge (🔴 scaffold · 🟡 partial · ✅ complete), and *open* renders a notebook
+read-only in place (*in Lab* points the same pane at JupyterLab, which needs
+`praxis-lab` running). Subject definition and AI construction land in later steps.
 
-Today the shell is a landing screen only — the library browser and the construction
-flow are wired up in later steps. Two things to know about how it builds:
+Rust does not reimplement any of that: at boot it starts `launcher/app.py` on a free
+loopback port and the webview reads `/api/library` and `/render/<rel>` from it (see
+[`src-tauri/src/library.rs`](src-tauri/src/library.rs)). The launcher is found via
+`$PRAXIS_PYTHON`, then `.venv/`, then `python3`; if it can't start, the window says
+why. It is killed when the app exits, and stops itself if the app is killed hard.
+
+Three things to know about how it builds:
 
 - `src-tauri` embeds `ui/dist` at **compile** time, so build the frontend before the
   Rust side. `ui/dist` is generated, not committed; if it is missing, `src-tauri/build.rs`
   embeds a placeholder page so `cargo build` still succeeds on a fresh checkout — a green
   `cargo build` alone does not mean the real UI is inside.
+- Embedding only happens with the `custom-protocol` feature, which is **on by default**
+  here. Without it Tauri loads `build.devUrl` instead and the window is blank unless a
+  Vite dev server is up. For frontend live-reload, turn it off:
+  `npm --prefix ui run dev` plus `cargo run --no-default-features`.
 - The window is defined in [`src-tauri/tauri.conf.json`](src-tauri/tauri.conf.json); the
   frontend talks to Rust through `invoke` (see [`ui/src/tauri.ts`](ui/src/tauri.ts)) and
-  degrades to a plain browser preview when there is no backend.
+  degrades to a plain browser preview when there is no backend — there it expects a
+  hand-started `praxis-launch` (override with `VITE_PRAXIS_LAUNCHER`).
 
 ## Quick start (the launcher)
 

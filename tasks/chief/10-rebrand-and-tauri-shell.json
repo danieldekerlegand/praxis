@@ -55,7 +55,7 @@
         "The 221 seed notebooks across the 10 domains are visible and openable in-app.",
         "Gate green: cargo build + npm run build pass, and a smoke check confirms the library loads (document the check in the progress log)."
       ],
-      "passes": false
+      "passes": true
     }
   ],
   "mergedToMain": false

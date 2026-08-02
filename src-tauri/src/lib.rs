@@ -1,10 +1,18 @@
 //! The Praxis desktop/web shell.
 //!
-//! This crate is only the shell: it opens a window over the frontend in `ui/`. The
-//! notebook-construction core (rubric, scaffolder, gate) stays in Python at the repo
-//! root and is wired in by later bands.
+//! This crate is only the shell: it opens a window over the frontend in `ui/` and runs
+//! the Python launcher behind it (see [`library`]) so the seed notebook library browses
+//! in-app. The notebook-construction core (rubric, scaffolder, gate) stays in Python at
+//! the repo root and is wired in by later bands.
+
+use std::sync::Arc;
 
 use serde::Serialize;
+use tauri::{Manager, State};
+
+mod library;
+
+use library::{Launcher, LauncherStatus};
 
 /// What the frontend shows in its footer — enough to prove the backend is live.
 #[derive(Serialize)]
@@ -23,9 +31,30 @@ fn app_info() -> AppInfo {
     }
 }
 
+/// Where the library lives right now — the frontend polls this until it is ready.
+#[tauri::command]
+fn launcher_status(launcher: State<'_, Arc<Launcher>>) -> LauncherStatus {
+    launcher.status()
+}
+
 pub fn run() {
+    let launcher = Arc::new(Launcher::default());
+
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![app_info])
-        .run(tauri::generate_context!())
-        .expect("error while running Praxis");
+        .manage(launcher.clone())
+        .invoke_handler(tauri::generate_handler![app_info, launcher_status])
+        .setup(|app| {
+            // Off the main thread: starting uvicorn takes a second or two and the window
+            // should be up (showing "starting the launcher…") the whole time.
+            let launcher = app.state::<Arc<Launcher>>().inner().clone();
+            std::thread::spawn(move || launcher.start());
+            Ok(())
+        })
+        .build(tauri::generate_context!())
+        .expect("error while building Praxis")
+        .run(move |_app, event| {
+            if let tauri::RunEvent::Exit = event {
+                launcher.shutdown();
+            }
+        });
 }

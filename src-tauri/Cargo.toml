@@ -11,6 +11,15 @@ rust-version = "1.77.2"
 name = "praxis_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
+# Tauri serves the embedded `ui/dist` ONLY with this feature on; without it the window
+# loads `build.devUrl` and shows a blank page unless `npm run dev` is running. It is
+# default here because this repo builds with plain cargo, not the tauri CLI — a
+# `cargo build` binary should be a standalone app. For frontend HMR, turn it off:
+#   npm --prefix ../ui run dev  &&  cargo run --no-default-features
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
