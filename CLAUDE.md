@@ -56,6 +56,49 @@ notebook that depends on where the file sits (the rubric backlink, for one) must
 computed from `Domain.dir`'s depth: a seed domain is one level under `notebooks/`, a
 subject's module is three.
 
+## Construction: filling a scaffold to the rubric
+
+`praxis/construct.py` is the third write, after "define" and "scaffold": it asks the model
+for the notebook's cells as JSON, assembles them, **grades the result, and only then
+writes**. The grader is `praxis/rubric.py` — the single machine-readable definition of
+"complete", shared with the gate:
+
+- `gate_failures(nb)` is exactly what `tests/test_notebooks.py` asserts (placeholders,
+  the 8 sections, size, code-cell count). Both callers use it, so they cannot drift.
+- `construction_failures(nb)` is that plus the three things a model will fake: the ✅
+  badge from `status_from_dict()`, real `https://` URLs under Resources, and code cells
+  that `compile()`. Tighten *this* one when you find a new fabrication — the seed
+  library is only held to `gate_failures`, so it stays green.
+
+Two invariants worth keeping: content that fails the grader is **never written** (the
+scaffold survives, the failures come back in `ConstructionResult.failures`), and an
+already-✅ notebook is **skipped, not rewritten**, unless `force=True` — same idempotence
+rule as the scaffolder, and what makes a batch run resumable. A failed attempt is fed
+back to the model with the grader's own sentences (`_repair_prompt`) rather than retried
+blind, so those sentences are the UI's error text too: keep them specific enough to act on.
+
+`construct_each(targets)` is the **one batch loop** — `construct_domain` and
+`construct_subject` are one-liners over it, and so is the launcher. Resumability is not
+implemented there; it falls out of every target going through `construct_topic`.
+
+## Construction in the app
+
+`POST /api/construct` takes `{rel}` | `{domain}` | `{subject}` and answers **202 with a
+job** (`launcher/jobs.py`), because filling a curriculum is one model call per notebook.
+The job is bookkeeping only — it reports `ConstructionResult`s and re-reads each badge
+from `nbstatus` off the file, so it cannot claim a notebook the constructor didn't write.
+One job runs at a time (409 otherwise); the key is resolved only if some target still
+needs the model, so re-running a finished curriculum needs no key.
+
+In the UI, `useConstruction` is held **once**, at the top of `App.tsx`, and passed to
+`DefineSubject` — one poller, and a run started in either view is the run the other one
+shows. It adopts whatever `GET /api/construct` says is in flight when it mounts, so
+reopening the window rejoins a run instead of showing a stale library.
+
+A library `rel` is resolved by `topic_for_rel()`, not by joining paths: a generated
+subject's `Domain.dir` is not where the file sits once `PRAXIS_SUBJECTS_DIR` moves it.
+Same reason `launcher.app.library_path()` exists for `/render`.
+
 ## Gates
 
 `python3 -m pytest -q tests/` (notebook core + launcher API), `npm run build` in `ui/`,

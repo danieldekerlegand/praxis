@@ -10,12 +10,18 @@ Serves the same library three ways off one view model (``build_model``):
     /api/library  the same model as JSON — what the Tauri shell's browser reads
     /render/<rel> a read-only HTML render of one notebook (the shell iframes this)
 
-Browsing is read-only. The writes are the two steps of defining a subject — generate a
-curriculum, then scaffold it into notebooks — which is why POST exists at all:
+Browsing is read-only. The writes are the three steps of building a subject — generate a
+curriculum, scaffold it into notebooks, then construct those notebooks to the rubric —
+which is why POST exists at all:
     GET  /api/subjects                  every persisted subject (curriculum.all_subjects)
     POST /api/subjects                  free-text goal -> AI-generated curriculum, persisted
     GET  /api/subjects/<slug>           one curriculum, for review before scaffolding
     POST /api/subjects/<slug>/scaffold  the reviewed curriculum -> 🔴 notebooks on disk
+    POST /api/construct                 fill a topic / module / subject to the rubric
+    GET  /api/construct[/<job_id>]      how that run is going, for the live badges
+
+Construction is the one call that can't answer inside a request — it is a model call per
+notebook — so it returns a job (launcher/jobs.py) the UI polls while 🔴 → 🟡 → ✅ moves.
 
 Run the two pieces (separate terminals):
     praxis-lab        # JupyterLab rooted at the repo, on :8888 (no token)
@@ -43,12 +49,16 @@ from curriculum import (  # noqa: E402
     CurriculumError,
     Domain,
     all_subjects,
+    domain_by_dir,
     domain_path,
     load_subject,
+    subjects_dir,
 )
+from launcher.jobs import JobRegistry, badge_for  # noqa: E402
 from nbstatus import BADGE, notebook_status  # noqa: E402
+from praxis.construct import topic_for_rel  # noqa: E402
 from praxis.curriculum_gen import generate_and_save  # noqa: E402
-from praxis.llm import LLMConfigError, LLMError  # noqa: E402
+from praxis.llm import LLMClient, LLMConfigError, LLMError  # noqa: E402
 from scaffold_notebooks import scaffold_subject  # noqa: E402
 
 LAB_PORT = int(os.environ.get("PRAXIS_LAB_PORT", "8888"))
@@ -107,6 +117,68 @@ def _topics_for(domain: Domain) -> list:
                 "note": t.note,
             })
     return rows
+
+
+def library_path(rel: str) -> Optional[Path]:
+    """The file a library `rel` names, or None if it escapes the library or is missing.
+
+    Almost always `notebooks/<rel>`. A generated subject differs only when
+    `PRAXIS_SUBJECTS_DIR` has moved the subject store out of the library — the same
+    translation `domain_path()` does, so a relocated subject stays renderable.
+    """
+    rel = str(rel).strip("/")
+    roots = [(NOTEBOOKS_DIR, rel)]
+    if rel.startswith(f"{SUBJECTS_ROOT}/"):
+        roots.insert(0, (subjects_dir(), rel[len(SUBJECTS_ROOT) + 1:]))
+    for root, tail in roots:
+        path = (root / tail).resolve()
+        if root.resolve() in path.parents and path.is_file():
+            return path
+    return None
+
+
+def _module_by_dir(dir_: str) -> tuple[Domain, object]:
+    """A library directory -> the Domain it names, and the subject it belongs to."""
+    for subject in all_subjects():
+        for module in subject.modules:
+            if module.dir == dir_:
+                return module, subject
+    domain = domain_by_dir(dir_)
+    if domain is None:
+        raise CurriculumError(f"no module {dir_!r} in the library")
+    return domain, None
+
+
+def _module_targets(domain: Domain, subject=None) -> list:
+    """Every notebook of one module, as construction targets.
+
+    A `filesystem` domain enumerates no topics — its notebooks only exist on disk — so
+    they are resolved one path at a time instead.
+    """
+    if domain.source == "filesystem":
+        return [topic_for_rel(row["rel"]) for row in _topics_for(domain)]
+    return [(domain, topic, subject) for topic in domain.topics]
+
+
+def construction_targets(payload: dict) -> tuple[str, str, str, list]:
+    """Read a construct request: `rel` (one topic), `domain` (a module), or `subject`.
+
+    Returns (kind, target, title, targets). Raises CurriculumError when the thing asked
+    for isn't in the library, ValueError when nothing was asked for at all.
+    """
+    if rel := str(payload.get("rel") or "").strip():
+        domain, topic, subject = topic_for_rel(rel)
+        return "topic", rel, topic.title, [(domain, topic, subject)]
+    if dir_ := str(payload.get("domain") or "").strip():
+        domain, subject = _module_by_dir(dir_)
+        return "module", dir_, domain.title, _module_targets(domain, subject)
+    if slug := str(payload.get("subject") or "").strip():
+        subject = load_subject(slug)
+        return "subject", subject.slug, subject.title, [
+            (module, topic, subject)
+            for module in subject.modules for topic in module.topics
+        ]
+    raise ValueError("construct what? pass a rel, a domain or a subject")
 
 
 def build_model() -> dict:
@@ -190,6 +262,7 @@ def create_app():
 
     here = Path(__file__).resolve().parent
     templates = Jinja2Templates(directory=str(here / "templates"))
+    jobs = JobRegistry()  # per app: construction state lives with the process serving it
     app = FastAPI(title="Praxis launcher")
     app.add_middleware(
         CORSMiddleware,
@@ -282,11 +355,67 @@ def create_app():
             "dir": f"{SUBJECTS_ROOT}/{subject.slug}",
         }
 
+    @app.post("/api/construct", response_class=JSONResponse)
+    def api_construct(payload: dict = Body(default={})):
+        """Fill scaffolds to the rubric — one topic, one module, or a whole subject.
+
+        The long write: one model call per notebook, so it answers 202 with a job and
+        the caller polls `/api/construct/<id>` while the badges move. What lands on
+        disk is decided by praxis/construct.py alone — a notebook that fails the grader
+        is never written, and one that is already ✅ is skipped unless `force`.
+
+        Reported apart like defining a subject: 400 nothing to build, 404 no such
+        topic/module/subject, 409 a construction is already running, 503 nothing
+        configured to call.
+        """
+        force = bool(payload.get("force"))
+        try:
+            kind, target, title, targets = construction_targets(payload)
+        except ValueError as exc:
+            code = 404 if isinstance(exc, CurriculumError) else 400
+            return JSONResponse({"error": str(exc)}, status_code=code)
+        if not targets:
+            return JSONResponse({"error": f"nothing to construct in {target!r}"},
+                                status_code=400)
+
+        busy = jobs.running()
+        if busy is not None:
+            return JSONResponse(
+                {"error": f"already constructing {busy.title!r}", "job": busy.to_dict()},
+                status_code=409)
+
+        # Resolve the key only if some notebook actually needs the model: re-running a
+        # finished curriculum to confirm it is done must not demand one.
+        client = None
+        if force or any(badge_for(d, t) != "complete" for d, t, _ in targets):
+            try:
+                client = LLMClient()
+            except LLMConfigError as exc:
+                return JSONResponse({"error": str(exc)}, status_code=503)
+
+        job = jobs.start(kind, target, title, targets, client=client, force=force)
+        return JSONResponse(job.to_dict(), status_code=202)
+
+    @app.get("/api/construct", response_class=JSONResponse)
+    def api_construct_jobs():
+        """Recent construction runs, newest first — how the shell re-attaches to one."""
+        running = jobs.running()
+        return {"running": running.id if running else None,
+                "jobs": [j.to_dict() for j in jobs.recent()]}
+
+    @app.get("/api/construct/{job_id}", response_class=JSONResponse)
+    def api_construct_job(job_id: str):
+        """One run: per-notebook phase and live badge. Polled while it is running."""
+        job = jobs.get(job_id)
+        if job is None:
+            return JSONResponse({"error": f"no job {job_id!r}"}, status_code=404)
+        return job.to_dict()
+
     @app.get("/render/{rel:path}", response_class=HTMLResponse)
     def render(rel: str):
         """Read-only HTML render of a notebook (no execution)."""
-        path = (NOTEBOOKS_DIR / rel).resolve()
-        if NOTEBOOKS_DIR not in path.parents or not path.exists():
+        path = library_path(rel)
+        if path is None:
             return HTMLResponse("not found", status_code=404)
         try:
             import nbformat

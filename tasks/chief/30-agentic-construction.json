@@ -3,9 +3,11 @@
   "project": "praxis",
   "branchName": "chief/30-agentic-construction",
   "baseBranch": "main",
-  "description": "Core generation, 30-band. AI agents CONSTRUCT each scaffolded notebook up to the rubric — the headline 'AI builds the tutorial' capability. This generalizes the notebook-filling loop the project used offline (Ralph) into an in-app agentic constructor driven by the BYO-key LLM client from 20, filling the 8 rubric sections with real explanations, worked examples, and runnable cells. Depends on 20 (subjects + scaffolds + LLM client). Anti-fabrication: a notebook is 'constructed' only when nbstatus.py reports ✅ AND tests/test_notebooks.py passes for it; Resources sections must contain real URLs, and runnable topics must contain cells that actually execute. Never flip a status or story on an unfilled or non-executing notebook.",
+  "description": "Core generation, 30-band. AI agents CONSTRUCT each scaffolded notebook up to the rubric \u2014 the headline 'AI builds the tutorial' capability. This generalizes the notebook-filling loop the project used offline (Ralph) into an in-app agentic constructor driven by the BYO-key LLM client from 20, filling the 8 rubric sections with real explanations, worked examples, and runnable cells. Depends on 20 (subjects + scaffolds + LLM client). Anti-fabrication: a notebook is 'constructed' only when nbstatus.py reports \u2705 AND tests/test_notebooks.py passes for it; Resources sections must contain real URLs, and runnable topics must contain cells that actually execute. Never flip a status or story on an unfilled or non-executing notebook.",
   "parked": false,
-  "dependsOn": ["20-user-defined-subjects"],
+  "dependsOn": [
+    "20-user-defined-subjects"
+  ],
   "touches": [
     "src-tauri/",
     "ui/",
@@ -30,21 +32,21 @@
       "acceptanceCriteria": [
         "Given a scaffolded topic, an AI construction agent (LLM client from 20) fills the 8 rubric sections per docs/notebook-rubric.md: What & Why, Mental Model, Key Concepts, Setup, at least two Worked Examples, Gotchas & Pitfalls, When to Use vs Alternatives, and Resources with real URLs.",
         "For runnable topics the agent writes real, executing code cells (a `%pip install` where needed); for conceptual topics it follows the rubric's conceptual path.",
-        "The filled notebook passes the existing completion gate: nbstatus.py reports ✅ and tests/test_notebooks.py passes for it.",
+        "The filled notebook passes the existing completion gate: nbstatus.py reports \u2705 and tests/test_notebooks.py passes for it.",
         "Gate green: pytest passes, including the newly constructed notebook."
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-2",
       "title": "In-app construction flow with live status, batched across a curriculum",
       "acceptanceCriteria": [
-        "From the app the user triggers construction for a topic or a whole subject/curriculum; construction runs and the 🔴→🟡→✅ transitions surface live in the UI.",
-        "Batch construction across a curriculum is resumable and idempotent — re-running skips notebooks already ✅ and does not clobber them.",
+        "From the app the user triggers construction for a topic or a whole subject/curriculum; construction runs and the \ud83d\udd34\u2192\ud83d\udfe1\u2192\u2705 transitions surface live in the UI.",
+        "Batch construction across a curriculum is resumable and idempotent \u2014 re-running skips notebooks already \u2705 and does not clobber them.",
         "Constructed notebooks land in the library (from tasklist 10) and are immediately browsable/openable.",
-        "Gate green: cargo build + npm run build pass and at least one constructed notebook passes the completion gate; document the end-to-end run (define → scaffold → construct) in the progress log."
+        "Gate green: cargo build + npm run build pass and at least one constructed notebook passes the completion gate; document the end-to-end run (define \u2192 scaffold \u2192 construct) in the progress log."
       ],
-      "passes": false
+      "passes": true
     }
   ],
   "mergedToMain": false

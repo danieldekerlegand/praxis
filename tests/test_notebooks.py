@@ -13,6 +13,11 @@ Semantics (so unfinished scaffolds never block finished work):
 So a Ralph task is "done" exactly when its notebook passes here; everything still
 to-do is skipped, keeping the suite green for the tasks that ARE complete.
 
+The strict checks themselves live in `praxis/rubric.py` — this file decides *which*
+notebooks get graded, `gate_failures()` decides what "graded" means. The AI constructor
+(praxis/construct.py) grades its own output with that same function before it is allowed
+to write, so a constructed notebook cannot pass one bar and fail the other.
+
 See docs/notebook-rubric.md.
 """
 
@@ -30,29 +35,7 @@ sys.path.insert(0, str(ROOT))
 NOTEBOOKS = sorted((ROOT / "notebooks").rglob("*.ipynb"))
 
 from nbstatus import notebook_meta  # noqa: E402
-
-PLACEHOLDER_MARKERS = (
-    "todo",
-    "provide description here",
-    "add code here",
-    "add benchmarking code",
-    "[add architecture diagram here]",
-    "[link]",
-    "feature 1 | description",
-    "- benefit 1",
-    "study notebook — scaffold",
-)
-
-RUBRIC_SECTIONS = (
-    "What & Why",
-    "Mental Model",
-    "Key Concepts",
-    "Setup",
-    "Worked Examples",
-    "Gotchas",
-    "When to Use",
-    "Resources",
-)
+from praxis.rubric import gate_failures  # noqa: E402
 
 
 def _ids(paths):
@@ -85,17 +68,11 @@ def test_notebook_meets_rubric_when_done(path: Path):
     low = text.lower()
 
     if _is_new_curriculum(path):
-        # Graded only once the author declares completion.
+        # Graded only once the author (or the constructor) declares completion.
         if meta.get("status") != "complete":
             pytest.skip("scaffold / in progress — not yet marked complete")
-        bad = [m for m in PLACEHOLDER_MARKERS if m in low]
-        assert not bad, f"placeholder text remains: {bad}"
-        missing = [s for s in RUBRIC_SECTIONS if s.lower() not in low]
-        assert not missing, f"missing rubric sections: {missing}"
-        assert len(text) >= 4000, f"too thin ({len(text)} chars) — write a real refresher"
-        if meta.get("runnable", True):
-            code_cells = [c for c in nb["cells"] if c.get("cell_type") == "code"]
-            assert len(code_cells) >= 2, "runnable notebook needs >= 2 code cells"
+        failures = gate_failures(nb)
+        assert not failures, "; ".join(failures)
     else:
         # Legacy: skip while template markers remain; otherwise grade lightly.
         legacy_markers = ("provide description here", "add code here",
