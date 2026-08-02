@@ -21,7 +21,7 @@ replace it.
 | [`docs/notebook-rubric.md`](docs/notebook-rubric.md) | **The definition of a complete tutorial** — 8 sections, runnable vs conceptual. Construction agents fill to this bar; it is also the shape of the gated tutorial. |
 | [`curriculum.py`](curriculum.py) | The curriculum model — the seed domains, and the data-driven subjects a user defines. |
 | [`praxis/curriculum_gen.py`](praxis/curriculum_gen.py) | **Subject → curriculum** — free text in, modules → topics out, one notebook per topic. |
-| [`scaffold_notebooks.py`](scaffold_notebooks.py) | **The scaffolder** — turns a subject's topic list into notebook scaffolds. |
+| [`scaffold_notebooks.py`](scaffold_notebooks.py) | **The scaffolder** — turns any curriculum's topic list, seed or generated, into 🔴 rubric-shaped notebook scaffolds. |
 | [`nbstatus.py`](nbstatus.py) | **The gate (heuristic side)** — the status badge every topic carries: 🔴 scaffold · 🟡 partial · ✅ complete. |
 | [`tests/test_notebooks.py`](tests/test_notebooks.py) | **The gate (authoritative side)** — a tutorial is complete only when this passes for it. |
 | [`praxis/llm.py`](praxis/llm.py) | **The BYO-key LLM client** every construction step calls through (see below). |
@@ -148,13 +148,30 @@ python -m praxis.curriculum_gen --modules 6 --topics 5 "conversational Portugues
 python curriculum.py                # what is defined: seed domains + your subjects
 ```
 
+### Scaffolding it
+
+Reviewing is the point of the pause: nothing is written into the library until you hit
+**Scaffold N notebooks**. That writes one notebook per topic under
+`notebooks/subjects/<slug>/<NN-module>/<topic>.ipynb`, each carrying the 8 rubric sections
+as TODOs and `metadata.praxis.status = "scaffold"` — so it lands in the library badged 🔴,
+ready for an agent (or you) to fill. It is safe to hit again: a topic that already has a
+notebook is skipped, never rewritten, so re-scaffolding a grown curriculum only adds what
+is missing.
+
+```bash
+python scaffold_notebooks.py --subject <slug>   # one defined subject
+python scaffold_notebooks.py                    # seed manifest + every defined subject
+python scaffold_notebooks.py --no-subjects      # seed manifest only
+```
+
 The launcher serves it over HTTP — this is what the shell calls:
 
 | Route | |
 |---|---|
 | `GET /api/subjects` | every persisted subject, newest first |
 | `GET /api/subjects/<slug>` | one curriculum, modules → topics |
-| `POST /api/subjects` | `{"goal": "..."}` → generate + persist (the only write) |
+| `POST /api/subjects` | `{"goal": "..."}` → generate + persist (spends tokens) |
+| `POST /api/subjects/<slug>/scaffold` | the reviewed curriculum → 🔴 notebooks on disk |
 
 A subject's modules are ordinary domains, so the scaffolder, the badges and the gate treat
 them exactly like the seed library. Generated subjects are yours, not the product's:

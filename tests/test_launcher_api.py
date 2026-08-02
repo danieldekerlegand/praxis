@@ -186,6 +186,49 @@ def test_an_unknown_subject_is_a_404(client: TestClient, subjects_root: Path) ->
     assert client.get("/api/subjects/never-defined").status_code == 404
 
 
+def test_scaffolding_a_subject_puts_real_notebooks_in_the_library(
+    client: TestClient, subjects_root: Path, no_model
+) -> None:
+    """The end-to-end write path: goal -> curriculum -> 🔴 notebooks the shell can browse."""
+    before = client.get("/api/library").json()
+    no_model(None)
+    client.post("/api/subjects", json={"goal": "navigate a small boat"})
+
+    res = client.post("/api/subjects/sailing-navigation/scaffold")
+    assert res.status_code == 200
+    assert res.json() == {
+        "slug": "sailing-navigation",
+        "created": 2,
+        "skipped": 0,
+        "n_topics": 2,
+        "dir": "subjects/sailing-navigation",
+    }
+
+    module = subjects_root / "sailing-navigation" / "01-charts"
+    assert sorted(p.name for p in module.glob("*.ipynb")) == [
+        "dead-reckoning.ipynb", "reading-a-chart.ipynb",
+    ]
+
+    after = client.get("/api/library").json()
+    assert after["total"] == before["total"] + 2
+    charts = next(d for d in after["domains"] if d["dir"].startswith("subjects/"))
+    assert charts["n"] == 2 and charts["done"] == 0
+    assert {t["status"] for t in charts["topics"]} == {"scaffold"}
+    assert [t["title"] for t in charts["topics"]] == ["Dead Reckoning", "Reading a Chart"]
+
+
+def test_rescaffolding_is_idempotent_and_an_unknown_subject_is_a_404(
+    client: TestClient, subjects_root: Path, no_model
+) -> None:
+    no_model(None)
+    client.post("/api/subjects", json={"goal": "navigate a small boat"})
+    client.post("/api/subjects/sailing-navigation/scaffold")
+
+    again = client.post("/api/subjects/sailing-navigation/scaffold")
+    assert again.json()["created"] == 0 and again.json()["skipped"] == 2
+    assert client.post("/api/subjects/never-defined/scaffold").status_code == 404
+
+
 def test_a_subject_reaches_the_library_only_once_it_has_notebooks(
     client: TestClient, subjects_root: Path, no_model
 ) -> None:

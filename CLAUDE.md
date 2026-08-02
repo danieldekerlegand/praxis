@@ -48,6 +48,14 @@ The AI never writes files directly. `praxis/curriculum_gen.py` asks for JSON, an
 flags), strict about what would break the scaffolder. Extend that validation rather than
 trusting a payload downstream. Generated content is gitignored (`notebooks/subjects/`).
 
+Scaffolding is the second, separate write: `scaffold_domain()` / `scaffold_subject()` in
+`scaffold_notebooks.py`, reached from `POST /api/subjects/<slug>/scaffold`. Keep it
+**idempotent — an existing notebook is skipped, never rewritten** — because a curriculum
+gets re-scaffolded after an author has already filled part of it. Anything generated per
+notebook that depends on where the file sits (the rubric backlink, for one) must be
+computed from `Domain.dir`'s depth: a seed domain is one level under `notebooks/`, a
+subject's module is three.
+
 ## Gates
 
 `python3 -m pytest -q tests/` (notebook core + launcher API), `npm run build` in `ui/`,

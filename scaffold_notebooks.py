@@ -1,14 +1,25 @@
 #!/usr/bin/env python3
-"""Reorganize the legacy library and scaffold the new study curriculum.
+"""Scaffold rubric-shaped notebooks for any curriculum — seed or user-defined.
+
+A scaffold is a valid notebook carrying the 8 sections of docs/notebook-rubric.md with
+every section still a TODO, and `metadata.praxis.status = "scaffold"` so nbstatus.py
+badges it 🔴 and tests/test_notebooks.py skips grading it until an author fills it.
 
 Two idempotent steps:
 
   1. reorg()    - move the 7 root notebooks and the 5 legacy notebooks/<section>/
                   folders under notebooks/11-devops-mlops-infra/ (git mv when possible).
-  2. scaffold() - for every manifest topic in domains 1-10 (curriculum.py), create a
-                  blank study-notebook scaffold if it does not already exist.
+  2. scaffold() - write a scaffold for every topic that has no notebook yet, across the
+                  seed manifest (curriculum.py domains 1-10) AND every user-defined
+                  subject persisted under notebooks/subjects/ (see praxis/curriculum_gen).
 
-Run:  python scaffold_notebooks.py [--no-reorg] [--no-scaffold]
+Both kinds of curriculum are `Domain`/`Topic` objects, so scaffolding needs no branch for
+a generated subject — only `domain_path()` differs, which resolves a subject's modules
+under `subjects_dir()`. Nothing here ever rewrites an existing file: a topic whose
+notebook exists is skipped, so re-scaffolding a partly-filled curriculum only fills gaps.
+
+Run:  python scaffold_notebooks.py [--no-reorg] [--no-scaffold] [--no-subjects]
+      python scaffold_notebooks.py --subject <slug>     # just one defined subject
 
 Supersedes generate_notebooks.py / enhance_notebooks.py (kept as legacy).
 """
@@ -21,7 +32,19 @@ import subprocess
 import sys
 from pathlib import Path
 
-from curriculum import DOMAINS, NOTEBOOKS_DIR, ROOT, Domain, Topic
+from curriculum import (
+    DOMAINS,
+    NOTEBOOKS_DIR,
+    ROOT,
+    CurriculumError,
+    Domain,
+    Subject,
+    Topic,
+    all_subjects,
+    domain_path,
+    load_subject,
+    topic_path,
+)
 
 LEGACY_DOMAIN = "11-devops-mlops-infra"
 LEGACY_ROOT_NOTEBOOKS = [
@@ -76,6 +99,16 @@ def reorg() -> None:
     print(f"reorg: moved {moved} item(s) into notebooks/{LEGACY_DOMAIN}/")
 
 
+def _rubric_link(domain: Domain) -> str:
+    """A link to the rubric that resolves from inside notebooks/<domain.dir>/.
+
+    A seed domain sits one level under notebooks/ (`../../`); a generated subject's
+    module sits three (`subjects/<slug>/<NN-module>/`), so the depth is computed rather
+    than assumed — a dead link in every scaffold is a rubric nobody reads.
+    """
+    return "../" * (len(domain.dir.strip("/").split("/")) + 1) + "docs/notebook-rubric.md"
+
+
 def scaffold_notebook(domain: Domain, topic: Topic) -> dict:
     runnable = topic.runnable
     note = topic.note or ("conceptual" if not runnable else "")
@@ -83,7 +116,7 @@ def scaffold_notebook(domain: Domain, topic: Topic) -> dict:
     header = (
         f"# {topic.title}\n\n"
         f"> **Study notebook — scaffold.** Replace every TODO and fill to the rubric in "
-        f"[`docs/notebook-rubric.md`](../../docs/notebook-rubric.md).\n\n"
+        f"[`docs/notebook-rubric.md`]({_rubric_link(domain)}).\n\n"
         f"**Domain:** {domain.title}  ·  **{tag}**  ·  "
         f"**runnable:** {'yes' if runnable else 'no — conceptual / CLI / snippets'}"
         + (f"  ·  _{note}_" if note else "")
@@ -144,32 +177,80 @@ def scaffold_notebook(domain: Domain, topic: Topic) -> dict:
     }
 
 
-def scaffold() -> None:
+def scaffold_domain(domain: Domain) -> tuple[int, int]:
+    """Scaffold every topic of one domain. Returns (created, skipped).
+
+    Works on a seed domain and on a generated subject's module alike — `domain_path`
+    knows where each one's notebooks live. An existing notebook is skipped, never
+    rewritten, which is what makes re-scaffolding safe once an author has filled some.
+    """
+    if domain.source == "filesystem":
+        return 0, 0  # the legacy library: topics ARE the files, nothing to scaffold
+    created = skipped = 0
+    base = domain_path(domain)
+    base.mkdir(parents=True, exist_ok=True)
+    for topic in domain.topics:
+        path = topic_path(domain, topic)
+        if path.exists():
+            skipped += 1
+            continue
+        path.write_text(json.dumps(scaffold_notebook(domain, topic), indent=1))
+        created += 1
+    return created, skipped
+
+
+def scaffold_subject(subject: Subject) -> tuple[int, int]:
+    """Scaffold a whole curriculum — one notebook per topic. Returns (created, skipped)."""
+    created = skipped = 0
+    for module in subject.modules:
+        c, s = scaffold_domain(module)
+        created, skipped = created + c, skipped + s
+    return created, skipped
+
+
+def scaffold(subjects: bool = True) -> tuple[int, int]:
+    """The seed manifest, plus every user-defined subject unless told otherwise."""
     created = skipped = 0
     for domain in DOMAINS:
-        if domain.source != "manifest":
-            continue
-        (NOTEBOOKS_DIR / domain.dir).mkdir(parents=True, exist_ok=True)
-        for topic in domain.topics:
-            path = NOTEBOOKS_DIR / domain.dir / f"{topic.slug}.ipynb"
-            if path.exists():
-                skipped += 1
-                continue
-            path.write_text(json.dumps(scaffold_notebook(domain, topic), indent=1))
-            created += 1
+        c, s = scaffold_domain(domain)
+        created, skipped = created + c, skipped + s
+    if subjects:
+        for subject in all_subjects():
+            c, s = scaffold_subject(subject)
+            created, skipped = created + c, skipped + s
     print(f"scaffold: created {created} new scaffold(s), skipped {skipped} existing.")
+    return created, skipped
 
 
-def main(argv: list[str]) -> None:
-    do_reorg = "--no-reorg" not in argv
-    do_scaffold = "--no-scaffold" not in argv
-    if do_reorg:
+def main(argv: list[str]) -> int:
+    slug = ""
+    if "--subject" in argv:
+        i = argv.index("--subject")
+        slug = argv[i + 1] if i + 1 < len(argv) else ""
+        if not slug:
+            print("--subject needs a subject slug", file=sys.stderr)
+            return 2
+
+    if slug:
+        # One defined subject, on its own: no reorg, no seed sweep.
+        try:
+            subject = load_subject(slug)
+        except CurriculumError as exc:
+            print(f"scaffold_notebooks: {exc}", file=sys.stderr)
+            return 1
+        created, skipped = scaffold_subject(subject)
+        print(f"scaffold: {subject.title} -> created {created}, skipped {skipped} "
+              f"existing, in {subject.dir}")
+        return 0
+
+    if "--no-reorg" not in argv:
         reorg()
-    if do_scaffold:
-        scaffold()
+    if "--no-scaffold" not in argv:
+        scaffold(subjects="--no-subjects" not in argv)
     total = sum(1 for _ in NOTEBOOKS_DIR.rglob("*.ipynb"))
     print(f"done. notebooks/ now holds {total} notebook(s).")
+    return 0
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    raise SystemExit(main(sys.argv[1:]))

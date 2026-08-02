@@ -104,7 +104,9 @@ export default function App() {
       </header>
 
       {view === "subjects" && status.url ? (
-        <DefineSubject base={status.url} />
+        // Scaffolding a subject writes notebooks; drop the library so the effect above
+        // refetches it and the new module shows up in the sidebar with live badges.
+        <DefineSubject base={status.url} onScaffolded={() => setLibrary(null)} />
       ) : library && active ? (
         <div className="layout">
           <nav className="sidebar">

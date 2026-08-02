@@ -79,3 +79,27 @@ export async function defineSubject(
   if (!res.ok) return fail(res, "could not generate a curriculum");
   return (await res.json()) as Subject;
 }
+
+/** What scaffolding a curriculum did: one notebook per topic, existing ones untouched. */
+export type ScaffoldResult = {
+  slug: string;
+  created: number;
+  skipped: number;
+  n_topics: number;
+  /** Path under notebooks/, e.g. `subjects/embedded-rust`. */
+  dir: string;
+};
+
+/**
+ * Write a rubric-shaped 🔴 scaffold for every topic of a reviewed curriculum.
+ *
+ * Spends no tokens and is safe to repeat: a topic that already has a notebook is
+ * skipped, so this only ever fills the gaps.
+ */
+export async function scaffoldSubject(base: string, slug: string): Promise<ScaffoldResult> {
+  const res = await fetch(`${base}/api/subjects/${encodeURIComponent(slug)}/scaffold`, {
+    method: "POST",
+  });
+  if (!res.ok) return fail(res, "could not scaffold the curriculum");
+  return (await res.json()) as ScaffoldResult;
+}

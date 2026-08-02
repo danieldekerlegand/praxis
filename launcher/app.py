@@ -10,11 +10,12 @@ Serves the same library three ways off one view model (``build_model``):
     /api/library  the same model as JSON — what the Tauri shell's browser reads
     /render/<rel> a read-only HTML render of one notebook (the shell iframes this)
 
-Browsing is read-only. The one thing that writes is subject definition, which is why
-POST exists at all:
-    GET  /api/subjects         every persisted subject (curriculum.all_subjects)
-    POST /api/subjects         free-text goal -> AI-generated curriculum, persisted
-    GET  /api/subjects/<slug>  one curriculum, for review before scaffolding
+Browsing is read-only. The writes are the two steps of defining a subject — generate a
+curriculum, then scaffold it into notebooks — which is why POST exists at all:
+    GET  /api/subjects                  every persisted subject (curriculum.all_subjects)
+    POST /api/subjects                  free-text goal -> AI-generated curriculum, persisted
+    GET  /api/subjects/<slug>           one curriculum, for review before scaffolding
+    POST /api/subjects/<slug>/scaffold  the reviewed curriculum -> 🔴 notebooks on disk
 
 Run the two pieces (separate terminals):
     praxis-lab        # JupyterLab rooted at the repo, on :8888 (no token)
@@ -38,6 +39,7 @@ sys.path.insert(0, str(ROOT))
 from curriculum import (  # noqa: E402
     DOMAINS,
     NOTEBOOKS_DIR,
+    SUBJECTS_ROOT,
     CurriculumError,
     Domain,
     all_subjects,
@@ -47,6 +49,7 @@ from curriculum import (  # noqa: E402
 from nbstatus import BADGE, notebook_status  # noqa: E402
 from praxis.curriculum_gen import generate_and_save  # noqa: E402
 from praxis.llm import LLMConfigError, LLMError  # noqa: E402
+from scaffold_notebooks import scaffold_subject  # noqa: E402
 
 LAB_PORT = int(os.environ.get("PRAXIS_LAB_PORT", "8888"))
 LAB_BASE = os.environ.get("PRAXIS_LAB_URL", f"http://localhost:{LAB_PORT}")
@@ -253,6 +256,31 @@ def create_app():
         except CurriculumError as exc:
             return JSONResponse({"error": str(exc)}, status_code=422)
         return JSONResponse(subject.to_dict(), status_code=201)
+
+    @app.post("/api/subjects/{slug}/scaffold", response_class=JSONResponse)
+    def api_scaffold_subject(slug: str):
+        """Turn a reviewed curriculum into rubric-shaped notebooks on disk.
+
+        Spends no tokens — the scaffolds are blank, an author fills them later. Safe to
+        repeat: a topic that already has a notebook is skipped, never rewritten, so this
+        only ever fills the gaps in a partly-built subject.
+        """
+        try:
+            subject = load_subject(slug)
+        except CurriculumError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=404)
+        try:
+            created, skipped = scaffold_subject(subject)
+        except OSError as exc:
+            return JSONResponse({"error": f"could not write notebooks: {exc}"},
+                                status_code=500)
+        return {
+            "slug": subject.slug,
+            "created": created,
+            "skipped": skipped,
+            "n_topics": subject.n_topics,
+            "dir": f"{SUBJECTS_ROOT}/{subject.slug}",
+        }
 
     @app.get("/render/{rel:path}", response_class=HTMLResponse)
     def render(rel: str):

@@ -1,23 +1,38 @@
 import { useEffect, useState } from "react";
-import { defineSubject, fetchSubjects, type Subject } from "./subjects";
+import {
+  defineSubject,
+  fetchSubjects,
+  scaffoldSubject,
+  type ScaffoldResult,
+  type Subject,
+} from "./subjects";
 
 const SIZES = [3, 4, 5, 6, 7, 8];
 const NEW = "";  // the sidebar entry for "no subject selected" — show the form
 
 /**
- * Define a subject and review what the AI made of it.
+ * Define a subject, review what the AI made of it, then scaffold it into the library.
  *
- * The user types a goal; the launcher asks the configured model for a curriculum,
- * persists it under notebooks/subjects/<slug>/, and hands it back. Nothing is written
- * into the library until the curriculum below is scaffolded into notebooks.
+ * The user types a goal; the launcher asks the configured model for a curriculum and
+ * persists it under notebooks/subjects/<slug>/. Nothing is written into the library
+ * until *scaffold* turns each topic into a 🔴 rubric-shaped notebook — at which point
+ * `onScaffolded` tells the shell to reload the library so they show up there.
  */
-export default function DefineSubject({ base }: { base: string }) {
+export default function DefineSubject({
+  base,
+  onScaffolded,
+}: {
+  base: string;
+  onScaffolded?: () => void;
+}) {
   const [subjects, setSubjects] = useState<Subject[] | null>(null);
   const [slug, setSlug] = useState<string>(NEW);
   const [goal, setGoal] = useState("");
   const [modules, setModules] = useState(5);
   const [topics, setTopics] = useState(6);
   const [busy, setBusy] = useState(false);
+  const [building, setBuilding] = useState(false);
+  const [built, setBuilt] = useState<ScaffoldResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,11 +56,26 @@ export default function DefineSubject({ base }: { base: string }) {
       });
       setSubjects((prev) => [subject, ...(prev ?? []).filter((s) => s.slug !== subject.slug)]);
       setSlug(subject.slug);
+      setBuilt(null);
       setGoal("");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function build(subject: Subject) {
+    if (building) return;
+    setBuilding(true);
+    setError(null);
+    try {
+      setBuilt(await scaffoldSubject(base, subject.slug));
+      onScaffolded?.();  // the library gained notebooks — make the shell reload it
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBuilding(false);
     }
   }
 
@@ -64,7 +94,10 @@ export default function DefineSubject({ base }: { base: string }) {
           <button
             key={s.slug}
             className={`domain ${s.slug === slug ? "active" : ""}`}
-            onClick={() => setSlug(s.slug)}
+            onClick={() => {
+              setSlug(s.slug);
+              setError(null);
+            }}
           >
             <span className="dname">{s.title}</span>
             <span className="dcount">{s.n_topics}</span>
@@ -107,10 +140,24 @@ export default function DefineSubject({ base }: { base: string }) {
               </section>
             ))}
 
-            <p className="status">
-              Review the curriculum above. Scaffolding it turns every topic into a
-              rubric-shaped notebook in the library — one file per row.
-            </p>
+            <div className="defineopts scaffoldrow">
+              <button type="button" onClick={() => build(active)} disabled={building}>
+                {building ? "scaffolding…" : `Scaffold ${active.n_topics} notebooks`}
+              </button>
+              <span className="legend">
+                Every topic above becomes one rubric-shaped 🔴 notebook in the library.
+                Already-written notebooks are left alone.
+              </span>
+            </div>
+            {built && built.slug === active.slug && (
+              <p className="status">
+                {built.created} notebook{built.created === 1 ? "" : "s"} scaffolded
+                {built.skipped > 0 && ` · ${built.skipped} left as they were`} in{" "}
+                <code>notebooks/{built.dir}/</code> — open the <b>library</b> tab to fill
+                them.
+              </p>
+            )}
+            {error && <p className="status error">{error}</p>}
           </>
         ) : (
           <>
