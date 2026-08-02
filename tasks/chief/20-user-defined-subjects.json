@@ -56,7 +56,7 @@
         "Re-scaffolding is idempotent: it never clobbers a notebook that already has content.",
         "Gate green: pytest (including a test that scaffolds a generated subject) passes."
       ],
-      "passes": false
+      "passes": true
     }
   ],
   "mergedToMain": false
