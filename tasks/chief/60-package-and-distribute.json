@@ -27,7 +27,7 @@
         "A CI workflow (.github/workflows) runs the path-scoped gates — cargo build, npm run build, and pytest — on every PR to main, mirroring .chief/verify.sh.",
         "Gate green: the workflow passes on this branch."
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-2",
