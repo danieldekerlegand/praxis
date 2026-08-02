@@ -3,9 +3,11 @@
   "project": "praxis",
   "branchName": "chief/40-gated-progression",
   "baseBranch": "main",
-  "description": "Learner experience, 40-band. Turn constructed notebooks into GATED tutorials: later sections/topics unlock only when the learner passes embedded knowledge checks that exercise their understanding. This generalizes nbstatus.py + tests/test_notebooks.py from an author-side 'is it built?' gate into a learner-side progression gate, and extends the construction agent (30) to also emit the knowledge checks. Depends on 30 (there must be constructed tutorials to gate). Anti-fabrication: gating must be real — a learner cannot advance without actually passing the check; auto-graded checks must truly assert, and LLM-graded checks must be recorded with the learner's answer. A story passes only when progression is genuinely blocked/unblocked by check results and the gate is green.",
+  "description": "Learner experience, 40-band. Turn constructed notebooks into GATED tutorials: later sections/topics unlock only when the learner passes embedded knowledge checks that exercise their understanding. This generalizes nbstatus.py + tests/test_notebooks.py from an author-side 'is it built?' gate into a learner-side progression gate, and extends the construction agent (30) to also emit the knowledge checks. Depends on 30 (there must be constructed tutorials to gate). Anti-fabrication: gating must be real \u2014 a learner cannot advance without actually passing the check; auto-graded checks must truly assert, and LLM-graded checks must be recorded with the learner's answer. A story passes only when progression is genuinely blocked/unblocked by check results and the gate is green.",
   "parked": false,
-  "dependsOn": ["30-agentic-construction"],
+  "dependsOn": [
+    "30-agentic-construction"
+  ],
   "touches": [
     "src-tauri/",
     "ui/",
@@ -25,12 +27,12 @@
       "id": "US-1",
       "title": "AI-generated knowledge checks per section",
       "acceptanceCriteria": [
-        "The construction flow (from 30) also generates knowledge-check items for each section/topic that exercise the concept — a mix suited to the content: code-assertion exercises (auto-graded), multiple-choice (auto-graded), and short-answer (graded by the LLM client with the learner's answer recorded).",
+        "The construction flow (from 30) also generates knowledge-check items for each section/topic that exercise the concept \u2014 a mix suited to the content: code-assertion exercises (auto-graded), multiple-choice (auto-graded), and short-answer (graded by the LLM client with the learner's answer recorded).",
         "Checks are stored alongside the notebook in a defined, testable format and regenerate idempotently.",
         "A test verifies that a constructed topic yields well-formed, gradable checks.",
         "Gate green: pytest passes."
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-2",
