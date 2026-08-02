@@ -33,7 +33,7 @@ praxis-lab = "launcher.app:launch_lab"
 # This is a notebook library, not an importable package tree; ship the helper
 # modules as top-level modules and the launcher package.
 py-modules = ["curriculum", "scaffold_notebooks", "nbstatus"]
-packages = ["launcher"]
+packages = ["launcher", "praxis"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

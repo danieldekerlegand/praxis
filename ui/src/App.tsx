@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import DefineSubject from "./DefineSubject";
 import { appInfo, isTauri, launcherStatus, type AppInfo, type LauncherStatus } from "./tauri";
 import { fetchLibrary, labUrl, renderUrl, type Domain, type Library, type Topic } from "./library";
 
@@ -13,8 +14,12 @@ const CORE = [
 
 type Reading = { topic: Topic; mode: "render" | "lab" };
 
+/** Browse what exists, or define something new. */
+type View = "library" | "subjects";
+
 export default function App() {
   const [info, setInfo] = useState<AppInfo | null>(null);
+  const [view, setView] = useState<View>("library");
   const [status, setStatus] = useState<LauncherStatus>({
     state: "starting",
     url: null,
@@ -68,6 +73,19 @@ export default function App() {
     <div className="shell">
       <header>
         <div className="brand">📚 Praxis</div>
+        {status.state === "ready" && (
+          <nav className="views">
+            {(["library", "subjects"] as const).map((v) => (
+              <button
+                key={v}
+                className={view === v ? "tab active" : "tab"}
+                onClick={() => setView(v)}
+              >
+                {v === "library" ? "library" : "define a subject"}
+              </button>
+            ))}
+          </nav>
+        )}
         {library ? (
           <div className="progress">
             <div className="bar">
@@ -85,7 +103,11 @@ export default function App() {
         <div className="host">{isTauri() ? "desktop shell" : "web preview"}</div>
       </header>
 
-      {library && active ? (
+      {view === "subjects" && status.url ? (
+        // Scaffolding a subject writes notebooks; drop the library so the effect above
+        // refetches it and the new module shows up in the sidebar with live badges.
+        <DefineSubject base={status.url} onScaffolded={() => setLibrary(null)} />
+      ) : library && active ? (
         <div className="layout">
           <nav className="sidebar">
             {library.domains.map((d) => (

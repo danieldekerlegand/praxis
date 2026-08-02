@@ -10,6 +10,10 @@ __pycache__/
 .jupyter/
 *.DS_Store
 
+# Subjects a user defines in the app — their curricula and notebooks, not the
+# seed library. notebooks/<NN-domain>/ stays tracked.
+notebooks/subjects/
+
 # Tauri shell build output
 ui/node_modules/
 ui/dist/

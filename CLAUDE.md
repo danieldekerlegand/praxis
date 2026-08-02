@@ -30,6 +30,32 @@ loopback port; the webview fetches it directly, so cross-origin access is gated 
 The two stylesheets `launcher/static/app.css` and `ui/src/app.css` share `:root` tokens on
 purpose. Keep them in sync.
 
+## Curricula: seed and generated
+
+`curriculum.py` is one model for both. A user-defined subject's **modules are `Domain`s**
+(`Module = Domain`), so the scaffolder, the launcher and the gate need no branch for them —
+give a new consumer `Domain`/`Topic` and it works on either. Only `Domain.source` differs:
+`manifest` (every topic has a notebook) · `filesystem` (scan the dir) · `subject` (topics
+are enumerated, but only the scaffolded ones exist yet).
+
+`Domain.dir` is always relative to the notebooks root — that string is the `rel` in
+`/api/library` and `/render/<rel>`. Resolve it to a path with `domain_path(domain)`, never
+by hand: a generated subject resolves under `subjects_dir()`, which `PRAXIS_SUBJECTS_DIR`
+relocates so tests don't write into `notebooks/`.
+
+The AI never writes files directly. `praxis/curriculum_gen.py` asks for JSON, and
+`subject_from_dict()` normalizes it — lenient about what the model omits (slugs, dirs,
+flags), strict about what would break the scaffolder. Extend that validation rather than
+trusting a payload downstream. Generated content is gitignored (`notebooks/subjects/`).
+
+Scaffolding is the second, separate write: `scaffold_domain()` / `scaffold_subject()` in
+`scaffold_notebooks.py`, reached from `POST /api/subjects/<slug>/scaffold`. Keep it
+**idempotent — an existing notebook is skipped, never rewritten** — because a curriculum
+gets re-scaffolded after an author has already filled part of it. Anything generated per
+notebook that depends on where the file sits (the rubric backlink, for one) must be
+computed from `Domain.dir`'s depth: a seed domain is one level under `notebooks/`, a
+subject's module is three.
+
 ## Gates
 
 `python3 -m pytest -q tests/` (notebook core + launcher API), `npm run build` in `ui/`,
