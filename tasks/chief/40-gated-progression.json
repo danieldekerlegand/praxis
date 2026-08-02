@@ -43,7 +43,7 @@
         "The UI shows locked/unlocked state and check results clearly.",
         "Gate green: cargo build + npm run build pass and a progression smoke test confirms a failed check keeps the next section locked while a passed check unlocks it (document it in the progress log)."
       ],
-      "passes": false
+      "passes": true
     }
   ],
   "mergedToMain": false
