@@ -107,6 +107,38 @@ the `CheckOutcome`.
 `ConstructionResult`. A set the model couldn't make gradable does **not** un-write a good
 notebook: `result.ok` is about the notebook, `result.checks_ok` about the gate.
 
+## Progression: what the checks actually gate
+
+`praxis/progress.py` is the learner's side, and it is deliberately *only* bookkeeping and
+one rule: **a section unlocks when every check in every earlier section has a passing
+outcome** (`section_gates()`), and the same rule one level up orders a module's topics
+(`module_gates()`). It never grades — `checks.grade()` produces the `CheckOutcome`, this
+records it — and it never stores an unlock. Both are re-derived from the recorded
+outcomes on every request, so there is no flag anyone can set, and a check the learner
+later fails genuinely re-locks what it had opened.
+
+A topic with no `<slug>.checks.json` gates nothing. That is what keeps the 221 seed
+notebooks browsable, and it means gating appears exactly where the constructor wrote
+questions.
+
+Two boundaries carry the anti-fabrication weight, both server-side:
+`checks.learner_check()` is the only way a check reaches a client (`answer`, `solution`,
+`test`, `expected` never cross it, and `explanation` only after grading), and a locked
+section serves **no checks at all** while `POST /api/study/<rel>` answers **423** for one
+the learner hasn't reached. A disabled button is not the gate.
+
+Progress persists as one JSON file per learner under `progress_dir()`
+(`PRAXIS_PROGRESS_DIR` relocates it, as `PRAXIS_SUBJECTS_DIR` does for subjects) — and
+what is stored is the whole outcome, learner's answer included, not a boolean.
+
+In the app it is one more view model, not a second source of truth: `/api/library`'s
+topic rows carry `gated`/`locked`/`passed`/`checks` (folded in by `_gated()`, from the
+same `module_gates()`), `GET|POST /api/study/<rel>` serve and move one topic's gate, and
+`ui/src/KnowledgeChecks.tsx` renders whatever the launcher says — it holds no unlock
+logic. Answering refetches the library, which is how finishing a topic unlocks the next
+one in the list. Grading a `short` answer is the one path that needs a key (503),
+because `choice` and `code` grade locally.
+
 ## Construction in the app
 
 `POST /api/construct` takes `{rel}` | `{domain}` | `{subject}` and answers **202 with a

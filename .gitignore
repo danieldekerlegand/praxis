@@ -8,6 +8,8 @@ __pycache__/
 
 # Jupyter / launcher runtime
 .jupyter/
+# Learner progress (praxis/progress.py) — one file per learner, not shared state
+.praxis/
 *.DS_Store
 
 # Subjects a user defines in the app — their curricula and notebooks, not the

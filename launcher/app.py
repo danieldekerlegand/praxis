@@ -20,6 +20,10 @@ which is why POST exists at all:
     POST /api/construct                 fill a topic / module / subject to the rubric
     GET  /api/construct[/<job_id>]      how that run is going, for the live badges
 
+Learning is the other write, and the one the whole thing is for:
+    GET  /api/study/<rel>               a notebook's gate: sections, locked, passed
+    POST /api/study/<rel>               grade one answer and move the gate (423 if locked)
+
 Construction is the one call that can't answer inside a request — it is a model call per
 notebook — so it returns a job (launcher/jobs.py) the UI polls while 🔴 → 🟡 → ✅ moves.
 
@@ -56,10 +60,21 @@ from curriculum import (  # noqa: E402
 )
 from launcher.jobs import JobRegistry, badge_for  # noqa: E402
 from nbstatus import BADGE, notebook_status  # noqa: E402
-from praxis.checks import needs_checks  # noqa: E402
+from praxis.checks import CheckError, checks_path, grade, load_checks, needs_checks  # noqa: E402
 from praxis.construct import topic_for_rel  # noqa: E402
 from praxis.curriculum_gen import generate_and_save  # noqa: E402
 from praxis.llm import LLMClient, LLMConfigError, LLMError  # noqa: E402
+from praxis.progress import (  # noqa: E402
+    DEFAULT_LEARNER,
+    gate_for,
+    learner_id,
+    load_progress,
+    module_gates,
+    record_outcome,
+    section_gates,
+    topic_outcomes,
+    topic_progress,
+)
 from scaffold_notebooks import scaffold_subject  # noqa: E402
 
 LAB_PORT = int(os.environ.get("PRAXIS_LAB_PORT", "8888"))
@@ -86,10 +101,16 @@ def _library_domains() -> list[Domain]:
     return domains
 
 
-def _topics_for(domain: Domain) -> list:
-    """Uniform topic view models for a domain, from manifest or filesystem."""
+def _topics_for(domain: Domain, progress: Optional[dict] = None) -> list:
+    """Uniform topic view models for a domain, from manifest or filesystem.
+
+    Each row also carries the learner's gate for that notebook (`gated`, `locked`,
+    `passed`, `checks`) — one model, so the library list and the study view can't
+    disagree about what is open. A domain whose notebooks have no checks beside them
+    comes back exactly as it did before there was a gate: nothing gated, nothing locked.
+    """
     base = domain_path(domain)
-    rows = []
+    rows, files = [], {}
     if domain.source in ("filesystem", "subject"):
         # Only what exists: a subject's curriculum may run ahead of its scaffolds.
         titles = {t.slug: t for t in domain.topics}
@@ -98,9 +119,11 @@ def _topics_for(domain: Domain) -> list:
         for p in paths:
             status, _ = notebook_status(p)
             topic = titles.get(p.stem)
+            rel = f"{domain.dir}/{p.relative_to(base).as_posix()}"
+            files[rel] = p
             rows.append({
                 "title": topic.title if topic else p.stem.replace("-", " ").title(),
-                "rel": f"{domain.dir}/{p.relative_to(base).as_posix()}",
+                "rel": rel,
                 "status": status,
                 "recommended": bool(topic and topic.recommended),
                 "note": (topic.note if topic else
@@ -110,13 +133,29 @@ def _topics_for(domain: Domain) -> list:
         for t in domain.topics:
             p = base / f"{t.slug}.ipynb"
             status, _ = notebook_status(p) if p.exists() else ("error", {})
+            rel = p.relative_to(NOTEBOOKS_DIR).as_posix()
+            files[rel] = p
             rows.append({
                 "title": t.title,
-                "rel": p.relative_to(NOTEBOOKS_DIR).as_posix(),
+                "rel": rel,
                 "status": status,
                 "recommended": t.recommended,
                 "note": t.note,
             })
+    return _gated(rows, files, progress)
+
+
+def _gated(rows: list, files: dict, progress: Optional[dict]) -> list:
+    """Fold this learner's progression state into a domain's topic rows, in order."""
+    if progress is None:
+        progress = load_progress()
+    docs = {rel: load_checks(checks_path(p)) for rel, p in files.items()}
+    gates = module_gates([r["rel"] for r in rows], docs, progress)
+    titles = {r["rel"]: r["title"] for r in rows}
+    for row in rows:
+        gate = dict(gates[row["rel"]])
+        gate["blockedBy"] = titles.get(gate["blockedBy"], "")
+        row.update(gate)
     return rows
 
 
@@ -182,12 +221,17 @@ def construction_targets(payload: dict) -> tuple[str, str, str, list]:
     raise ValueError("construct what? pass a rel, a domain or a subject")
 
 
-def build_model() -> dict:
-    """Everything the templates need; recomputed per request so badges stay live."""
+def build_model(learner: str = DEFAULT_LEARNER) -> dict:
+    """Everything the templates need; recomputed per request so badges stay live.
+
+    The learner's progress is read once here and threaded down, so a library request is
+    still one pass over the notebooks rather than one per topic.
+    """
+    progress = load_progress(learner)
     domains = []
     counts = {"scaffold": 0, "partial": 0, "complete": 0, "error": 0}
     for d in _library_domains():
-        topics = _topics_for(d)
+        topics = _topics_for(d, progress=progress)
         for r in topics:
             counts[r["status"]] = counts.get(r["status"], 0) + 1
         domains.append({
@@ -198,6 +242,8 @@ def build_model() -> dict:
             "topics": topics,
             "n": len(topics),
             "done": sum(1 for r in topics if r["status"] == "complete"),
+            "gated": sum(1 for r in topics if r["gated"]),
+            "passed": sum(1 for r in topics if r["gated"] and r["complete"]),
         })
     total = sum(d["n"] for d in domains)
     return {
@@ -206,7 +252,44 @@ def build_model() -> dict:
         "total": total,
         "badge": BADGE,
         "lab_base": LAB_BASE,
+        "learner": learner_id(learner),
         "pct": round(100 * counts["complete"] / total) if total else 0,
+    }
+
+
+def study_model(rel: str, learner: str = DEFAULT_LEARNER) -> dict:
+    """One notebook as a learner meets it: the gate, and how far through it they are.
+
+    Raises CurriculumError when `rel` names nothing in the library. Everything else is
+    read off disk per request — the unlock state is *derived* from the recorded
+    outcomes every time it is asked for, never stored, so it cannot be set by hand.
+    """
+    domain, topic, _ = topic_for_rel(rel)
+    progress = load_progress(learner)
+    row = next((r for r in _topics_for(domain, progress=progress) if r["rel"] == rel), None)
+    path = library_path(rel)
+    doc = load_checks(checks_path(path)) if path else None
+    outcomes = topic_outcomes(progress, rel)
+
+    locked = bool(row and row["locked"])
+    sections = [g.to_dict(outcomes) for g in section_gates(doc, outcomes)]
+    summary = topic_progress(doc, outcomes)
+    if locked:
+        # An earlier topic in this module is unfinished: the whole notebook is closed,
+        # questions included.
+        for section in sections:
+            section.update(locked=True, checks=[])
+        summary["unlocked"], summary["next"] = [], ""
+    return {
+        "rel": rel,
+        "title": topic.title,
+        "domain": domain.dir,
+        "learner": learner_id(learner),
+        "status": row["status"] if row else "error",
+        "locked": locked,
+        "blockedBy": row["blockedBy"] if row else "",
+        "sections": sections,
+        **summary,
     }
 
 
@@ -414,6 +497,76 @@ def create_app():
         if job is None:
             return JSONResponse({"error": f"no job {job_id!r}"}, status_code=404)
         return job.to_dict()
+
+    @app.get("/api/study/{rel:path}", response_class=JSONResponse)
+    def api_study(rel: str, learner: str = DEFAULT_LEARNER):
+        """One notebook's gate for one learner: sections, locked state, what they passed.
+
+        A locked section hands back its size and nothing else — no questions, and never
+        an answer key (praxis.checks.learner_check). The unlock state is derived from
+        the recorded outcomes on every request, so there is no stored flag to forge.
+        """
+        try:
+            return study_model(rel, learner)
+        except CurriculumError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=404)
+
+    @app.post("/api/study/{rel:path}", response_class=JSONResponse)
+    def api_study_answer(rel: str, learner: str = DEFAULT_LEARNER,
+                         payload: dict = Body(default={})):
+        """Grade one answer, record it, and hand back the gate it just moved.
+
+        This is the gate: a check in a locked section — or in a notebook locked behind
+        an earlier topic — is refused **423** without being graded, so progression
+        cannot be skipped by posting ahead. Grading is praxis.checks.grade() alone;
+        nothing here decides a pass. `choice` and `code` are auto-graded locally, so
+        only a `short` answer needs a key (503 when there is none, 502 if the provider
+        fails).
+        """
+        try:
+            study = study_model(rel, learner)
+        except CurriculumError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=404)
+
+        path = library_path(rel)
+        doc = load_checks(checks_path(path)) if path else None
+        if not doc:
+            return JSONResponse(
+                {"error": f"{rel!r} has no knowledge checks yet"}, status_code=404)
+
+        check_id = str(payload.get("check_id") or payload.get("checkId") or "").strip()
+        check = next((c for c in doc.get("checks", [])
+                      if isinstance(c, dict) and str(c.get("id")) == check_id), None)
+        if check is None:
+            return JSONResponse({"error": f"no check {check_id!r} in {rel!r}"},
+                                status_code=404)
+
+        outcomes = topic_outcomes(load_progress(learner), rel)
+        gate = gate_for(doc, outcomes, check_id)
+        if study["locked"]:
+            return JSONResponse(
+                {"error": f"finish {study['blockedBy'] or 'the earlier topic'} first",
+                 "state": study}, status_code=423)
+        if gate is None or gate.locked:
+            return JSONResponse(
+                {"error": f"'{check.get('section')}' is locked — pass the checks before "
+                          "it to unlock it", "state": study}, status_code=423)
+
+        client = None
+        if check.get("kind") == "short":
+            try:
+                client = LLMClient()
+            except LLMConfigError as exc:
+                return JSONResponse({"error": str(exc)}, status_code=503)
+        try:
+            outcome = grade(check, payload.get("answer"), client=client)
+        except LLMError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=502)
+        except CheckError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
+
+        record_outcome(learner, rel, outcome)
+        return {"outcome": outcome.to_dict(), "state": study_model(rel, learner)}
 
     @app.get("/render/{rel:path}", response_class=HTMLResponse)
     def render(rel: str):

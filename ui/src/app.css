@@ -65,7 +65,21 @@ header {
 }
 .actions button:hover, .back:hover, .tab:hover { border-color: var(--accent); }
 .actions .ghost, .tab { color: var(--muted); }
+.actions button:disabled {
+  cursor: default; opacity: .45; color: var(--muted); border-color: var(--line);
+}
 .tab.active { color: var(--fg); background: var(--accent2); }
+
+/* Gated progression: a locked topic is dimmed and its reader is closed, and a gated one
+   carries how many of its knowledge checks the learner has passed. */
+.topic.locked { opacity: .6; border-left-color: var(--line); }
+.gate {
+  margin-left: 8px; font-weight: 400; font-size: 11px; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px;
+}
+.gate.passed { color: #3ddc97; border-color: #2f6f55; }
+.lock { margin-left: 6px; }
+.tabs .count { margin-left: 6px; opacity: .8; }
 
 .reader { display: flex; flex-direction: column; padding: 0; max-width: none; }
 .readerbar {
@@ -75,6 +89,47 @@ header {
 .rtitle { flex: 1; font-weight: 600; }
 .tabs { display: flex; gap: 6px; }
 .reader iframe { flex: 1; width: 100%; border: 0; background: #fff; }
+
+/* The knowledge-check pane — the reader's third tab, and the only place progression is
+   earned. Scrolls in place, like the iframe it replaces. */
+.readerpane { flex: 1; overflow: auto; padding: 18px 22px; }
+.study { max-width: 760px; }
+.study .status.locked { color: #e7c84b; }
+.checkgroup {
+  border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+  padding: 12px 16px; margin-bottom: 12px;
+}
+.checkgroup.locked { opacity: .6; }
+.checkgroup.done { border-left: 3px solid #3ddc97; }
+.checkgroup h3 {
+  display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px;
+}
+.checkgroup h3 .mark { font-size: 15px; }
+.checkgroup h3 .count { margin-left: auto; color: var(--muted); font-size: 12px; font-weight: 400; }
+.check { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
+.check .prompt { margin: 0 0 10px; }
+.check.passed { border-left: 2px solid #3ddc97; padding-left: 10px; }
+.check.failed { border-left: 2px solid #e5534b; padding-left: 10px; }
+.options { list-style: none; padding: 0; margin: 0 0 10px; }
+.options li { margin-bottom: 4px; }
+.options label { display: flex; gap: 8px; align-items: baseline; cursor: pointer; }
+.check textarea {
+  width: 100%; background: var(--panel2); color: var(--fg); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 10px; font: inherit; resize: vertical;
+}
+.check textarea.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.checkrow { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.checkrow button {
+  font: inherit; font-size: 12px; cursor: pointer; padding: 5px 12px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--panel2); color: var(--accent);
+}
+.checkrow button:hover { border-color: var(--accent); }
+.checkrow button:disabled { cursor: default; opacity: .5; border-color: var(--line); }
+.verdict { font-size: 12px; }
+.feedback {
+  margin: 8px 0 0; padding: 8px 10px; background: var(--panel2); border-radius: 8px;
+  font-size: 12px; white-space: pre-wrap; overflow-x: auto; color: var(--muted);
+}
 .hint { margin: 0; padding: 8px 16px; color: var(--muted); font-size: 12px; background: var(--panel); }
 
 main { flex: 1; padding: 22px 28px; max-width: 980px; overflow: auto; }

@@ -498,6 +498,31 @@ def grade(check: dict, answer: object, *, client: LLMClient | None = None) -> Ch
     raise CheckError(f"cannot grade a check of kind {kind!r}")
 
 
+def learner_check(check: dict, outcome: dict | None = None) -> dict:
+    """One check as the learner may see it — the answer key stripped out.
+
+    The reason the set lives beside the notebook rather than inside it is that the key
+    must never reach the reader; this is where that promise is kept for the API too.
+    `answer`, `solution`, `test` and `expected` never cross it, and `explanation` (which
+    gives the answer away) only after the check has been graded.
+    """
+    view = {
+        "id": str(check.get("id", "")),
+        "section": str(check.get("section", "")),
+        "kind": str(check.get("kind", "")),
+        "prompt": str(check.get("prompt", "")),
+    }
+    if view["kind"] == "choice":
+        view["options"] = list(check.get("options") or [])
+    elif view["kind"] == "code":
+        view["starter"] = str(check.get("starter", ""))
+    view["outcome"] = outcome or None
+    view["answered"] = outcome is not None
+    view["passed"] = bool(outcome and outcome.get("passed"))
+    view["explanation"] = str(check.get("explanation", "")) if outcome else ""
+    return view
+
+
 def checks_by_section(doc: dict) -> dict[str, list[dict]]:
     """The set indexed the way the gate reads it: section -> its checks, in order."""
     by_section: dict[str, list[dict]] = {s: [] for s in GATED_SECTIONS}
