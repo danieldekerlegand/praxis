@@ -9,5 +9,11 @@ __pycache__/
 # Jupyter / launcher runtime
 .jupyter/
 *.DS_Store
+
+# Tauri shell build output
+ui/node_modules/
+ui/dist/
+src-tauri/target/
+src-tauri/gen/
 # Chief runner state (only state/ is transient; config, verify.sh, agent-context.md are tracked)
 .chief/state/

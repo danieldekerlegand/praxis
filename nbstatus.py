@@ -2,7 +2,7 @@
 """Shared notebook status detection, used by the launcher, tests, and Ralph generator.
 
 Three states:
-  scaffold  - blank ai-tutor scaffold, or a legacy template with placeholder text
+  scaffold  - blank Praxis scaffold, or a legacy template with placeholder text
   partial   - has real content but is thin / still below the rubric bar
   complete  - substantive content, no placeholders, enough sections and code
 
@@ -28,6 +28,18 @@ STUB_MARKERS = (
 
 REQUIRED_HINTS = ("## ", "import ", "```")  # cheap "has real structure" signals
 
+# Notebooks carry their tutorial metadata under `metadata.praxis`. Notebooks
+# authored before the ai-tutor -> Praxis rebrand used `metadata.ai_tutor`; that
+# key is still read so an externally-authored legacy notebook keeps working.
+META_KEY = "praxis"
+LEGACY_META_KEY = "ai_tutor"
+
+
+def notebook_meta(nb: dict) -> dict:
+    """The Praxis metadata block of a notebook dict (legacy key as fallback)."""
+    meta = nb.get("metadata", {})
+    return meta.get(META_KEY) or meta.get(LEGACY_META_KEY) or {}
+
 
 def _text(nb: dict) -> str:
     return "".join("".join(c.get("source", [])) for c in nb.get("cells", []))
@@ -41,7 +53,7 @@ def notebook_status(path: str | Path) -> tuple[str, dict]:
     except Exception as exc:  # unreadable / invalid JSON
         return "error", {"error": str(exc)}
 
-    meta = nb.get("metadata", {}).get("ai_tutor", {})
+    meta = notebook_meta(nb)
     cells = nb.get("cells", [])
     code_cells = [c for c in cells if c.get("cell_type") == "code"]
     text = _text(nb)

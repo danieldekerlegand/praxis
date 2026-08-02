@@ -1,0 +1,29 @@
+[package]
+name = "praxis"
+version = "0.1.0"
+description = "Praxis — constructs interactive, gated notebook tutorials for any subject."
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+# Tauri wants the app logic in a lib so mobile targets can link against it;
+# src/main.rs is a thin desktop entry point over `praxis_lib::run()`.
+name = "praxis_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+# Tauri serves the embedded `ui/dist` ONLY with this feature on; without it the window
+# loads `build.devUrl` and shows a blank page unless `npm run dev` is running. It is
+# default here because this repo builds with plain cargo, not the tauri CLI — a
+# `cargo build` binary should be a standalone app. For frontend HMR, turn it off:
+#   npm --prefix ../ui run dev  &&  cargo run --no-default-features
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

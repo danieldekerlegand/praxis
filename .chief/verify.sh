@@ -9,19 +9,28 @@ changed="$(git diff --name-only "$CHIEF_BASE_BRANCH"...HEAD)"
 fail=0
 run(){ echo "== $* =="; "$@" || { echo "FAIL: $*"; fail=1; }; }
 
+# Frontend (TS/React). Runs BEFORE the Rust build: src-tauri embeds ui/dist at compile
+# time, so building the frontend first means cargo checks the real bundle.
+if echo "$changed" | grep -q '^ui/' && [ -f ui/package.json ]; then
+  if command -v npm >/dev/null; then ( cd ui && npm ci --silent >/dev/null 2>&1; run npm run build ); else echo "skip: npm not installed"; fi
+fi
+
 # Tauri backend (Rust)
 if echo "$changed" | grep -q '^src-tauri/' && [ -f src-tauri/Cargo.toml ]; then
   if command -v cargo >/dev/null; then ( cd src-tauri && run cargo build --quiet ); else echo "skip: cargo not installed"; fi
 fi
 
-# Frontend (TS/React)
-if echo "$changed" | grep -q '^ui/' && [ -f ui/package.json ]; then
-  if command -v npm >/dev/null; then ( cd ui && npm ci --silent >/dev/null 2>&1; run npm run build ); else echo "skip: npm not installed"; fi
-fi
-
-# Notebook-construction core + the completion gate (the reusable Python core)
+# Notebook-construction core + the completion gate (the reusable Python core).
+# Prefer a repo-local .venv — the system python3 usually lacks pytest/nbformat, and a
+# silently-skipped gate is worse than no gate.
 if echo "$changed" | grep -qE '\.(py|ipynb)$|^notebooks/|^tests/'; then
-  if python3 -c 'import pytest' >/dev/null 2>&1; then run python3 -m pytest -q tests/; else echo "skip: pytest not installed"; fi
+  py=python3
+  [ -x .venv/bin/python ] && py=.venv/bin/python
+  if "$py" -c 'import pytest, nbformat' >/dev/null 2>&1; then
+    run "$py" -m pytest -q tests/
+  else
+    echo "skip: pytest/nbformat not installed (create .venv: uv venv .venv && uv pip install --python .venv/bin/python pytest nbformat)"
+  fi
 fi
 
 [ "$fail" -eq 0 ] && echo "verify: PASS" || echo "verify: FAIL"

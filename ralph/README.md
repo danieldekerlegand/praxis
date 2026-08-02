@@ -58,7 +58,7 @@ ralphy --json ralph/08-architectures/tasks.json --claude --parallel --max-parall
 ## Conventions every task assumes
 
 - Single source of truth: `curriculum.py`. Rubric: `docs/notebook-rubric.md`. Gate: `tests/test_notebooks.py`.
-- A task edits exactly one notebook and marks `metadata.ai_tutor.status = "complete"` when done
+- A task edits exactly one notebook and marks `metadata.praxis.status = "complete"` when done
   (legacy domain-11 notebooks instead just drop all placeholder text).
 - "Runnable" topics need ≥2 executed code cells; "conceptual" topics use CLI/snippets with a clear note.
 - Each task's `description` embeds its full rubric + acceptance criteria, so a fresh ralphy agent

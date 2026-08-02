@@ -128,7 +128,7 @@ def scaffold_notebook(domain: Domain, topic: Topic) -> dict:
     return {
         "cells": cells,
         "metadata": {
-            "ai_tutor": {
+            "praxis": {
                 "status": "scaffold",
                 "domain": domain.dir,
                 "slug": topic.slug,

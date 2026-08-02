@@ -38,12 +38,12 @@ RUNNABLE_RULE = (
     "This topic IS Python-runnable: include >= 2 executed code cells that run "
     "top-to-bottom in a fresh kernel with real output; prefer tiny CPU-friendly "
     "examples; gate any API-key/large-download cell behind an os.getenv check so the "
-    "notebook still executes. When done, set metadata.ai_tutor.status to \"complete\"."
+    "notebook still executes. When done, set metadata.praxis.status to \"complete\"."
 )
 CONCEPTUAL_RULE = (
     "This topic is NOT Python-runnable in a notebook ({note}): use CLI commands, "
     "config/code snippets, and pseudo-code, and say so explicitly — no fake print() "
-    "theater. When done, set metadata.ai_tutor.status to \"complete\"."
+    "theater. When done, set metadata.praxis.status to \"complete\"."
 )
 
 LEGACY_RULE = (
@@ -66,7 +66,7 @@ ACCEPTANCE = (
 
 def _ctx(domain: Domain) -> str:
     return (
-        f"Project context: ai-tutor study-notebook library. This task belongs to domain "
+        f"Project context: Praxis tutorial notebook library. This task belongs to domain "
         f"'{domain.title}' (notebooks/{domain.dir}/). Single source of truth is curriculum.py; "
         f"the rubric is docs/notebook-rubric.md; the gate is tests/test_notebooks.py. Edit only "
         f"the one notebook for this task. After editing, run `python generate_docs.py` is NOT "
@@ -141,13 +141,13 @@ def build_domain(domain: Domain, index: int) -> tuple[dict, dict]:
                           "description": body, "completed": False})
 
     prd = {
-        "project": "ai-tutor",
+        "project": "praxis",
         "branchName": f"ralph/{short}",
         "description": desc,
         "userStories": stories,
     }
     tasklist = {
-        "project": "ai-tutor",
+        "project": "praxis",
         "description": desc,
         "tasks": tasks,
     }
