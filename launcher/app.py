@@ -24,8 +24,14 @@ Learning is the other write, and the one the whole thing is for:
     GET  /api/study/<rel>               a notebook's gate: sections, locked, passed
     POST /api/study/<rel>               grade one answer and move the gate (423 if locked)
 
-Everything those writes land on lives wherever `praxis/storage.py` says:
+Everything those writes land on lives wherever `praxis/storage.py` says, and which disk
+that is is itself something the user sets:
     GET  /api/storage                   the active backend, its root, and whether it's there
+    POST /api/storage                   {kind, options} -> switch backend (400 with why not)
+    POST /api/storage/sync              push/pull the cloud backend's mirror (503 if offline)
+
+Every other write is refused with 503 while the active backend is unwritable — one
+middleware, so an unplugged drive can't be silently recreated on the internal disk.
 
 Construction is the one call that can't answer inside a request — it is a model call per
 notebook — so it returns a job (launcher/jobs.py) the UI polls while 🔴 → 🟡 → ✅ moves.
@@ -352,6 +358,31 @@ def create_app():
     templates = Jinja2Templates(directory=str(here / "templates"))
     jobs = JobRegistry()  # per app: construction state lives with the process serving it
     app = FastAPI(title="Praxis launcher")
+
+    @app.middleware("http")
+    async def refuse_writes_with_nowhere_to_write(request: Request, call_next):
+        """One place that stops a write when the storage backend has gone away.
+
+        A drive gets unplugged mid-session; `mkdir(parents=True)` would cheerfully rebuild
+        `/Volumes/Backup/Praxis` on the internal disk and the user would go on filling a
+        decoy their drive never sees. So every write is checked, here rather than in four
+        endpoints that can each forget to — and `/api/storage` itself is exempt, because
+        pointing Praxis somewhere else is precisely the fix.
+
+        The check is `writable()`, not `available()`: it is local and cheap, and a cloud
+        backend with the network down is still perfectly writable (its root is a mirror),
+        so going offline must not stop a learner answering a question.
+
+        Registered *before* the CORS middleware so it ends up inside it — a 503 the
+        webview can't read because it lacks the CORS headers is not a clear error.
+        """
+        if request.method != "GET" and not request.url.path.startswith("/api/storage"):
+            ok, why = storage.active_backend().writable()
+            if not ok:
+                return JSONResponse(
+                    {"error": f"storage is unavailable — {why}"}, status_code=503)
+        return await call_next(request)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origin_regex=SHELL_ORIGIN_RE,
@@ -578,9 +609,48 @@ def create_app():
 
         Read-only, and computed per request — a backend that has gone away (an unplugged
         drive) reports `available: false` with the reason rather than 500ing. Credentials
-        in a backend's options never cross this boundary (`Backend.public_options`).
+        in a backend's options never cross this boundary (`Backend.public_options`), which
+        is also why `backends[].fields` reports a stored secret as `set: true` and never
+        by value.
         """
         return storage.describe()
+
+    @app.post("/api/storage", response_class=JSONResponse)
+    def api_select_storage(payload: dict = Body(...)):
+        """Move the user's work to another backend: `{kind, options}`.
+
+        Exempt from the write guard above — this is the endpoint that *fixes* an
+        unavailable backend. `select_backend` resolves, checks and creates before it
+        stores the choice, so a wrong path or an unreachable bucket comes back as a 400
+        with the reason and the previous selection is still in force. Nothing is copied
+        between backends: switching changes where Praxis looks, and the old root keeps
+        everything that was in it.
+        """
+        kind = str(payload.get("kind") or "").strip()
+        options = payload.get("options")
+        if not isinstance(options, dict):
+            options = {}
+        try:
+            storage.select_backend(kind, options)
+        except storage.StorageError as exc:
+            return JSONResponse({"error": str(exc), "storage": storage.describe()},
+                                status_code=400)
+        return storage.describe()
+
+    @app.post("/api/storage/sync", response_class=JSONResponse)
+    def api_sync_storage():
+        """Reconcile the active backend with wherever its real copy lives.
+
+        Only the cloud backend has one — for the others this answers `synced: false` and
+        says why there is nothing to do, rather than erroring. A sync that could not reach
+        the bucket is a 503 with the reason: reporting a sync that did not happen is the
+        one thing it must never do.
+        """
+        try:
+            return storage.sync_active()
+        except storage.StorageError as exc:
+            return JSONResponse({"error": str(exc), "storage": storage.describe()},
+                                status_code=503)
 
     @app.get("/render/{rel:path}", response_class=HTMLResponse)
     def render(rel: str):

@@ -46,8 +46,10 @@ library is preserved under [`notebooks/11-devops-mlops-infra/`](notebooks/11-dev
   dependency on any other system.
 
 - **Your data is yours and lives in one place**: subjects, tutorials and progress are
-  written under a single storage root — your app-data directory by default, and one
-  directory you can copy. See [docs/storage.md](docs/storage.md).
+  written under a single storage root — one directory you can copy. Keep it on this
+  computer (the default), on a **drive** you pick, or in an **S3-compatible bucket**
+  Praxis mirrors and syncs; choose in the app under *storage*. Switching only changes
+  where Praxis looks — nothing is moved or deleted. See [docs/storage.md](docs/storage.md).
 
 The subject-definition, AI-construction, gating, and storage capabilities land
 incrementally; the core above is what they build on.
@@ -178,6 +180,8 @@ The launcher serves it over HTTP — this is what the shell calls:
 | `POST /api/subjects` | `{"goal": "..."}` → generate + persist (spends tokens) |
 | `POST /api/subjects/<slug>/scaffold` | the reviewed curriculum → 🔴 notebooks on disk |
 | `GET /api/storage` | which backend is holding your work, and whether it's reachable |
+| `POST /api/storage` | `{"kind": "drive", "options": {...}}` → keep it somewhere else |
+| `POST /api/storage/sync` | push/pull the cloud backend's mirror |
 
 A subject's modules are ordinary domains, so the scaffolder, the badges and the gate treat
 them exactly like the seed library. Generated subjects are yours, not the product's: they

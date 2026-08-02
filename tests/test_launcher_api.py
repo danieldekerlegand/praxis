@@ -76,6 +76,94 @@ def test_storage_reports_where_the_users_data_is(client: TestClient, app_dir: Pa
     assert body["root"] == str(app_dir / "data")
     assert body["subjects"].endswith("subjects") and body["progress"].endswith("progress")
     assert "app" in body["kinds"]
+    # …and what the settings form needs to offer the other two, without a second copy
+    assert [b["kind"] for b in body["backends"]] == body["kinds"]
+    assert body["syncable"] is False
+
+
+def test_storage_can_be_pointed_somewhere_else(client: TestClient, tmp_path: Path) -> None:
+    """POST /api/storage is how the user moves their work onto a drive."""
+    drive = tmp_path / "Backup" / "Praxis"
+    drive.parent.mkdir(parents=True)
+    res = client.post("/api/storage", json={"kind": "drive", "options": {"path": str(drive)}})
+    assert res.status_code == 200
+    assert res.json()["kind"] == "drive"
+    assert res.json()["root"] == str(drive)
+    assert (drive / "subjects").is_dir()
+    assert client.get("/api/storage").json()["root"] == str(drive)
+
+
+def test_an_unusable_backend_is_refused_and_the_old_one_stays(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """A mistyped path must not become the active backend — 400, with the reason."""
+    drive = tmp_path / "Backup" / "Praxis"
+    drive.parent.mkdir(parents=True)
+    client.post("/api/storage", json={"kind": "drive", "options": {"path": str(drive)}})
+
+    res = client.post("/api/storage",
+                      json={"kind": "drive", "options": {"path": str(tmp_path / "no/such/p")}})
+    assert res.status_code == 400
+    assert "is not there" in res.json()["error"]
+    assert client.get("/api/storage").json()["root"] == str(drive)
+
+    res = client.post("/api/storage", json={"kind": "floppy", "options": {}})
+    assert res.status_code == 400 and "unknown storage backend" in res.json()["error"]
+
+
+def test_a_backend_that_has_gone_away_refuses_writes_rather_than_recreating_itself(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """An unplugged drive: 503 with the reason on every write, and nothing on disk.
+
+    Without the guard, `save_subject` would `mkdir(parents=True)` the drive's folder back
+    into existence on the internal disk and the user would fill a decoy. Reads still work
+    — the seed library is not on the drive.
+    """
+    mount = tmp_path / "Backup"
+    drive = mount / "Praxis"
+    mount.mkdir()
+    client.post("/api/storage", json={"kind": "drive", "options": {"path": str(drive)}})
+    mount.rename(tmp_path / "gone")
+
+    for path, payload in [
+        ("/api/subjects", {"goal": "sail"}),
+        ("/api/subjects/anything/scaffold", {}),
+        ("/api/construct", {"domain": "python"}),
+        ("/api/study/notebooks/x.ipynb", {"check_id": "c1", "answer": "a"}),
+    ]:
+        res = client.post(path, json=payload)
+        assert res.status_code == 503, path
+        assert "storage is unavailable" in res.json()["error"]
+        assert "is not there" in res.json()["error"]
+    assert not drive.exists() and not mount.exists()
+
+    assert client.get("/api/library").status_code == 200
+    assert client.get("/api/storage").json()["available"] is False
+
+
+def test_pointing_storage_somewhere_usable_is_never_blocked(
+    client: TestClient, tmp_path: Path
+) -> None:
+    """The one write the guard must let through: the one that fixes the problem."""
+    mount = tmp_path / "Backup"
+    (mount / "Praxis").mkdir(parents=True)
+    client.post("/api/storage", json={"kind": "drive", "options": {"path": str(mount / "Praxis")}})
+    mount.rename(tmp_path / "gone")
+    assert client.post("/api/subjects", json={"goal": "sail"}).status_code == 503
+
+    res = client.post("/api/storage", json={"kind": "app", "options": {}})
+    assert res.status_code == 200 and res.json()["kind"] == "app"
+    assert client.get("/api/storage").json()["available"] is True
+
+
+def test_syncing_a_backend_that_is_already_in_one_place_is_not_an_error(
+    client: TestClient,
+) -> None:
+    res = client.post("/api/storage/sync")
+    assert res.status_code == 200
+    assert res.json() == {"kind": "app", "synced": False,
+                          "detail": "app storage is already in one place — nothing to sync"}
 
 
 def test_library_carries_every_seed_notebook(library: dict) -> None:

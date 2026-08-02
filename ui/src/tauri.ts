@@ -22,6 +22,18 @@ export async function appInfo(): Promise<AppInfo> {
   return invoke<AppInfo>("app_info");
 }
 
+/**
+ * A native folder picker, for pointing storage at a drive.
+ *
+ * `null` when the user cancelled — and also in a plain browser, where there is no native
+ * dialog to open. The settings view keeps its text field for exactly that reason, so
+ * choosing a folder never depends on the shell being there.
+ */
+export async function pickFolder(): Promise<string | null> {
+  if (!isTauri()) return null;
+  return (await invoke<string | null>("pick_folder")) ?? null;
+}
+
 export type LauncherStatus = {
   state: "starting" | "ready" | "failed";
   url: string | null;

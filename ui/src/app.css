@@ -195,10 +195,45 @@ h1 { margin: 0 0 10px; font-size: 26px; line-height: 1.3; }
 .module .blurb { margin-bottom: 10px; font-size: 13px; }
 .module .actions code { color: var(--muted); }
 
+/* Choosing a storage backend. The cards are the same panel/line tokens as .core, and the
+   form fields the same as .define's — a settings view should look like the rest of the
+   app, not like a settings view. */
+.storage .status { margin-top: 16px; margin-bottom: 18px; }
+.storage .status .note { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.backends { list-style: none; padding: 0; margin: 18px 0 24px; }
+.backend {
+  border: 1px solid var(--line); border-left: 3px solid var(--line);
+  border-radius: 8px; margin-bottom: 8px; background: var(--panel);
+}
+.backend.open { border-left-color: var(--accent); }
+.pick {
+  display: grid; grid-template-columns: 20px 220px 1fr; gap: 12px; align-items: center;
+  width: 100%; padding: 12px 14px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--fg); font: inherit; text-align: left; cursor: pointer;
+}
+.pick:hover { background: var(--panel2); }
+.radio { color: var(--accent); }
+.bname { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.bform { padding: 4px 14px 14px 52px; display: flex; flex-direction: column; gap: 10px; }
+.bform label { display: flex; flex-direction: column; gap: 4px; }
+.bform label > span { color: var(--muted); font-size: 12px; }
+.frow { display: flex; gap: 8px; align-items: center; }
+.bform input {
+  flex: 1; font: inherit; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--panel2); color: var(--fg);
+}
+.bform input:focus { outline: 0; border-color: var(--accent); }
+.bform .ghost { white-space: nowrap; }
+
 footer {
   padding: 10px 20px; border-top: 1px solid var(--line);
   background: var(--panel); color: var(--muted); font-size: 12px;
 }
-/* Where the user's own work is being written (praxis/storage.py). */
-footer .store { white-space: nowrap; }
-footer .store.error { color: #e5534b; }
+/* Where the user's own work is being written (praxis/storage.py). Clickable, because the
+   moment it turns red is the moment the user needs the settings view. */
+footer .store {
+  white-space: nowrap; font: inherit; color: inherit;
+  background: none; border: 0; padding: 0; cursor: pointer;
+}
+footer .store:hover { color: var(--fg); text-decoration: underline; }
+footer .store.error, footer .store.error:hover { color: #e5534b; }
