@@ -19,7 +19,8 @@ replace it.
 | Piece | Role in Praxis |
 |-------|----------------|
 | [`docs/notebook-rubric.md`](docs/notebook-rubric.md) | **The definition of a complete tutorial** — 8 sections, runnable vs conceptual. Construction agents fill to this bar; it is also the shape of the gated tutorial. |
-| [`curriculum.py`](curriculum.py) | Single source of truth for subjects (domains) and their topics. |
+| [`curriculum.py`](curriculum.py) | The curriculum model — the seed domains, and the data-driven subjects a user defines. |
+| [`praxis/curriculum_gen.py`](praxis/curriculum_gen.py) | **Subject → curriculum** — free text in, modules → topics out, one notebook per topic. |
 | [`scaffold_notebooks.py`](scaffold_notebooks.py) | **The scaffolder** — turns a subject's topic list into notebook scaffolds. |
 | [`nbstatus.py`](nbstatus.py) | **The gate (heuristic side)** — the status badge every topic carries: 🔴 scaffold · 🟡 partial · ✅ complete. |
 | [`tests/test_notebooks.py`](tests/test_notebooks.py) | **The gate (authoritative side)** — a tutorial is complete only when this passes for it. |
@@ -133,8 +134,34 @@ status badge (🔴 scaffold · 🟡 partial · ✅ complete).
 
 ## Defining a subject
 
-Edit [`curriculum.py`](curriculum.py) (add/remove topics; `recommended=True` marks
-suggested additions), then:
+Open the desktop shell, hit **define a subject**, and describe what you want to learn in
+your own words. Praxis asks your model (see above — your key, your provider) for a
+curriculum: modules, then one notebook per topic, each tagged runnable or conceptual. The
+result is saved to `notebooks/subjects/<slug>/curriculum.json` and shown for review before
+any notebook is written.
+
+The same thing from a terminal:
+
+```bash
+python -m praxis.curriculum_gen "I want to navigate by the stars"
+python -m praxis.curriculum_gen --modules 6 --topics 5 "conversational Portuguese"
+python curriculum.py                # what is defined: seed domains + your subjects
+```
+
+The launcher serves it over HTTP — this is what the shell calls:
+
+| Route | |
+|---|---|
+| `GET /api/subjects` | every persisted subject, newest first |
+| `GET /api/subjects/<slug>` | one curriculum, modules → topics |
+| `POST /api/subjects` | `{"goal": "..."}` → generate + persist (the only write) |
+
+A subject's modules are ordinary domains, so the scaffolder, the badges and the gate treat
+them exactly like the seed library. Generated subjects are yours, not the product's:
+`notebooks/subjects/` is gitignored.
+
+To edit the **seed** curriculum instead, change [`curriculum.py`](curriculum.py)
+(add/remove topics; `recommended=True` marks suggested additions), then:
 
 ```bash
 python scaffold_notebooks.py        # scaffold new topics

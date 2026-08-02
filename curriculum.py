@@ -1,13 +1,26 @@
 #!/usr/bin/env python3
-"""Single source of truth for the Praxis seed tutorial library.
+"""The Praxis curriculum model — the seed library plus user-defined subjects.
 
-Defines the 11 study domains and their topics. Drives:
+A **curriculum** is a subject broken into modules, each module a list of topics, each
+topic exactly one notebook. Two kinds share that one shape:
+
+  seed       the 11 hand-written study domains enumerated below — Praxis ships them as
+             the example library and as worked examples of a finished tutorial.
+  generated  a user-defined subject: free text -> praxis/curriculum_gen.py asks the LLM
+             for the same structure -> persisted as JSON under
+             notebooks/subjects/<slug>/curriculum.json and read back with load_subject().
+
+Because both resolve to the same `Domain`/`Topic` objects, everything downstream —
+scaffold_notebooks.py, launcher/app.py, nbstatus.py, the gate — works on a generated
+subject exactly as it works on a seed domain.
+
+Drives:
   - scaffold_notebooks.py   (creates blank notebook scaffolds + reorgs the legacy 64)
   - launcher/app.py         (sidebar navigation + completion status)
   - ralph/generate_tasklists.py (one ralphy task per notebook below the rubric bar)
   - CURRICULUM.md / docs/gap-analysis.md (generated human indices)
 
-Domains 1-10 are the new study curriculum (explicit topic lists below).
+Domains 1-10 are the seed study curriculum (explicit topic lists below).
 Domain 11 (DevOps/MLOps & Infra) is the relocated legacy library; its topics are
 discovered from the filesystem (source="filesystem"), not enumerated here.
 
@@ -23,7 +36,11 @@ Each Topic carries:
 
 from __future__ import annotations
 
+import json
+import os
+import re
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -38,11 +55,17 @@ class Topic:
 
 @dataclass(frozen=True)
 class Domain:
+    """A titled group of topics — a seed domain, or one module of a user subject."""
+
     dir: str  # notebooks/<dir>/
     title: str
     blurb: str
     topics: tuple[Topic, ...] = ()
-    source: str = "manifest"  # "manifest" (topics below) or "filesystem" (scan disk)
+    # "manifest"   topics are enumerated below; every one of them has a notebook
+    # "filesystem" topics are discovered by scanning notebooks/<dir> (the legacy library)
+    # "subject"    a generated subject's module: topics are enumerated, but only the
+    #              ones already scaffolded exist on disk
+    source: str = "manifest"
 
 
 def T(slug, title, runnable=True, recommended=False, note=""):
@@ -290,12 +313,273 @@ def domain_by_dir(d: str) -> Domain | None:
     return next((dom for dom in DOMAINS if dom.dir == d), None)
 
 
+def domain_path(domain: Domain) -> Path:
+    """Where a domain's notebooks live.
+
+    `Domain.dir` is always relative to the notebooks root, so `/render/<rel>` and the
+    library's paths are the same string everywhere. A generated subject resolves
+    against `subjects_dir()` instead, so relocating that (tests) moves its curriculum
+    and its notebooks together.
+    """
+    if domain.source == "subject":
+        return subjects_dir().parent / domain.dir
+    return NOTEBOOKS_DIR / domain.dir
+
+
 def topic_path(domain: Domain, topic: Topic) -> Path:
-    return NOTEBOOKS_DIR / domain.dir / f"{topic.slug}.ipynb"
+    return domain_path(domain) / f"{topic.slug}.ipynb"
 
 
 def all_manifest_topics() -> list[tuple[Domain, Topic]]:
     return [(d, t) for d in DOMAINS for t in d.topics]
+
+
+# ---------------------------------------------------------------------------
+# User-defined subjects
+#
+# Same shape as the seed manifest above, but data-driven: a Subject is generated
+# per user goal (praxis/curriculum_gen.py) and stored as JSON. Its modules ARE
+# Domains, so the scaffolder, the launcher and the gate need no special case.
+# ---------------------------------------------------------------------------
+
+Module = Domain  # a subject's modules are Domains: a titled group of topics
+
+# notebooks/subjects/<slug>/curriculum.json + notebooks/subjects/<slug>/<NN-module>/*.ipynb
+SUBJECTS_ROOT = "subjects"
+CURRICULUM_FILE = "curriculum.json"
+
+SLUG_MAX = 60
+
+
+class CurriculumError(ValueError):
+    """A curriculum payload could not be read as a subject."""
+
+
+def subjects_dir() -> Path:
+    """Where generated subjects live. `PRAXIS_SUBJECTS_DIR` relocates them (tests)."""
+    override = os.environ.get("PRAXIS_SUBJECTS_DIR")
+    return Path(override) if override else NOTEBOOKS_DIR / SUBJECTS_ROOT
+
+
+def slugify(text: str, fallback: str = "") -> str:
+    """Kebab-case a title into something safe as a directory or file stem."""
+    slug = re.sub(r"[^a-z0-9]+", "-", str(text or "").lower()).strip("-")[:SLUG_MAX]
+    return slug.strip("-") or fallback
+
+
+def _text(value: object) -> str:
+    return value.strip() if isinstance(value, str) else ""
+
+
+def _unique(slug: str, used: set[str]) -> str:
+    """Two topics that slugify the same would overwrite one notebook — suffix instead."""
+    candidate, n = slug, 2
+    while candidate in used:
+        candidate, n = f"{slug}-{n}", n + 1
+    used.add(candidate)
+    return candidate
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+@dataclass(frozen=True)
+class Subject:
+    """One user-defined subject: the goal, and the curriculum generated for it."""
+
+    slug: str
+    title: str
+    goal: str = ""          # the free text the user typed
+    blurb: str = ""         # a one-line description of the curriculum
+    modules: tuple[Domain, ...] = ()
+    created: str = ""       # ISO-8601 UTC
+    model: str = ""         # provenance: which model wrote this curriculum
+    source: str = "generated"  # "generated" | "seed"
+
+    @property
+    def n_topics(self) -> int:
+        return sum(len(m.topics) for m in self.modules)
+
+    @property
+    def dir(self) -> Path:
+        return subjects_dir() / self.slug
+
+    @property
+    def path(self) -> Path:
+        return self.dir / CURRICULUM_FILE
+
+    def to_dict(self) -> dict:
+        return {
+            "slug": self.slug,
+            "title": self.title,
+            "goal": self.goal,
+            "blurb": self.blurb,
+            "created": self.created,
+            "model": self.model,
+            "source": self.source,
+            "n_topics": self.n_topics,
+            "modules": [
+                {
+                    "dir": m.dir,
+                    "title": m.title,
+                    "blurb": m.blurb,
+                    "topics": [
+                        {
+                            "slug": t.slug,
+                            "title": t.title,
+                            "runnable": t.runnable,
+                            "recommended": t.recommended,
+                            "note": t.note,
+                        }
+                        for t in m.topics
+                    ],
+                }
+                for m in self.modules
+            ],
+        }
+
+
+def _topic_from_dict(raw: object, used: set[str]) -> Topic:
+    if not isinstance(raw, dict):
+        raise CurriculumError(f"a topic must be an object, got {type(raw).__name__}")
+    title = _text(raw.get("title"))
+    if not title:
+        raise CurriculumError("a topic is missing its title")
+    slug = slugify(raw.get("slug") or title)
+    if not slug:
+        raise CurriculumError(f"topic {title!r} has no usable slug")
+    return Topic(
+        slug=_unique(slug, used),
+        title=title,
+        runnable=bool(raw.get("runnable", True)),
+        recommended=bool(raw.get("recommended", False)),
+        note=_text(raw.get("note")),
+    )
+
+
+def _module_dir(subject_slug: str, raw: dict, index: int, title: str) -> str:
+    """Keep a stored dir (renaming a subject must not orphan its notebooks)."""
+    stored = _text(raw.get("dir"))
+    prefix = f"{SUBJECTS_ROOT}/{subject_slug}/"
+    if stored:
+        if not stored.startswith(prefix) or ".." in stored.split("/"):
+            raise CurriculumError(f"module dir {stored!r} escapes {prefix}")
+        return stored
+    slug = slugify(raw.get("slug") or title, fallback=f"module-{index}")
+    return f"{prefix}{index:02d}-{slug}"
+
+
+def _module_from_dict(raw: object, index: int, subject_slug: str) -> Domain:
+    if not isinstance(raw, dict):
+        raise CurriculumError(f"a module must be an object, got {type(raw).__name__}")
+    title = _text(raw.get("title")) or f"Module {index}"
+    topics_raw = raw.get("topics")
+    if not isinstance(topics_raw, list) or not topics_raw:
+        raise CurriculumError(f"module {title!r} has no topics")
+    used: set[str] = set()
+    return Domain(
+        dir=_module_dir(subject_slug, raw, index, title),
+        title=title,
+        blurb=_text(raw.get("blurb")),
+        topics=tuple(_topic_from_dict(t, used) for t in topics_raw),
+        source="subject",
+    )
+
+
+def subject_from_dict(
+    raw: object, *, slug: str = "", goal: str = "", model: str = ""
+) -> Subject:
+    """Normalize a curriculum payload — freshly generated or read back from disk.
+
+    Lenient about what the model returns (slugs, dirs, flags and blurbs are all
+    derived when absent) and strict about what would break the scaffolder: every
+    subject needs a slug, a title, and at least one module holding titled topics.
+    """
+    if not isinstance(raw, dict):
+        raise CurriculumError(f"a curriculum must be an object, got {type(raw).__name__}")
+    title = _text(raw.get("title")) or _text(raw.get("subject"))
+    goal = goal or _text(raw.get("goal"))
+    if not title:
+        title = goal[:80] or ""
+    if not title:
+        raise CurriculumError("curriculum is missing its title")
+    subject_slug = slugify(slug or raw.get("slug") or title)
+    if not subject_slug:
+        raise CurriculumError(f"subject {title!r} has no usable slug")
+
+    modules_raw = raw.get("modules")
+    if not isinstance(modules_raw, list) or not modules_raw:
+        raise CurriculumError(f"curriculum {title!r} has no modules")
+    modules = tuple(
+        _module_from_dict(m, i, subject_slug) for i, m in enumerate(modules_raw, start=1)
+    )
+    dirs = [m.dir for m in modules]
+    if len(set(dirs)) != len(dirs):
+        raise CurriculumError(f"curriculum {title!r} has two modules in the same directory")
+
+    return Subject(
+        slug=subject_slug,
+        title=title,
+        goal=goal,
+        blurb=_text(raw.get("blurb")) or _text(raw.get("description")),
+        modules=modules,
+        created=_text(raw.get("created")) or _now(),
+        model=model or _text(raw.get("model")),
+        source=_text(raw.get("source")) or "generated",
+    )
+
+
+def save_subject(subject: Subject) -> Path:
+    """Persist a subject's curriculum. Returns the file written."""
+    path = subject.path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(subject.to_dict(), indent=2) + "\n")
+    return path
+
+
+def load_subject(slug: str) -> Subject:
+    path = subjects_dir() / slugify(slug) / CURRICULUM_FILE
+    try:
+        raw = json.loads(path.read_text())
+    except FileNotFoundError as exc:
+        raise CurriculumError(f"no subject {slug!r} at {path}") from exc
+    except (OSError, ValueError) as exc:
+        raise CurriculumError(f"could not read {path}: {exc}") from exc
+    return subject_from_dict(raw, slug=slug)
+
+
+def all_subjects() -> list[Subject]:
+    """Every persisted subject, newest first. Unreadable ones are skipped, not fatal."""
+    root = subjects_dir()
+    if not root.is_dir():
+        return []
+    found = []
+    for entry in sorted(root.iterdir()):
+        if not (entry / CURRICULUM_FILE).is_file():
+            continue
+        try:
+            found.append(load_subject(entry.name))
+        except CurriculumError:
+            continue  # user data: a broken file must not take down the library
+    return sorted(found, key=lambda s: (s.created, s.slug), reverse=True)
+
+
+def seed_subject() -> Subject:
+    """The built-in domains, presented as one subject alongside generated ones."""
+    return Subject(
+        slug="seed",
+        title="Praxis seed library",
+        goal="The hand-written study curriculum Praxis ships with.",
+        blurb="Eleven domains of AI/ML tooling, kept as examples of a finished tutorial.",
+        modules=tuple(DOMAINS),
+        source="seed",
+    )
+
+
+def all_curricula() -> list[Subject]:
+    """The seed curriculum plus every user-defined subject."""
+    return [seed_subject(), *all_subjects()]
 
 
 if __name__ == "__main__":
@@ -308,3 +592,7 @@ if __name__ == "__main__":
             print(f"  {d.dir:42} {len(d.topics):3} topics")
         else:
             print(f"  {d.dir:42}  (filesystem)")
+    subjects = all_subjects()
+    print(f"\n{len(subjects)} user-defined subject(s) in {subjects_dir()}:")
+    for s in subjects:
+        print(f"  {s.slug:42} {len(s.modules):3} modules, {s.n_topics:3} topics")

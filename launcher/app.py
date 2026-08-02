@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
-"""Praxis launcher — a read-only FastAPI app.
+"""Praxis launcher — the FastAPI app the desktop shell is a window onto.
 
-Left sidebar = the 11 domains. Each topic shows a completion badge (🔴/🟡/✅) and
-links to the live notebook in JupyterLab and to a rendered read-only HTML view.
+Left sidebar = the seed domains, plus the modules of any user-defined subject that has
+notebooks. Each topic shows a completion badge (🔴/🟡/✅) and links to the live notebook
+in JupyterLab and to a rendered read-only HTML view.
 
 Serves the same library three ways off one view model (``build_model``):
     /             the standalone HTML browser
     /api/library  the same model as JSON — what the Tauri shell's browser reads
     /render/<rel> a read-only HTML render of one notebook (the shell iframes this)
+
+Browsing is read-only. The one thing that writes is subject definition, which is why
+POST exists at all:
+    GET  /api/subjects         every persisted subject (curriculum.all_subjects)
+    POST /api/subjects         free-text goal -> AI-generated curriculum, persisted
+    GET  /api/subjects/<slug>  one curriculum, for review before scaffolding
 
 Run the two pieces (separate terminals):
     praxis-lab        # JupyterLab rooted at the repo, on :8888 (no token)
@@ -28,30 +35,62 @@ from typing import Optional
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from curriculum import DOMAINS, NOTEBOOKS_DIR, Domain  # noqa: E402
+from curriculum import (  # noqa: E402
+    DOMAINS,
+    NOTEBOOKS_DIR,
+    CurriculumError,
+    Domain,
+    all_subjects,
+    domain_path,
+    load_subject,
+)
 from nbstatus import BADGE, notebook_status  # noqa: E402
+from praxis.curriculum_gen import generate_and_save  # noqa: E402
+from praxis.llm import LLMConfigError, LLMError  # noqa: E402
 
 LAB_PORT = int(os.environ.get("PRAXIS_LAB_PORT", "8888"))
 LAB_BASE = os.environ.get("PRAXIS_LAB_URL", f"http://localhost:{LAB_PORT}")
 
 
 def _short(domain: Domain) -> str:
-    return domain.dir.split("-", 1)[1].replace("-", " ").title()
+    """Sidebar label: the last path segment, minus any `NN-` ordering prefix."""
+    leaf = domain.dir.rsplit("/", 1)[-1]
+    head, _, rest = leaf.partition("-")
+    return (rest if head.isdigit() and rest else leaf).replace("-", " ").title()
+
+
+def _library_domains() -> list[Domain]:
+    """The seed domains, then every generated-subject module that has notebooks.
+
+    A subject's modules only appear once they are scaffolded, so defining a subject
+    doesn't put empty groups in the sidebar — and every notebook on disk belongs to
+    exactly one listed domain, which is what keeps the counts honest.
+    """
+    domains = list(DOMAINS)
+    for subject in all_subjects():
+        domains += [m for m in subject.modules if any(domain_path(m).glob("*.ipynb"))]
+    return domains
 
 
 def _topics_for(domain: Domain) -> list:
     """Uniform topic view models for a domain, from manifest or filesystem."""
-    base = NOTEBOOKS_DIR / domain.dir
+    base = domain_path(domain)
     rows = []
-    if domain.source == "filesystem":
-        for p in sorted(base.rglob("*.ipynb")):
+    if domain.source in ("filesystem", "subject"):
+        # Only what exists: a subject's curriculum may run ahead of its scaffolds.
+        titles = {t.slug: t for t in domain.topics}
+        paths = sorted(base.glob("*.ipynb") if domain.source == "subject"
+                       else base.rglob("*.ipynb"))
+        for p in paths:
             status, _ = notebook_status(p)
+            topic = titles.get(p.stem)
             rows.append({
-                "title": p.stem.replace("-", " ").title(),
-                "rel": p.relative_to(NOTEBOOKS_DIR).as_posix(),
+                "title": topic.title if topic else p.stem.replace("-", " ").title(),
+                "rel": f"{domain.dir}/{p.relative_to(base).as_posix()}",
                 "status": status,
-                "recommended": False,
-                "note": p.parent.name if p.parent != base else "",
+                "recommended": bool(topic and topic.recommended),
+                "note": (topic.note if topic else
+                         (p.parent.name if p.parent != base else "")),
             })
     else:
         for t in domain.topics:
@@ -71,7 +110,7 @@ def build_model() -> dict:
     """Everything the templates need; recomputed per request so badges stay live."""
     domains = []
     counts = {"scaffold": 0, "partial": 0, "complete": 0, "error": 0}
-    for d in DOMAINS:
+    for d in _library_domains():
         topics = _topics_for(d)
         for r in topics:
             counts[r["status"]] = counts.get(r["status"], 0) + 1
@@ -98,7 +137,7 @@ def build_model() -> dict:
 # FastAPI imported at module level (guarded) so route type hints resolve in this
 # module's globals. The launch extra installs it; absent, create_app() explains.
 try:
-    from fastapi import FastAPI, Request
+    from fastapi import Body, FastAPI, Request
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
     from fastapi.staticfiles import StaticFiles
@@ -152,7 +191,8 @@ def create_app():
     app.add_middleware(
         CORSMiddleware,
         allow_origin_regex=SHELL_ORIGIN_RE,
-        allow_methods=["GET"],
+        # POST is only for defining a subject; everything else is a read.
+        allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
     app.mount("/static", StaticFiles(directory=str(here / "static")), name="static")
@@ -173,6 +213,46 @@ def create_app():
         app can never disagree about a badge. Recomputed per request.
         """
         return build_model()
+
+    @app.get("/api/subjects", response_class=JSONResponse)
+    def api_subjects():
+        """Every user-defined subject, newest first — the review list in the shell."""
+        return {"subjects": [s.to_dict() for s in all_subjects()]}
+
+    @app.get("/api/subjects/{slug}", response_class=JSONResponse)
+    def api_subject(slug: str):
+        """One persisted curriculum: modules -> topics, for review before scaffolding."""
+        try:
+            return load_subject(slug).to_dict()
+        except CurriculumError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=404)
+
+    @app.post("/api/subjects", response_class=JSONResponse)
+    def api_define_subject(payload: dict = Body(...)):
+        """Free-text goal -> AI-generated curriculum, persisted for review.
+
+        The only write in this app. It spends tokens against the user's own key
+        (praxis/llm.py), so the failure modes are reported apart: 400 the goal is
+        empty, 503 nothing is configured to call, 502 the provider failed, 422 the
+        model answered with something that isn't a usable curriculum.
+        """
+        goal = str(payload.get("goal") or "").strip()
+        if not goal:
+            return JSONResponse({"error": "a subject needs a goal"}, status_code=400)
+        try:
+            subject = generate_and_save(
+                goal,
+                slug=str(payload.get("slug") or ""),
+                modules=payload.get("modules", 5),
+                topics_per_module=payload.get("topics_per_module", 6),
+            )
+        except LLMConfigError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=503)
+        except LLMError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=502)
+        except CurriculumError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
+        return JSONResponse(subject.to_dict(), status_code=201)
 
     @app.get("/render/{rel:path}", response_class=HTMLResponse)
     def render(rel: str):

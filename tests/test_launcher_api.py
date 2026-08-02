@@ -2,7 +2,11 @@
 
 The shell (src-tauri/src/library.rs) starts launcher/app.py and reads /api/library, so
 these are the contracts that break the in-app library if they drift: the JSON shape, the
-badge map, and the notebook render route.
+badge map, the notebook render route, and the subject-definition endpoints the "define a
+subject" view posts to.
+
+No test here ever calls a model: `generate_and_save` is replaced wherever a subject is
+defined, so the suite stays offline and spends nothing.
 
 Skipped wholesale when the launch extra isn't installed — the core stays dependency-light
 (pip install -e '.[launch]').
@@ -10,6 +14,7 @@ Skipped wholesale when the launch extra isn't installed — the core stays depen
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -22,7 +27,21 @@ pytest.importorskip("fastapi", reason="launch extra not installed")
 pytest.importorskip("jinja2", reason="launch extra not installed")
 from fastapi.testclient import TestClient  # noqa: E402
 
+import launcher.app as launcher_app  # noqa: E402
+from curriculum import CurriculumError, save_subject, subject_from_dict  # noqa: E402
 from launcher.app import SHELL_ORIGIN_RE, _exit_with_parent, create_app  # noqa: E402
+from praxis.llm import LLMConfigError, LLMError  # noqa: E402
+
+CURRICULUM = {
+    "title": "Sailing Navigation",
+    "blurb": "Get a small boat somewhere on purpose.",
+    "modules": [
+        {
+            "title": "Charts",
+            "topics": [{"title": "Reading a Chart"}, {"title": "Dead Reckoning"}],
+        }
+    ],
+}
 
 
 @pytest.fixture(scope="module")
@@ -88,3 +107,109 @@ def test_only_a_local_shell_origin_is_allowed() -> None:
     assert pattern.match("tauri://localhost")
     assert pattern.match("http://localhost:1420")
     assert not pattern.match("https://example.com")
+
+
+# --- defining a subject ----------------------------------------------------
+
+
+@pytest.fixture
+def subjects_root(monkeypatch, tmp_path) -> Path:
+    """Point the subject store at a temp dir — never the repo's own library."""
+    monkeypatch.setenv("PRAXIS_SUBJECTS_DIR", str(tmp_path / "subjects"))
+    return tmp_path / "subjects"
+
+
+@pytest.fixture
+def no_model(monkeypatch):
+    """Replace the generator, so defining a subject in a test never calls a model."""
+
+    def install(outcome):
+        def fake(goal, **kwargs):
+            if isinstance(outcome, Exception):
+                raise outcome
+            subject = subject_from_dict(CURRICULUM, goal=goal, model="test-model")
+            save_subject(subject)
+            return subject
+
+        monkeypatch.setattr(launcher_app, "generate_and_save", fake)
+
+    return install
+
+
+def test_defining_a_subject_persists_a_curriculum_for_review(
+    client: TestClient, subjects_root: Path, no_model
+) -> None:
+    no_model(None)
+    res = client.post("/api/subjects", json={"goal": "I want to navigate a small boat"})
+
+    assert res.status_code == 201
+    body = res.json()
+    assert body["slug"] == "sailing-navigation"
+    assert body["goal"] == "I want to navigate a small boat"
+    assert body["n_topics"] == 2
+    assert body["modules"][0]["dir"] == "subjects/sailing-navigation/01-charts"
+
+    stored = subjects_root / "sailing-navigation" / "curriculum.json"
+    assert json.loads(stored.read_text())["title"] == "Sailing Navigation"
+    assert client.get("/api/subjects").json()["subjects"][0]["slug"] == "sailing-navigation"
+    assert client.get("/api/subjects/sailing-navigation").json() == body
+
+
+def test_a_subject_with_no_goal_is_refused_before_any_call(
+    client: TestClient, subjects_root: Path, no_model
+) -> None:
+    no_model(AssertionError("must not reach the model"))
+    assert client.post("/api/subjects", json={"goal": "   "}).status_code == 400
+    assert client.post("/api/subjects", json={}).status_code == 400
+
+
+@pytest.mark.parametrize(
+    "error, status",
+    [
+        (LLMConfigError("no API key for provider 'anthropic'"), 503),
+        (LLMError("anthropic call failed (429)"), 502),
+        (CurriculumError("curriculum 'x' has no modules"), 422),
+    ],
+)
+def test_each_failure_mode_is_reported_apart(
+    client: TestClient, subjects_root: Path, no_model, error, status
+) -> None:
+    """The shell shows the launcher's message, so an unset key must not read as 500."""
+    no_model(error)
+    res = client.post("/api/subjects", json={"goal": "anything"})
+    assert res.status_code == status
+    assert str(error) in res.json()["error"]
+
+
+def test_an_unknown_subject_is_a_404(client: TestClient, subjects_root: Path) -> None:
+    assert client.get("/api/subjects").json() == {"subjects": []}
+    assert client.get("/api/subjects/never-defined").status_code == 404
+
+
+def test_a_subject_reaches_the_library_only_once_it_has_notebooks(
+    client: TestClient, subjects_root: Path, no_model
+) -> None:
+    """Defining a subject writes a curriculum, not notebooks — the badge counts hold."""
+    before = client.get("/api/library").json()
+    no_model(None)
+    client.post("/api/subjects", json={"goal": "navigate a small boat"})
+    assert client.get("/api/library").json()["total"] == before["total"]
+
+    module = subjects_root / "sailing-navigation" / "01-charts"
+    module.mkdir(parents=True)
+    (module / "reading-a-chart.ipynb").write_text(
+        json.dumps({"cells": [], "metadata": {"praxis": {"status": "scaffold"}},
+                    "nbformat": 4, "nbformat_minor": 5})
+    )
+
+    after = client.get("/api/library").json()
+    assert after["total"] == before["total"] + 1
+    charts = next(d for d in after["domains"] if d["dir"].startswith("subjects/"))
+    assert charts["name"] == "Charts"
+    assert charts["topics"] == [{
+        "title": "Reading a Chart",   # titled from the curriculum, not the filename
+        "rel": "subjects/sailing-navigation/01-charts/reading-a-chart.ipynb",
+        "status": "scaffold",
+        "recommended": False,
+        "note": "",
+    }]

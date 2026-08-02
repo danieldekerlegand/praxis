@@ -30,6 +30,24 @@ loopback port; the webview fetches it directly, so cross-origin access is gated 
 The two stylesheets `launcher/static/app.css` and `ui/src/app.css` share `:root` tokens on
 purpose. Keep them in sync.
 
+## Curricula: seed and generated
+
+`curriculum.py` is one model for both. A user-defined subject's **modules are `Domain`s**
+(`Module = Domain`), so the scaffolder, the launcher and the gate need no branch for them —
+give a new consumer `Domain`/`Topic` and it works on either. Only `Domain.source` differs:
+`manifest` (every topic has a notebook) · `filesystem` (scan the dir) · `subject` (topics
+are enumerated, but only the scaffolded ones exist yet).
+
+`Domain.dir` is always relative to the notebooks root — that string is the `rel` in
+`/api/library` and `/render/<rel>`. Resolve it to a path with `domain_path(domain)`, never
+by hand: a generated subject resolves under `subjects_dir()`, which `PRAXIS_SUBJECTS_DIR`
+relocates so tests don't write into `notebooks/`.
+
+The AI never writes files directly. `praxis/curriculum_gen.py` asks for JSON, and
+`subject_from_dict()` normalizes it — lenient about what the model omits (slugs, dirs,
+flags), strict about what would break the scaffolder. Extend that validation rather than
+trusting a payload downstream. Generated content is gitignored (`notebooks/subjects/`).
+
 ## Gates
 
 `python3 -m pytest -q tests/` (notebook core + launcher API), `npm run build` in `ui/`,
