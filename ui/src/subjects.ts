@@ -38,8 +38,8 @@ export type Subject = {
   modules: SubjectModule[];
 };
 
-/** The launcher reports why a definition failed; surface its message, not the status. */
-async function fail(res: Response, what: string): Promise<never> {
+/** The launcher reports why a write failed; surface its message, not the status. */
+export async function fail(res: Response, what: string): Promise<never> {
   let detail = `${res.status}`;
   try {
     const body = (await res.json()) as { error?: string };

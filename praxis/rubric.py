@@ -58,6 +58,7 @@ RUBRIC_SECTIONS = (
 # The gate's floor. nbstatus.py wants 6000 before it badges ✅, so a constructed
 # notebook has to clear that higher bar — see construction_failures().
 MIN_CHARS = 4000
+NBSTATUS_MIN_CHARS = 6000  # quoted back to the model; the rule itself lives in nbstatus
 MIN_RESOURCE_URLS = 3
 
 # A "real URL" is not one of these. The model reaches for them when it doesn't know
@@ -169,9 +170,17 @@ def construction_failures(nb: dict) -> list[str]:
     """
     failures = gate_failures(nb)
 
-    status, _ = status_from_dict(nb)
+    status, metrics = status_from_dict(nb)
     if status != "complete":
-        failures.append(f"nbstatus reports {status!r}, not 'complete'")
+        # Say what nbstatus wanted, not just that it said no: this sentence goes back to
+        # the model verbatim, and "partial" alone gives it nothing to fix. The bar is
+        # 6000 chars, two code cells if runnable, and two of `## ` / `import ` / ```` ``` ````.
+        failures.append(
+            f"nbstatus reports {status!r}, not 'complete' — it counted "
+            f"{metrics['chars']} chars and {metrics['code_cells']} code cells; it needs "
+            f"{NBSTATUS_MIN_CHARS}+ chars and at least two of: a '## ' heading, an "
+            "`import` line, a fenced code block"
+        )
 
     failures += resource_url_failures(nb)
     failures += code_syntax_failures(nb)

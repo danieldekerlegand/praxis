@@ -46,7 +46,7 @@
         "Constructed notebooks land in the library (from tasklist 10) and are immediately browsable/openable.",
         "Gate green: cargo build + npm run build pass and at least one constructed notebook passes the completion gate; document the end-to-end run (define \u2192 scaffold \u2192 construct) in the progress log."
       ],
-      "passes": false
+      "passes": true
     }
   ],
   "mergedToMain": false

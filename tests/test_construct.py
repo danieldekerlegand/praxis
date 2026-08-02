@@ -37,6 +37,7 @@ from praxis.construct import (  # noqa: E402
     construct_topic,
     execute_notebook,
     topic_for_path,
+    topic_for_rel,
 )
 from praxis.rubric import gate_failures, notebook_text  # noqa: E402
 from scaffold_notebooks import scaffold_subject  # noqa: E402
@@ -391,6 +392,114 @@ def test_a_rebuild_keeps_the_scaffold_s_metadata(runnable, subject):
     assert nb["metadata"]["praxis"]["constructed"]
 
 
+# --- constructing many ------------------------------------------------------
+
+
+class TopicClient:
+    """Answers each prompt with cells of the right shape for the topic it describes."""
+
+    def __init__(self, bad: tuple[str, ...] = (), model: str = "test-model"):
+        self.bad, self.calls = bad, []
+        self.config = llm.LLMConfig(provider="openai", model=model, api_key="k")
+
+    def complete(self, prompt: str, *, system: str | None = None, **kwargs) -> str:
+        self.calls.append(prompt)
+        # Match the <topic> block, not the whole prompt: every prompt lists its siblings.
+        if any(f"<topic>\n{title}\n</topic>" in prompt for title in self.bad):
+            return reply([{"type": "markdown", "source": "## 1. What & Why\n\nthin."}])
+        return reply(good_cells(runnable="NO code cells" not in prompt))
+
+
+def test_a_batch_constructs_every_topic_of_a_curriculum(subject):
+    client = TopicClient()
+
+    results = construct.construct_subject(subject, client=client)
+
+    assert [r.status for r in results] == ["constructed", "constructed"]
+    assert len(client.calls) == 2
+    for module in subject.modules:
+        for topic in module.topics:
+            path = topic_path(module, topic)
+            assert notebook_status(path)[0] == "complete"
+            assert gate_failures(json.loads(path.read_text())) == []
+
+
+def test_rerunning_a_batch_skips_what_is_already_complete(subject):
+    construct.construct_subject(subject, client=TopicClient())
+    before = {p: p.read_bytes() for p in subject.dir.rglob("*.ipynb")}
+
+    client = TopicClient()
+    results = construct.construct_subject(subject, client=client)
+
+    assert [r.status for r in results] == ["skipped", "skipped"]
+    assert client.calls == []                                   # nothing was spent
+    assert {p: p.read_bytes() for p in before} == before         # nothing was rewritten
+
+
+def test_a_resumed_batch_finishes_only_what_is_missing(subject):
+    module = subject.modules[0]
+    construct.construct_topic(module, module.topics[0], client=TopicClient())
+
+    results = construct.construct_subject(subject, client=TopicClient())
+
+    assert [(r.slug, r.status) for r in results] == [
+        ("ownership", "skipped"), ("wiring", "constructed"),
+    ]
+
+
+def test_a_topic_the_model_keeps_failing_does_not_strand_the_rest(subject):
+    module = subject.modules[0]
+    scaffold = topic_path(module, module.topics[0]).read_bytes()
+
+    results = construct.construct_subject(
+        subject, client=TopicClient(bad=("Ownership and Borrowing",)), attempts=2)
+
+    assert [r.status for r in results] == ["failed", "constructed"]
+    assert results[0].failures                                   # the grader's sentences
+    assert topic_path(module, module.topics[0]).read_bytes() == scaffold  # still 🔴
+    assert notebook_status(topic_path(module, module.topics[1]))[0] == "complete"
+
+
+def test_a_batch_reports_each_topic_as_it_starts_and_finishes(subject):
+    seen = []
+
+    construct.construct_subject(
+        subject, client=TopicClient(),
+        on_start=lambda d, t: seen.append(("start", d.dir, t.slug)),
+        on_result=lambda r, d: seen.append((r.status, d.dir, r.slug)),
+    )
+
+    module = subject.modules[0].dir
+    assert seen == [
+        ("start", module, "ownership"), ("constructed", module, "ownership"),
+        ("start", module, "wiring"), ("constructed", module, "wiring"),
+    ]
+
+
+def test_a_finished_curriculum_needs_no_provider_key(subject, monkeypatch):
+    """Re-running to confirm a subject is done must not demand a configured model."""
+    construct.construct_subject(subject, client=TopicClient())
+
+    def no_key():
+        raise llm.LLMConfigError("no API key for provider 'anthropic'")
+
+    monkeypatch.setattr(construct, "LLMClient", no_key)
+    results = construct.construct_subject(subject)
+
+    assert [r.status for r in results] == ["skipped", "skipped"]
+
+
+def test_a_domain_can_be_given_the_topics_to_build(subject):
+    """A filesystem domain enumerates none of its own — the caller passes them."""
+    module = subject.modules[0]
+
+    results = construct.construct_domain(
+        module, subject=subject, topics=[module.topics[1]], client=TopicClient())
+
+    assert [(r.slug, r.status) for r in results] == [("wiring", "constructed")]
+    assert notebook_status(topic_path(module, module.topics[0]))[0] == "scaffold"
+
+
 # --- resolving a path back to its curriculum entry --------------------------
 
 
@@ -417,6 +526,39 @@ def test_construct_path_fills_the_notebook_at_that_path(runnable, monkeypatch):
 def test_a_path_with_no_notebook_is_an_error(tmp_path):
     with pytest.raises(CurriculumError, match="no notebook"):
         topic_for_path(tmp_path / "nope.ipynb")
+
+
+def test_a_library_rel_resolves_to_its_subject_topic(runnable, subject):
+    """The UI holds `rel`, not a path — and a relocated subject dir must not break it."""
+    module, topic = runnable
+
+    found_module, found_topic, found_subject = topic_for_rel(
+        f"{module.dir}/{topic.slug}.ipynb")
+
+    assert found_topic == topic
+    assert found_module.dir == module.dir
+    assert found_subject.slug == subject.slug
+
+
+def test_a_seed_rel_resolves_to_its_seed_domain():
+    domain, topic, subject = topic_for_rel("01-symbolic-ai-logic/swi-prolog.ipynb")
+
+    assert (domain.dir, topic.slug, subject) == ("01-symbolic-ai-logic", "swi-prolog", None)
+
+
+def test_a_nested_legacy_rel_resolves_to_the_directory_it_sits_in():
+    """topic_path() has to land back on the same file, or construction writes elsewhere."""
+    rel = "11-devops-mlops-infra/job-orchestration-tools/argo-workflows.ipynb"
+
+    domain, topic, _ = topic_for_rel(rel)
+
+    assert topic_path(domain, topic) == ROOT / "notebooks" / rel
+
+
+@pytest.mark.parametrize("rel", ["", "../pyproject.toml", "a/../../etc/passwd"])
+def test_a_rel_that_escapes_the_library_is_refused(rel):
+    with pytest.raises(CurriculumError):
+        topic_for_rel(rel)
 
 
 # --- execution ---------------------------------------------------------------

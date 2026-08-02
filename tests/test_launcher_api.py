@@ -6,7 +6,8 @@ badge map, the notebook render route, and the subject-definition endpoints the "
 subject" view posts to.
 
 No test here ever calls a model: `generate_and_save` is replaced wherever a subject is
-defined, so the suite stays offline and spends nothing.
+defined and `construct_topic` wherever one is constructed, so the suite stays offline
+and spends nothing.
 
 Skipped wholesale when the launch extra isn't installed — the core stays dependency-light
 (pip install -e '.[launch]').
@@ -16,6 +17,8 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -229,6 +232,21 @@ def test_rescaffolding_is_idempotent_and_an_unknown_subject_is_a_404(
     assert client.post("/api/subjects/never-defined/scaffold").status_code == 404
 
 
+def test_a_relocated_subject_is_still_renderable(
+    client: TestClient, subjects_root: Path, no_model
+) -> None:
+    """`rel` is always `subjects/<slug>/...`; PRAXIS_SUBJECTS_DIR moves the file."""
+    no_model(None)
+    client.post("/api/subjects", json={"goal": "navigate a small boat"})
+    client.post("/api/subjects/sailing-navigation/scaffold")
+
+    rel = "subjects/sailing-navigation/01-charts/reading-a-chart.ipynb"
+    assert launcher_app.library_path(rel) == subjects_root / "sailing-navigation" / (
+        "01-charts/reading-a-chart.ipynb")
+    assert client.get(f"/render/{rel}").status_code == 200
+    assert launcher_app.library_path("subjects/../../pyproject.toml") is None
+
+
 def test_a_subject_reaches_the_library_only_once_it_has_notebooks(
     client: TestClient, subjects_root: Path, no_model
 ) -> None:
@@ -256,3 +274,228 @@ def test_a_subject_reaches_the_library_only_once_it_has_notebooks(
         "recommended": False,
         "note": "",
     }]
+
+
+# --- constructing what was scaffolded ---------------------------------------
+#
+# These drive the real praxis/construct.py — only the provider is replaced. So the
+# grader, the skip-if-✅ rule and the "never write a draft that fails" rule are the
+# production ones, and what the endpoints report is what actually happened on disk.
+
+PROSE = (
+    "This section is written out in full, concrete and specific, the way a refresher "
+    "for a colleague who already knows the neighbouring ideas actually reads. "
+)
+
+LINKS = (
+    "\n\n- [The Python docs](https://docs.python.org/3/)\n"
+    "- [Project Jupyter](https://jupyter.org/)\n"
+    "- [nbformat](https://nbformat.readthedocs.io/en/latest/)\n"
+)
+
+
+def passing_reply() -> str:
+    """A model reply that clears the grader, built from the rubric's own section list."""
+    from praxis.rubric import RUBRIC_SECTIONS
+
+    cells = [{"type": "markdown", "source": f"## {n}. {section}\n\n{PROSE * 10}"}
+             for n, section in enumerate(RUBRIC_SECTIONS, 1)]
+    cells[-1]["source"] += LINKS  # Resources, and it stays last: the grader reads to EOF
+    code = [{"type": "code", "source": "print(sum([1, 2, 3]))"},
+            {"type": "code", "source": "import math\nprint(round(math.pi, 3))"}]
+    return json.dumps({"cells": cells[:-1] + code + cells[-1:]})
+
+
+def thin_reply() -> str:
+    """What a lazy model returns: nothing that could pass for a finished notebook."""
+    return json.dumps({"cells": [{"type": "markdown", "source": "## 1. What & Why\n\nx"}]})
+
+
+@pytest.fixture
+def model(monkeypatch):
+    """Replace the provider the launcher would call. Construction itself stays real."""
+    from praxis.llm import LLMConfig
+
+    def install(reply=passing_reply, block: threading.Event | None = None):
+        calls: list[str] = []
+
+        class Fake:
+            def __init__(self):
+                self.config = LLMConfig(provider="openai", model="test-model", api_key="k")
+
+            def complete(self, prompt, **kwargs):
+                calls.append(prompt)
+                if block is not None:
+                    block.wait(timeout=10)
+                return reply()
+
+        monkeypatch.setattr(launcher_app, "LLMClient", Fake)
+        return calls
+
+    return install
+
+
+def await_job(client: TestClient, job_id: str, timeout: float = 20.0) -> dict:
+    """Poll the job the way the shell does, and hand back its final state."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        res = client.get(f"/api/construct/{job_id}")
+        assert res.status_code == 200
+        job = res.json()
+        if job["state"] == "done":
+            return job
+        time.sleep(0.02)
+    raise AssertionError(f"job {job_id} never finished")
+
+
+@pytest.fixture
+def scaffolded(client: TestClient, subjects_root: Path, no_model) -> str:
+    """A defined + scaffolded subject: two 🔴 notebooks waiting to be constructed."""
+    no_model(None)
+    client.post("/api/subjects", json={"goal": "navigate a small boat"})
+    client.post("/api/subjects/sailing-navigation/scaffold")
+    return "sailing-navigation"
+
+
+def test_constructing_a_subject_fills_every_notebook_in_the_library(
+    client: TestClient, scaffolded: str, model
+) -> None:
+    """The headline flow: define -> scaffold -> construct, ending ✅ and browsable."""
+    calls = model()
+
+    res = client.post("/api/construct", json={"subject": scaffolded})
+    assert res.status_code == 202
+    started = res.json()
+    assert started["kind"] == "subject" and started["n"] == 2
+    assert [i["badge"] for i in started["items"]] == ["scaffold", "scaffold"]
+
+    job = await_job(client, started["id"])
+    assert (job["constructed"], job["skipped"], job["failed"]) == (2, 0, 0)
+    assert {i["phase"] for i in job["items"]} == {"constructed"}
+    assert {i["badge"] for i in job["items"]} == {"complete"}
+    assert len(calls) == 2
+
+    charts = next(d for d in client.get("/api/library").json()["domains"]
+                  if d["dir"].startswith("subjects/"))
+    assert charts["done"] == charts["n"] == 2
+    for topic in charts["topics"]:
+        assert topic["status"] == "complete"
+        assert client.get(f"/render/{topic['rel']}").status_code == 200
+
+
+def test_a_second_run_skips_what_is_already_complete(
+    client: TestClient, scaffolded: str, model
+) -> None:
+    """Resumable and idempotent: re-running spends nothing and clobbers nothing."""
+    model()
+    first = await_job(client, client.post(
+        "/api/construct", json={"subject": scaffolded}).json()["id"])
+    written = {i["rel"]: (Path(launcher_app.library_path(i["rel"])).read_bytes())
+               for i in first["items"]}
+
+    calls = model()
+    again = await_job(client, client.post(
+        "/api/construct", json={"subject": scaffolded}).json()["id"])
+
+    assert (again["constructed"], again["skipped"]) == (0, 2)
+    assert calls == []
+    for rel, before in written.items():
+        assert Path(launcher_app.library_path(rel)).read_bytes() == before
+
+
+def test_one_topic_can_be_constructed_on_its_own(
+    client: TestClient, scaffolded: str, model
+) -> None:
+    calls = model()
+    rel = "subjects/sailing-navigation/01-charts/dead-reckoning.ipynb"
+
+    job = await_job(client, client.post("/api/construct", json={"rel": rel}).json()["id"])
+
+    assert job["kind"] == "topic" and job["n"] == 1
+    assert job["items"][0]["badge"] == "complete"
+    assert len(calls) == 1
+    library = client.get("/api/library").json()
+    charts = next(d for d in library["domains"] if d["dir"].startswith("subjects/"))
+    assert charts["done"] == 1  # only the one that was asked for
+
+
+def test_a_module_can_be_constructed_by_directory(
+    client: TestClient, scaffolded: str, model
+) -> None:
+    model()
+
+    job = await_job(client, client.post(
+        "/api/construct", json={"domain": "subjects/sailing-navigation/01-charts"}
+    ).json()["id"])
+
+    assert job["kind"] == "module" and job["constructed"] == 2
+
+
+def test_a_draft_that_fails_the_gate_is_never_written(
+    client: TestClient, scaffolded: str, model
+) -> None:
+    """The anti-fabrication contract, through the API: 🔴 stays 🔴, nothing goes ✅."""
+    rel = "subjects/sailing-navigation/01-charts/dead-reckoning.ipynb"
+    before = Path(launcher_app.library_path(rel)).read_bytes()
+    model(reply=thin_reply)
+
+    job = await_job(client, client.post("/api/construct", json={"rel": rel}).json()["id"])
+
+    item = job["items"][0]
+    assert (job["failed"], item["phase"], item["badge"]) == (1, "failed", "scaffold")
+    assert item["failures"]  # the grader's own sentences, handed back to the UI
+    assert Path(launcher_app.library_path(rel)).read_bytes() == before
+    library = client.get("/api/library").json()
+    charts = next(d for d in library["domains"] if d["dir"].startswith("subjects/"))
+    assert charts["done"] == 0
+
+
+def test_nothing_is_started_without_a_configured_model(
+    client: TestClient, scaffolded: str, monkeypatch
+) -> None:
+    def unconfigured():
+        raise LLMConfigError("no API key for provider 'anthropic'")
+
+    monkeypatch.setattr(launcher_app, "LLMClient", unconfigured)
+    res = client.post("/api/construct", json={"subject": scaffolded})
+
+    assert res.status_code == 503
+    assert "no API key" in res.json()["error"]
+
+
+def test_only_one_construction_runs_at_a_time(
+    client: TestClient, scaffolded: str, model
+) -> None:
+    release = threading.Event()
+    model(block=release)
+    try:
+        first = client.post("/api/construct", json={"subject": scaffolded}).json()
+
+        second = client.post("/api/construct", json={"subject": scaffolded})
+        assert second.status_code == 409
+        assert second.json()["job"]["id"] == first["id"]
+    finally:
+        release.set()
+    await_job(client, first["id"])
+
+
+def test_a_construct_request_names_what_to_build(
+    client: TestClient, subjects_root: Path
+) -> None:
+    assert client.post("/api/construct", json={}).status_code == 400
+    assert client.post("/api/construct", json={"subject": "never-defined"}).status_code == 404
+    assert client.post("/api/construct", json={"domain": "nope"}).status_code == 404
+    assert client.post("/api/construct", json={"rel": "nope/x.ipynb"}).status_code == 404
+    assert client.get("/api/construct/no-such-job").status_code == 404
+
+
+def test_recent_jobs_are_listed_so_the_shell_can_re_attach(
+    client: TestClient, scaffolded: str, model
+) -> None:
+    model()
+    started = client.post("/api/construct", json={"subject": scaffolded}).json()
+    await_job(client, started["id"])
+
+    listed = client.get("/api/construct").json()
+    assert listed["running"] is None
+    assert listed["jobs"][0]["id"] == started["id"]

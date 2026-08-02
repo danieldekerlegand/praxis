@@ -24,6 +24,7 @@ CLI:
     python -m praxis.construct notebooks/subjects/rust/01-basics/ownership.ipynb
     python -m praxis.construct --force <path>      # rebuild an already-complete notebook
     python -m praxis.construct --execute <path>    # also run it through nbconvert
+    python -m praxis.construct --subject rust      # the whole curriculum, resumably
 """
 
 from __future__ import annotations
@@ -31,6 +32,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,12 +41,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from curriculum import (  # noqa: E402
     DOMAINS,
+    NOTEBOOKS_DIR,
     CurriculumError,
     Domain,
     Subject,
     Topic,
     all_subjects,
     domain_path,
+    load_subject,
     topic_path,
 )
 from nbstatus import notebook_meta, status_from_dict  # noqa: E402
@@ -351,6 +355,93 @@ def construct_topic(
     )
 
 
+# --- constructing many ------------------------------------------------------
+
+
+class _LazyClient:
+    """An LLMClient built on first use, so a batch of already-✅ topics needs no key.
+
+    One client for a whole run (the config is resolved once), but resolving it is
+    deferred: re-running a finished curriculum to confirm it is done must not fail
+    because nothing is configured to call.
+    """
+
+    def __init__(self) -> None:
+        self._client: LLMClient | None = None
+
+    def _get(self) -> LLMClient:
+        if self._client is None:
+            self._client = LLMClient()
+        return self._client
+
+    @property
+    def config(self):
+        return self._get().config
+
+    def complete(self, prompt: str, **kwargs) -> str:
+        return self._get().complete(prompt, **kwargs)
+
+
+# One target of a batch: the topic, the module it belongs to, and its curriculum.
+Target = tuple[Domain, Topic, Subject | None]
+
+# What a batch reports as it goes: the topic it is starting, then its result. The
+# result carries a slug, not a module, so its module comes back alongside it.
+OnStart = Callable[[Domain, Topic], None]
+OnResult = Callable[[ConstructionResult, Domain], None]
+
+
+def construct_each(
+    targets: list[Target],
+    *,
+    client: LLMClient | None = None,
+    on_start: OnStart | None = None,
+    on_result: OnResult | None = None,
+    **kwargs,
+) -> list[ConstructionResult]:
+    """Construct a list of targets in order — the one batch loop in Praxis.
+
+    Resumable by construction: every target goes through `construct_topic`, so one that
+    is already ✅ is skipped rather than rewritten, and a topic the model kept getting
+    wrong comes back as a "failed" result instead of stranding the rest of the batch.
+    One client is shared across the run and resolved only if some topic actually needs
+    it, so re-running a finished curriculum needs no key at all.
+    """
+    client = client or _LazyClient()
+    results = []
+    for domain, topic, subject in targets:
+        if on_start:
+            on_start(domain, topic)
+        result = construct_topic(domain, topic, client=client, subject=subject, **kwargs)
+        results.append(result)
+        if on_result:
+            on_result(result, domain)
+    return results
+
+
+def construct_domain(
+    domain: Domain,
+    *,
+    subject: Subject | None = None,
+    topics: list[Topic] | None = None,
+    **kwargs,
+) -> list[ConstructionResult]:
+    """Construct one module/domain, in curriculum order.
+
+    `topics` overrides which ones — a `filesystem` domain enumerates none, so its
+    caller passes what it found on disk.
+    """
+    chosen = list(domain.topics) if topics is None else topics
+    return construct_each([(domain, t, subject) for t in chosen], **kwargs)
+
+
+def construct_subject(subject: Subject, **kwargs) -> list[ConstructionResult]:
+    """Construct a whole curriculum, module by module. Same skip-if-✅ resumability."""
+    return construct_each(
+        [(m, t, subject) for m in subject.modules for t in m.topics], **kwargs
+    )
+
+
 # --- finding the topic behind a path ---------------------------------------
 
 
@@ -372,10 +463,19 @@ def topic_for_path(path: str | Path) -> tuple[Domain, Topic, Subject | None]:
     if nb is None:
         raise CurriculumError(f"no notebook at {path}")
     meta = notebook_meta(nb)
-    domain = next(
-        (d for d in DOMAINS if domain_path(d).resolve() in path.parents),
-        Domain(dir=meta.get("domain", ""), title=path.parent.name, blurb=""),
-    )
+    parent = path.parent
+    domain = next((d for d in DOMAINS if domain_path(d).resolve() == parent), None)
+    if domain is None:
+        # Deeper than any manifest domain (domain 11 nests). The synthesized domain is
+        # the file's own directory, so topic_path() lands back on this exact file.
+        root = NOTEBOOKS_DIR.resolve()
+        domain = Domain(
+            dir=(parent.relative_to(root).as_posix() if root in parent.parents
+                 else meta.get("domain", "")),
+            title=parent.name.replace("-", " ").title(),
+            blurb="",
+            source="filesystem",
+        )
     title = meta.get("title") or path.stem.replace("-", " ").title()
     return domain, Topic(
         slug=path.stem, title=title,
@@ -383,6 +483,29 @@ def topic_for_path(path: str | Path) -> tuple[Domain, Topic, Subject | None]:
         recommended=bool(meta.get("recommended", False)),
         note=str(meta.get("note", "")),
     ), None
+
+
+def topic_for_rel(rel: str) -> tuple[Domain, Topic, Subject | None]:
+    """Resolve a library `rel` — the `<domain.dir>/<slug>.ipynb` the UI holds.
+
+    Goes through the curriculum rather than the filesystem, because a generated
+    subject's `Domain.dir` is *not* where the file sits when `PRAXIS_SUBJECTS_DIR`
+    has moved it (`domain_path()` owns that translation).
+    """
+    rel = str(rel).strip("/")
+    if not rel or ".." in Path(rel).parts:
+        raise CurriculumError(f"not a library path: {rel!r}")
+    dir_part, _, name = rel.rpartition("/")
+    slug = name[: -len(".ipynb")] if name.endswith(".ipynb") else name
+    for subject in all_subjects():
+        for module in subject.modules:
+            if module.dir != dir_part:
+                continue
+            for topic in module.topics:
+                if topic.slug == slug:
+                    return module, topic, subject
+            return topic_for_path(domain_path(module) / name)  # scaffolded, off-manifest
+    return topic_for_path(NOTEBOOKS_DIR / rel)
 
 
 def construct_path(path: str | Path, **kwargs) -> ConstructionResult:
@@ -426,19 +549,33 @@ def execute_notebook(path: str | Path, timeout: int = 600) -> tuple[bool, str]:
 def _main(argv: list[str]) -> int:
     force = "--force" in argv
     execute = "--execute" in argv
+    subject_slug = ""
+    if "--subject" in argv:
+        i = argv.index("--subject")
+        subject_slug = argv[i + 1] if i + 1 < len(argv) else ""
+        argv = argv[:i] + argv[i + 2:]
     paths = [a for a in argv if not a.startswith("-")]
-    if not paths:
+    if not paths and not subject_slug:
         print(__doc__.strip().split("CLI:")[-1].strip(), file=sys.stderr)
         return 2
 
     failed = 0
+    results: list[ConstructionResult] = []
+    if subject_slug:
+        try:
+            results = construct_subject(load_subject(subject_slug), force=force)
+        except CurriculumError as exc:
+            print(f"praxis.construct: {exc}", file=sys.stderr)
+            return 1
+
     for raw in paths:
         try:
-            result = construct_path(raw, force=force)
+            results.append(construct_path(raw, force=force))
         except CurriculumError as exc:
             print(f"praxis.construct: {exc}", file=sys.stderr)
             failed += 1
-            continue
+
+    for result in results:
         print(result.summary())
         for failure in result.failures:
             print(f"    - {failure}", file=sys.stderr)

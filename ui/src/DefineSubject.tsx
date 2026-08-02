@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { itemFor, jobSummary, type Construction } from "./construct";
 import {
   defineSubject,
   fetchSubjects,
@@ -7,22 +8,37 @@ import {
   type Subject,
 } from "./subjects";
 
+/** Per-notebook marks while a curriculum is being constructed. */
+const PHASE_MARK: Record<string, string> = {
+  pending: "·",
+  building: "⏳",
+  constructed: "✅",
+  skipped: "✅",
+  failed: "⚠️",
+};
+
 const SIZES = [3, 4, 5, 6, 7, 8];
 const NEW = "";  // the sidebar entry for "no subject selected" — show the form
 
 /**
- * Define a subject, review what the AI made of it, then scaffold it into the library.
+ * Define a subject, review what the AI made of it, scaffold it, then construct it.
  *
  * The user types a goal; the launcher asks the configured model for a curriculum and
  * persists it under notebooks/subjects/<slug>/. Nothing is written into the library
  * until *scaffold* turns each topic into a 🔴 rubric-shaped notebook — at which point
- * `onScaffolded` tells the shell to reload the library so they show up there.
+ * `onScaffolded` tells the shell to reload the library so they show up there. *Construct*
+ * is the third step: one model call per notebook, filling each to the rubric, with the
+ * ⏳ → ✅ per notebook as it goes. Both writes skip what is already done, so either can
+ * be re-run to finish a partly-built curriculum.
  */
 export default function DefineSubject({
   base,
+  construction,
   onScaffolded,
 }: {
   base: string;
+  /** The shell's one construction run, so the library sees what is started here. */
+  construction: Construction;
   onScaffolded?: () => void;
 }) {
   const [subjects, setSubjects] = useState<Subject[] | null>(null);
@@ -34,6 +50,7 @@ export default function DefineSubject({
   const [building, setBuilding] = useState(false);
   const [built, setBuilt] = useState<ScaffoldResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const job = construction.job;
 
   useEffect(() => {
     fetchSubjects(base)
@@ -122,20 +139,30 @@ export default function DefineSubject({
                 <h2>{m.title}</h2>
                 <p className="blurb">{m.blurb}</p>
                 <ul className="topics">
-                  {m.topics.map((t) => (
+                  {m.topics.map((t) => {
+                    const item = itemFor(job, `${m.dir}/${t.slug}.ipynb`);
+                    return (
                     <li className="topic" key={t.slug}>
-                      <span className="badge" title={t.runnable ? "runnable" : "conceptual"}>
-                        {t.runnable ? "▶" : "◇"}
+                      <span
+                        className="badge"
+                        title={item?.detail || (t.runnable ? "runnable" : "conceptual")}
+                      >
+                        {item ? PHASE_MARK[item.phase] : t.runnable ? "▶" : "◇"}
                       </span>
                       <span className="ttitle">
                         {t.title}
-                        {t.note && <span className="note">{t.note}</span>}
+                        {item?.failures.length ? (
+                          <span className="note">{item.failures[0]}</span>
+                        ) : (
+                          t.note && <span className="note">{t.note}</span>
+                        )}
                       </span>
                       <span className="actions">
                         <code>{t.slug}.ipynb</code>
                       </span>
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               </section>
             ))}
@@ -144,19 +171,35 @@ export default function DefineSubject({
               <button type="button" onClick={() => build(active)} disabled={building}>
                 {building ? "scaffolding…" : `Scaffold ${active.n_topics} notebooks`}
               </button>
+              <button
+                type="button"
+                onClick={() => construction.start({ subject: active.slug })}
+                disabled={construction.running}
+              >
+                {construction.running
+                  ? "constructing…"
+                  : `Construct ${active.n_topics} notebooks with AI`}
+              </button>
               <span className="legend">
-                Every topic above becomes one rubric-shaped 🔴 notebook in the library.
-                Already-written notebooks are left alone.
+                Scaffolding writes the 🔴 shells; constructing fills each one to the
+                rubric — one model call per notebook, saved only if it passes the
+                completion gate. Both leave finished notebooks alone, so a run that
+                stops part-way resumes where it left off.
               </span>
             </div>
             {built && built.slug === active.slug && (
               <p className="status">
                 {built.created} notebook{built.created === 1 ? "" : "s"} scaffolded
                 {built.skipped > 0 && ` · ${built.skipped} left as they were`} in{" "}
-                <code>notebooks/{built.dir}/</code> — open the <b>library</b> tab to fill
-                them.
+                <code>notebooks/{built.dir}/</code>.
               </p>
             )}
+            {job && job.target === active.slug && (
+              <p className={`status${job.error ? " error" : ""}`}>
+                {job.error || jobSummary(job)}
+              </p>
+            )}
+            {construction.error && <p className="status error">{construction.error}</p>}
             {error && <p className="status error">{error}</p>}
           </>
         ) : (
