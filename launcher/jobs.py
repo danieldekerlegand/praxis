@@ -30,6 +30,7 @@ sys.path.insert(0, str(ROOT))
 from curriculum import Domain, Topic, domain_path  # noqa: E402
 from nbstatus import notebook_status  # noqa: E402
 from praxis import construct  # noqa: E402
+from praxis.checks import checks_path, load_checks  # noqa: E402
 
 # Per-item phases. "pending"/"building" are the job's own; the other three are exactly
 # the ConstructionResult statuses, so nothing is invented here.
@@ -61,6 +62,8 @@ class JobItem:
     chars: int = 0
     failures: tuple[str, ...] = ()
     detail: str = ""
+    checks: int = 0          # knowledge checks now stored beside this notebook
+    checks_phase: str = ""   # "generated" | "skipped" | "failed", from ChecksResult
 
     def to_dict(self) -> dict:
         return {
@@ -73,6 +76,8 @@ class JobItem:
             "chars": self.chars,
             "failures": list(self.failures),
             "detail": self.detail,
+            "checks": self.checks,
+            "checksPhase": self.checks_phase,
         }
 
 
@@ -105,6 +110,9 @@ class Job:
         """Record a result. The badge is read back off the file, never assumed."""
         rel = f"{domain.dir}/{result.slug}.ipynb"
         status, _ = notebook_status(result.path)
+        # Same rule as the badge: count the knowledge checks off the file the
+        # constructor wrote, so a job cannot report a gate that isn't on disk.
+        stored = load_checks(checks_path(result.path)) or {}
         with self._lock:
             item = self._find(rel)
             if item is None:
@@ -115,6 +123,11 @@ class Job:
             item.chars = result.chars
             item.failures = result.failures
             item.detail = result.detail
+            item.checks = len(stored.get("checks", []))
+            item.checks_phase = result.checks.status if result.checks else ""
+            if result.checks is not None and not result.checks.ok:
+                item.failures += tuple(f"checks: {f}" for f in result.checks.failures)
+                item.detail = item.detail or f"checks: {result.checks.detail}"
 
     def finish(self, error: str = "") -> None:
         with self._lock:

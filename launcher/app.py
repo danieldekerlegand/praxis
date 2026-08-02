@@ -56,6 +56,7 @@ from curriculum import (  # noqa: E402
 )
 from launcher.jobs import JobRegistry, badge_for  # noqa: E402
 from nbstatus import BADGE, notebook_status  # noqa: E402
+from praxis.checks import needs_checks  # noqa: E402
 from praxis.construct import topic_for_rel  # noqa: E402
 from praxis.curriculum_gen import generate_and_save  # noqa: E402
 from praxis.llm import LLMClient, LLMConfigError, LLMError  # noqa: E402
@@ -385,9 +386,12 @@ def create_app():
                 status_code=409)
 
         # Resolve the key only if some notebook actually needs the model: re-running a
-        # finished curriculum to confirm it is done must not demand one.
+        # finished curriculum to confirm it is done must not demand one. A ✅ notebook
+        # with no knowledge checks yet still needs it — the checks are the second half
+        # of construction.
         client = None
-        if force or any(badge_for(d, t) != "complete" for d, t, _ in targets):
+        if force or any(badge_for(d, t) != "complete" or needs_checks(d, t)
+                        for d, t, _ in targets):
             try:
                 client = LLMClient()
             except LLMConfigError as exc:

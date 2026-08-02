@@ -46,3 +46,31 @@ Each topic is tagged `runnable` in `curriculum.py`:
 - Write like you're refreshing a smart colleague: concise, concrete, opinionated where it helps.
 - Show the smallest example that teaches the idea; link out for exhaustive API surface.
 - When a topic overlaps another notebook, cross-link it rather than duplicating.
+
+## Knowledge checks (the learner-side gate)
+
+A finished notebook is not yet a *gated* tutorial. Each one is paired with a
+`<slug>.checks.json` beside it (`praxis/checks.py`, written as the second half of
+construction) holding the questions a learner must pass to unlock the next section.
+
+- **One check per gated section, minimum** — the eight rubric sections minus Setup and
+  Resources, which teach nothing a learner can be tested on.
+- **A mix of kinds**, at least one of each the topic can carry:
+  - `choice` — multiple choice, ≥ 3 options, `answer` is the 0-based index. Auto-graded.
+  - `code` — write code that satisfies the check's `test`. Auto-graded by running the
+    learner's submission and the assertions together in a subprocess. Only on
+    `runnable: true` topics.
+  - `short` — a written answer, graded by the model against the check's `expected`
+    marking key, with the learner's answer recorded verbatim on the outcome.
+- **The answer key never lives in the notebook** — that is why the checks are a sibling
+  file and not a cell.
+
+Hard requirements, the same shape as the notebook gate (`praxis.checks.checkset_failures`
+is the machine-checkable definition, and a set that fails it is never written):
+
+- Every gated section is covered, and the set holds each kind the topic can carry.
+- A `code` check's `test` really asserts, and its reference `solution` is **run** and
+  must pass that test — a check nobody has proved gradable is not written.
+- A `choice` check's answer indexes a real option, with no duplicate options.
+- A `short` check's `expected` spells out what a correct answer must say, specifically
+  enough for another grader to mark against.

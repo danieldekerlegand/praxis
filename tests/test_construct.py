@@ -27,7 +27,9 @@ from curriculum import (  # noqa: E402
     topic_path,
 )
 from nbstatus import BADGE, notebook_status  # noqa: E402
+from praxis import checks as checks_mod  # noqa: E402
 from praxis import construct, llm  # noqa: E402
+from praxis.checks import checks_path, checkset_failures, load_checks  # noqa: E402
 from praxis.construct import (  # noqa: E402
     SYSTEM_PROMPT,
     ConstructionError,
@@ -41,6 +43,8 @@ from praxis.construct import (  # noqa: E402
 )
 from praxis.rubric import gate_failures, notebook_text  # noqa: E402
 from scaffold_notebooks import scaffold_subject  # noqa: E402
+from test_checks import good_checks  # noqa: E402
+from test_checks import reply as checks_reply  # noqa: E402
 
 CURRICULUM = {
     "title": "Embedded Rust",
@@ -118,14 +122,29 @@ def reply(cells: list[dict]) -> str:
     return json.dumps({"cells": cells})
 
 
-class FakeClient:
-    """An LLMClient stand-in: records each call, replies from a queue."""
+def checks_for(prompt: str) -> str:
+    """A knowledge-check set of the right shape for whatever topic was asked about."""
+    return checks_reply(good_checks(runnable="NO `code` checks" not in prompt))
 
-    def __init__(self, *replies: str, model: str = "test-model"):
-        self.replies, self.calls = list(replies), []
+
+class FakeClient:
+    """An LLMClient stand-in: records each call, replies from a queue.
+
+    Construction makes two kinds of call — the notebook, then the knowledge checks that
+    gate it — told apart by their system prompt and recorded separately, so a test can
+    count either without the other.
+    """
+
+    def __init__(self, *replies: str, model: str = "test-model",
+                 checks: str | None = None):
+        self.replies, self.calls, self.check_calls = list(replies), [], []
+        self.checks_reply = checks
         self.config = llm.LLMConfig(provider="openai", model=model, api_key="k")
 
     def complete(self, prompt: str, *, system: str | None = None, **kwargs) -> str:
+        if system == checks_mod.SYSTEM_PROMPT:
+            self.check_calls.append(prompt)
+            return self.checks_reply or checks_for(prompt)
         self.calls.append({"prompt": prompt, "system": system, **kwargs})
         return self.replies[min(len(self.calls) - 1, len(self.replies) - 1)]
 
@@ -399,10 +418,13 @@ class TopicClient:
     """Answers each prompt with cells of the right shape for the topic it describes."""
 
     def __init__(self, bad: tuple[str, ...] = (), model: str = "test-model"):
-        self.bad, self.calls = bad, []
+        self.bad, self.calls, self.check_calls = bad, [], []
         self.config = llm.LLMConfig(provider="openai", model=model, api_key="k")
 
     def complete(self, prompt: str, *, system: str | None = None, **kwargs) -> str:
+        if system == checks_mod.SYSTEM_PROMPT:
+            self.check_calls.append(prompt)
+            return checks_for(prompt)
         self.calls.append(prompt)
         # Match the <topic> block, not the whole prompt: every prompt lists its siblings.
         if any(f"<topic>\n{title}\n</topic>" in prompt for title in self.bad):
@@ -498,6 +520,101 @@ def test_a_domain_can_be_given_the_topics_to_build(subject):
 
     assert [(r.slug, r.status) for r in results] == [("wiring", "constructed")]
     assert notebook_status(topic_path(module, module.topics[0]))[0] == "scaffold"
+
+
+# --- the checks that gate what was constructed ------------------------------
+#
+# Construction is two writes now: the notebook, then the knowledge checks beside it.
+# These are about the seam — praxis/checks.py's own rules live in test_checks.py.
+
+
+def test_constructing_a_topic_also_writes_its_knowledge_checks(runnable, subject):
+    module, topic = runnable
+    client = FakeClient(reply(good_cells()))
+
+    result = construct_topic(module, topic, client=client, subject=subject)
+
+    assert result.status == "constructed" and result.checks_ok
+    assert result.checks.status == "generated" and result.checks.count
+    assert len(client.check_calls) == 1
+    doc = load_checks(checks_path(result.path))
+    assert checkset_failures(doc) == []
+    assert doc["slug"] == "ownership"
+    assert "checks generated" in result.summary()
+
+
+def test_checks_can_be_turned_off(runnable):
+    module, topic = runnable
+    client = FakeClient(reply(good_cells()))
+
+    result = construct_topic(module, topic, client=client, checks=False)
+
+    assert result.status == "constructed" and result.checks is None
+    assert result.checks_ok                      # nothing was asked for, nothing failed
+    assert client.check_calls == []
+    assert not checks_path(result.path).exists()
+
+
+def test_a_notebook_that_was_already_complete_still_gains_its_checks(runnable):
+    """The resume path: a library built before the gate existed is not left ungated."""
+    module, topic = runnable
+    construct_topic(module, topic, client=FakeClient(reply(good_cells())), checks=False)
+    written = topic_path(module, topic).read_text()
+
+    client = FakeClient(reply(good_cells()))
+    result = construct_topic(module, topic, client=client)
+
+    assert result.status == "skipped"             # the notebook is untouched...
+    assert topic_path(module, topic).read_text() == written
+    assert client.calls == []
+    assert result.checks.status == "generated"    # ...but it is gated now
+    assert len(client.check_calls) == 1
+
+
+def test_checks_the_model_cannot_make_gradable_do_not_un_write_the_notebook(runnable):
+    """The notebook really is complete; only the gate is missing, and it says so."""
+    module, topic = runnable
+    client = FakeClient(reply(good_cells()), checks=json.dumps({"checks": [
+        {"section": "1. What & Why", "kind": "choice", "prompt": "Is this a real check?",
+         "options": ["yes", "no"], "answer": 0},
+    ]}))
+
+    result = construct_topic(module, topic, client=client, attempts=1)
+
+    assert result.status == "constructed" and result.ok
+    assert notebook_status(result.path)[0] == "complete"
+    assert not result.checks_ok and result.checks.status == "failed"
+    assert result.checks.failures
+    assert not checks_path(result.path).exists()
+
+
+def test_a_batch_gates_every_topic_it_constructs(subject):
+    client = TopicClient()
+
+    results = construct.construct_subject(subject, client=client)
+
+    assert [r.checks.status for r in results] == ["generated", "generated"]
+    assert len(client.check_calls) == 2
+    for module in subject.modules:
+        for topic in module.topics:
+            doc = load_checks(checks_path(topic_path(module, topic)))
+            assert checkset_failures(doc) == []
+            # A conceptual topic cannot be asked to run Python, and isn't.
+            assert doc["runnable"] == topic.runnable
+            assert ("code" in {c["kind"] for c in doc["checks"]}) == topic.runnable
+
+
+def test_rerunning_a_batch_regenerates_no_checks(subject):
+    construct.construct_subject(subject, client=TopicClient())
+    before = {p: p.read_bytes() for p in subject.dir.rglob("*.checks.json")}
+    assert len(before) == 2
+
+    client = TopicClient()
+    results = construct.construct_subject(subject, client=client)
+
+    assert [r.checks.status for r in results] == ["skipped", "skipped"]
+    assert client.check_calls == []
+    assert {p: p.read_bytes() for p in before} == before
 
 
 # --- resolving a path back to its curriculum entry --------------------------
@@ -603,15 +720,18 @@ class _Response(io.BytesIO):
 
 
 def test_end_to_end_over_a_mocked_provider(monkeypatch, runnable, subject):
-    """The real LLMClient, the real wire format, a canned reply — and no network."""
+    """The real LLMClient, the real wire format, canned replies — and no network."""
     module, topic = runnable
-    sent = {}
+    sent = []
 
     def fake_urlopen(request, timeout):
-        sent["url"] = request.full_url
-        sent["body"] = json.loads(request.data)
+        body = json.loads(request.data)
+        sent.append({"url": request.full_url, "body": body})
+        system = body["messages"][0]["content"]
+        user = body["messages"][1]["content"]
+        answer = checks_for(user) if system == checks_mod.SYSTEM_PROMPT else reply(good_cells())
         return _Response(json.dumps(
-            {"choices": [{"message": {"content": f"```json\n{reply(good_cells())}\n```"}}]}
+            {"choices": [{"message": {"content": f"```json\n{answer}\n```"}}]}
         ).encode())
 
     monkeypatch.setattr(llm, "_urlopen", fake_urlopen)
@@ -619,11 +739,14 @@ def test_end_to_end_over_a_mocked_provider(monkeypatch, runnable, subject):
 
     result = construct_topic(module, topic, client=llm.LLMClient(config), subject=subject)
 
-    assert sent["url"] == "https://api.openai.com/v1/chat/completions"
-    assert "Ownership and Borrowing" in sent["body"]["messages"][1]["content"]
+    assert [s["url"] for s in sent] == ["https://api.openai.com/v1/chat/completions"] * 2
+    assert "Ownership and Borrowing" in sent[0]["body"]["messages"][1]["content"]
     assert result.status == "constructed"
     assert notebook_status(result.path)[0] == "complete"
     assert gate_failures(json.loads(result.path.read_text())) == []
+    # The second call is the gate: the notebook it just wrote, back out as questions.
+    assert result.checks.status == "generated"
+    assert checkset_failures(load_checks(checks_path(result.path))) == []
 
 
 # --- the CLI ----------------------------------------------------------------

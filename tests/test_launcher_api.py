@@ -313,8 +313,16 @@ def thin_reply() -> str:
 
 @pytest.fixture
 def model(monkeypatch):
-    """Replace the provider the launcher would call. Construction itself stays real."""
+    """Replace the provider the launcher would call. Construction itself stays real.
+
+    Filling a notebook and writing the knowledge checks that gate it are two calls with
+    two system prompts; the returned list counts the notebook ones, so a test can still
+    say "this spent nothing". What the checks pass produced is asserted off disk.
+    """
+    from praxis.checks import SYSTEM_PROMPT as CHECKS_SYSTEM_PROMPT
     from praxis.llm import LLMConfig
+    from test_checks import good_checks
+    from test_checks import reply as checks_reply
 
     def install(reply=passing_reply, block: threading.Event | None = None):
         calls: list[str] = []
@@ -324,6 +332,9 @@ def model(monkeypatch):
                 self.config = LLMConfig(provider="openai", model="test-model", api_key="k")
 
             def complete(self, prompt, **kwargs):
+                if kwargs.get("system") == CHECKS_SYSTEM_PROMPT:
+                    return checks_reply(
+                        good_checks(runnable="NO `code` checks" not in prompt))
                 calls.append(prompt)
                 if block is not None:
                     block.wait(timeout=10)
@@ -419,6 +430,25 @@ def test_one_topic_can_be_constructed_on_its_own(
     assert charts["done"] == 1  # only the one that was asked for
 
 
+def test_a_constructed_topic_comes_back_gated(
+    client: TestClient, scaffolded: str, model
+) -> None:
+    """A run reports the gate it wrote — counted off the file, the way the badge is."""
+    from praxis.checks import GATED_SECTIONS, checks_path, checkset_failures, load_checks
+
+    model()
+    rel = "subjects/sailing-navigation/01-charts/dead-reckoning.ipynb"
+
+    job = await_job(client, client.post("/api/construct", json={"rel": rel}).json()["id"])
+
+    item = job["items"][0]
+    assert item["checksPhase"] == "generated"
+    assert item["checks"] >= len(GATED_SECTIONS)
+    doc = load_checks(checks_path(launcher_app.library_path(rel)))
+    assert checkset_failures(doc) == []
+    assert item["checks"] == len(doc["checks"])
+
+
 def test_a_module_can_be_constructed_by_directory(
     client: TestClient, scaffolded: str, model
 ) -> None:
@@ -444,6 +474,8 @@ def test_a_draft_that_fails_the_gate_is_never_written(
     item = job["items"][0]
     assert (job["failed"], item["phase"], item["badge"]) == (1, "failed", "scaffold")
     assert item["failures"]  # the grader's own sentences, handed back to the UI
+    # Nothing to gate, so nothing claims to gate it.
+    assert (item["checks"], item["checksPhase"]) == (0, "")
     assert Path(launcher_app.library_path(rel)).read_bytes() == before
     library = client.get("/api/library").json()
     charts = next(d for d in library["domains"] if d["dir"].startswith("subjects/"))

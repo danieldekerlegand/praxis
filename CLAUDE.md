@@ -81,6 +81,32 @@ blind, so those sentences are the UI's error text too: keep them specific enough
 `construct_subject` are one-liners over it, and so is the launcher. Resumability is not
 implemented there; it falls out of every target going through `construct_topic`.
 
+## Knowledge checks: the learner-side gate
+
+`praxis/checks.py` is the **fourth write**, and the reason `construct_topic` is not the
+end of the story: a notebook that passes the rubric is still ungated until the questions
+that unlock the next section exist. They live *beside* the notebook as
+`<slug>.checks.json` (`checks_path()`), never inside it — the answer key must not sit in
+a cell the learner is reading, and the seed library gains checks without being rewritten.
+
+Everything about it is the constructor's shape one level up, deliberately: ask for JSON,
+normalize leniently (`checks_from_reply`), grade strictly (`checkset_failures`), repair
+with the grader's own sentences, and **never write a set that fails**. Sections come from
+`GATED_SECTIONS`, derived from `rubric.RUBRIC_SECTIONS` minus Setup/Resources, so adding
+a rubric section adds a gate.
+
+The one rule that carries the anti-fabrication weight: a `code` check's reference
+`solution` is **run against its own `test`** in a subprocess before the set may be
+written, so "auto-graded" can never mean "asserts nothing". That verification is the
+`verify_code=True` half of `checkset_failures` — the load path (`needs_checks()`) uses
+`verify_code=False` and stays cheap. `grade()` is the same code path a learner's answer
+takes: `choice`/`code` auto, `short` by the model with the answer recorded verbatim on
+the `CheckOutcome`.
+
+`construct_topic(..., checks=True)` attaches a `ChecksResult` to the
+`ConstructionResult`. A set the model couldn't make gradable does **not** un-write a good
+notebook: `result.ok` is about the notebook, `result.checks_ok` about the gate.
+
 ## Construction in the app
 
 `POST /api/construct` takes `{rel}` | `{domain}` | `{subject}` and answers **202 with a
@@ -88,7 +114,9 @@ job** (`launcher/jobs.py`), because filling a curriculum is one model call per n
 The job is bookkeeping only — it reports `ConstructionResult`s and re-reads each badge
 from `nbstatus` off the file, so it cannot claim a notebook the constructor didn't write.
 One job runs at a time (409 otherwise); the key is resolved only if some target still
-needs the model, so re-running a finished curriculum needs no key.
+needs the model — a ✅ notebook whose checks are missing counts (`needs_checks()`), so
+re-running a *finished and gated* curriculum needs no key, but one that is merely
+constructed does.
 
 In the UI, `useConstruction` is held **once**, at the top of `App.tsx`, and passed to
 `DefineSubject` — one poller, and a run started in either view is the run the other one
