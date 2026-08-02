@@ -40,13 +40,14 @@ are enumerated, but only the scaffolded ones exist yet).
 
 `Domain.dir` is always relative to the notebooks root — that string is the `rel` in
 `/api/library` and `/render/<rel>`. Resolve it to a path with `domain_path(domain)`, never
-by hand: a generated subject resolves under `subjects_dir()`, which `PRAXIS_SUBJECTS_DIR`
-relocates so tests don't write into `notebooks/`.
+by hand: a generated subject resolves under `subjects_dir()`, which lives on the active
+storage backend, not in `notebooks/`.
 
 The AI never writes files directly. `praxis/curriculum_gen.py` asks for JSON, and
 `subject_from_dict()` normalizes it — lenient about what the model omits (slugs, dirs,
 flags), strict about what would break the scaffolder. Extend that validation rather than
-trusting a payload downstream. Generated content is gitignored (`notebooks/subjects/`).
+trusting a payload downstream. Generated content is the user's, and is written outside the
+repo entirely — see **Storage** below.
 
 Scaffolding is the second, separate write: `scaffold_domain()` / `scaffold_subject()` in
 `scaffold_notebooks.py`, reached from `POST /api/subjects/<slug>/scaffold`. Keep it
@@ -127,9 +128,8 @@ Two boundaries carry the anti-fabrication weight, both server-side:
 section serves **no checks at all** while `POST /api/study/<rel>` answers **423** for one
 the learner hasn't reached. A disabled button is not the gate.
 
-Progress persists as one JSON file per learner under `progress_dir()`
-(`PRAXIS_PROGRESS_DIR` relocates it, as `PRAXIS_SUBJECTS_DIR` does for subjects) — and
-what is stored is the whole outcome, learner's answer included, not a boolean.
+Progress persists as one JSON file per learner under `progress_dir()` — and what is
+stored is the whole outcome, learner's answer included, not a boolean.
 
 In the app it is one more view model, not a second source of truth: `/api/library`'s
 topic rows carry `gated`/`locked`/`passed`/`checks` (folded in by `_gated()`, from the
@@ -138,6 +138,57 @@ same `module_gates()`), `GET|POST /api/study/<rel>` serve and move one topic's g
 logic. Answering refetches the library, which is how finishing a topic unlocks the next
 one in the list. Grading a `short` answer is the one path that needs a key (503),
 because `choice` and `code` grade locally.
+
+## Storage: whose data, and on which disk
+
+`praxis/storage.py` is the only module that knows where the user's data lives. The four
+writes above (subject · scaffold · construct · checks) plus progress all land under **one
+root**, laid out as `<root>/subjects/<slug>/…` and `<root>/progress/<learner>.json`
+(`docs/storage.md` is the contract). The seed `notebooks/` are not user data — they ship
+with the app and are never written to.
+
+Nothing else resolves a storage path. `curriculum.subjects_dir()` and
+`progress.progress_dir()` are one-line delegates, which is why every existing caller
+followed the root the day it moved. Adding a backend is a resolver in `_RESOLVERS` (plus
+an availability check in `_AVAILABLE` when it isn't a plain path) — **never** a new path
+computation in a caller. Three ship: `app`, `drive` (the picked folder, verbatim) and
+`cloud`.
+
+`_drive_available()` is stricter than `_local_available()` on purpose, and the comment
+there is the reason: an unplugged disk leaves `/Volumes` behind, so walking up to the
+first *existing* ancestor would recreate the drive's folder on the internal disk and let
+the user fill a decoy. The **immediate** parent must be there. The same failure is why
+`launcher/app.py` has a middleware refusing every non-GET with 503 while
+`Backend.writable()` is false — one place, so no endpoint can forget, and `/api/storage`
+is exempt because it is the fix. `writable()` is the local, cheap half of `available()`;
+they differ only for `cloud`, which stays writable offline.
+
+`cloud` is a **local mirror plus a sync** (`praxis/cloud.py` over `praxis/s3.py`, ~250
+lines of urllib+hmac rather than boto3), because every writer here writes with `Path`.
+The merge rule is content-based: `.praxis-sync.json` records the digest both sides last
+agreed on, so the side that *changed* wins and mtimes only break a true conflict — a
+timestamp rule alone loses an edit made in the same second as the previous sync. A sync
+never deletes. `tests/mocks3.py` serves the real protocol on a loopback port, so the sync
+tests sign and send what AWS would receive; a cloud round trip is proved by wiping the
+mirror and reading the work back in a second process.
+
+`storage.FIELDS` / `BLURBS` are the settings form's single source of truth —
+`ui/src/StorageSettings.tsx` renders whatever `GET /api/storage` describes and knows no
+backend by name. A stored secret is reported as `set: true`, never by value, so a blank
+secret field means "keep the stored one" (`merge_options`).
+
+The active backend is `storage.json` in `app_dir()`, deliberately *outside* the root it
+selects: an unplugged drive must still leave the app able to say which drive it wants. A
+config that is missing or corrupt reads as app storage, so it can cost a user their
+selection but never their data. `select_backend()` resolves, checks and creates before it
+stores, and `available()` is re-checked per request — a mount can vanish between two calls.
+
+`app_dir()` is the shell's Tauri `app_data_dir()`, passed down as `PRAXIS_APP_DIR`
+(`Launcher::use_app_data`); with no env, Python computes the same per-OS path from the
+same bundle identifier, so `praxis-launch` by hand sees what the app wrote. Keep
+`storage.APP_ID` equal to `tauri.conf.json`'s `identifier` — a test asserts it.
+`tests/conftest.py` points `PRAXIS_APP_DIR` at a tmp dir for **every** test; a test that
+writes user data must never rely on the real one.
 
 ## Construction in the app
 

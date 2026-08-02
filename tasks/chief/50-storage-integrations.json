@@ -3,9 +3,11 @@
   "project": "praxis",
   "branchName": "chief/50-storage-integrations",
   "baseBranch": "main",
-  "description": "Storage, 50-band. Persist a user's subjects, generated curricula/tutorials, and learning progress across three interchangeable backends — local app storage, a mounted drive, and cloud storage — so users pick what fits (privacy, portability, sync). Depends only on the shell from 10; runs in parallel with the generation bands. Anti-fabrication: each backend must actually round-trip real data (write then read back after restart); a story passes only when the selected backend genuinely persists and restores, and the gate is green.",
+  "description": "Storage, 50-band. Persist a user's subjects, generated curricula/tutorials, and learning progress across three interchangeable backends \u2014 local app storage, a mounted drive, and cloud storage \u2014 so users pick what fits (privacy, portability, sync). Depends only on the shell from 10; runs in parallel with the generation bands. Anti-fabrication: each backend must actually round-trip real data (write then read back after restart); a story passes only when the selected backend genuinely persists and restores, and the gate is green.",
   "parked": false,
-  "dependsOn": ["10-rebrand-and-tauri-shell"],
+  "dependsOn": [
+    "10-rebrand-and-tauri-shell"
+  ],
   "touches": [
     "src-tauri/",
     "ui/",
@@ -26,7 +28,7 @@
         "Data survives an app restart (write, restart, read back) and there is a storage abstraction the other backends plug into.",
         "Gate green: cargo build + npm run build pass and a round-trip test passes."
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-2",
@@ -36,7 +38,7 @@
         "Read/write works across the chosen backend behind the same abstraction; switching backends is handled gracefully, and unavailability (drive unplugged / cloud unreachable) surfaces a clear error rather than crashing or losing data.",
         "Gate green: cargo build + npm run build pass and a round-trip test runs against the mounted-drive backend (cloud round-trip may use a mock/local S3); document coverage in the progress log."
       ],
-      "passes": false
+      "passes": true
     }
   ],
   "mergedToMain": false

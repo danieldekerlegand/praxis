@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import DefineSubject from "./DefineSubject";
 import KnowledgeChecks from "./KnowledgeChecks";
+import StorageSettings from "./StorageSettings";
 import { itemFor, jobSummary, phaseBadge, useConstruction } from "./construct";
 import { appInfo, isTauri, launcherStatus, type AppInfo, type LauncherStatus } from "./tauri";
 import { fetchLibrary, labUrl, renderUrl, type Domain, type Library, type Topic } from "./library";
+import { fetchStorage, storageSummary, type StorageInfo } from "./storage";
 
 /** The core this shell is built on — mirrors the map in README.md. */
 const CORE = [
@@ -24,8 +26,14 @@ const MODES = {
 type Mode = keyof typeof MODES;
 type Reading = { topic: Topic; mode: Mode };
 
-/** Browse what exists, or define something new. */
-type View = "library" | "subjects";
+/** Browse what exists, define something new, or say where all of it is kept. */
+const VIEWS = {
+  library: "library",
+  subjects: "define a subject",
+  storage: "storage",
+} as const;
+
+type View = keyof typeof VIEWS;
 
 export default function App() {
   const [info, setInfo] = useState<AppInfo | null>(null);
@@ -36,6 +44,7 @@ export default function App() {
     detail: "starting the launcher…",
   });
   const [library, setLibrary] = useState<Library | null>(null);
+  const [storage, setStorage] = useState<StorageInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeDir, setActiveDir] = useState<string | null>(null);
   const [reading, setReading] = useState<Reading | null>(null);
@@ -66,6 +75,13 @@ export default function App() {
     };
   }, []);
 
+  // Where the user's own work is being written. Read once the launcher is up, and
+  // re-read after a construction run — that is when something was actually stored.
+  useEffect(() => {
+    if (status.state !== "ready" || !status.url) return;
+    fetchStorage(status.url).then(setStorage).catch(() => setStorage(null));
+  }, [status]);
+
   useEffect(() => {
     if (status.state !== "ready" || !status.url || library) return;
     fetchLibrary(status.url)
@@ -82,7 +98,9 @@ export default function App() {
   // Construction writes notebooks, so once a run settles drop the library and let the
   // effect above refetch it — the job's badges are replaced by nbstatus's own.
   const construction = useConstruction(status.url ?? "", () => {
-    if (status.url) fetchLibrary(status.url).then(setLibrary).catch(() => undefined);
+    if (!status.url) return;
+    fetchLibrary(status.url).then(setLibrary).catch(() => undefined);
+    fetchStorage(status.url).then(setStorage).catch(() => undefined);
   });
   const { job } = construction;
   const unbuilt = active ? active.n - active.done : 0;
@@ -100,13 +118,13 @@ export default function App() {
         <div className="brand">📚 Praxis</div>
         {status.state === "ready" && (
           <nav className="views">
-            {(["library", "subjects"] as const).map((v) => (
+            {(Object.keys(VIEWS) as View[]).map((v) => (
               <button
                 key={v}
                 className={view === v ? "tab active" : "tab"}
                 onClick={() => setView(v)}
               >
-                {v === "library" ? "library" : "define a subject"}
+                {VIEWS[v]}
               </button>
             ))}
           </nav>
@@ -128,7 +146,21 @@ export default function App() {
         <div className="host">{isTauri() ? "desktop shell" : "web preview"}</div>
       </header>
 
-      {view === "subjects" && status.url ? (
+      {view === "storage" && status.url && storage ? (
+        // A different backend is a different set of subjects, so drop the library and
+        // let the effect above refetch it — otherwise the sidebar would still be showing
+        // the modules of the drive we just switched away from.
+        <StorageSettings
+          base={status.url}
+          info={storage}
+          onChanged={() => {
+            fetchStorage(status.url!).then(setStorage).catch(() => undefined);
+            setLibrary(null);
+            setReading(null);
+            setActiveDir(null);
+          }}
+        />
+      ) : view === "subjects" && status.url ? (
         // Scaffolding a subject writes notebooks; drop the library so the effect above
         // refetches it and the new module shows up in the sidebar with live badges.
         <DefineSubject
@@ -377,6 +409,22 @@ export default function App() {
           ? `${info.name} v${info.version} · ${info.tauri ? "Tauri" : "browser"}`
           : "Praxis · running outside the desktop shell"}
         {status.state === "ready" && ` · library via ${status.url}`}
+        {storage && (
+          <>
+            {" · "}
+            <button
+              className={storage.available ? "store" : "store error"}
+              onClick={() => setView("storage")}
+              title={
+                storage.detail
+                  ? `${storage.detail}\nsubjects: ${storage.subjects}\nprogress: ${storage.progress}`
+                  : `subjects: ${storage.subjects}\nprogress: ${storage.progress}`
+              }
+            >
+              {storageSummary(storage)}
+            </button>
+          </>
+        )}
       </footer>
     </div>
   );
