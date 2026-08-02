@@ -121,6 +121,32 @@ Three things to know about how it builds:
   degrades to a plain browser preview when there is no backend — there it expects a
   hand-started `praxis-launch` (override with `VITE_PRAXIS_LAUNCHER`).
 
+## Packaging & distribution
+
+A release build of the desktop app, from the repo root:
+
+```bash
+npm --prefix ui ci                      # the Tauri CLI ships as a frontend dev dependency
+npm --prefix ui exec -- tauri build     # rebuilds ui/dist, then bundles
+```
+
+On macOS that writes `src-tauri/target/release/bundle/macos/Praxis.app` and
+`bundle/dmg/Praxis_<version>_<arch>.dmg`; Windows and Linux emit their own installers from
+the same command (each OS builds its own — nothing is cross-compiled). The bundle is the
+*shell*: it starts the Python core at runtime rather than embedding it, so the checkout
+and its `.venv` still need to be there (or `PRAXIS_ROOT` / `PRAXIS_PYTHON` set).
+
+There is also an **optional web target** — `npm --prefix ui run build` serves `ui/dist`
+from any static server on `localhost` against a hand-started `praxis-launch`, and
+`praxis-launch` alone serves its own HTML with no build step at all.
+
+Artifact paths per OS, prerequisites, signing status and the CI gate:
+**[docs/packaging.md](docs/packaging.md)**.
+
+Every PR to `main` runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml), which
+mirrors `.chief/verify.sh`: `npm run build`, `cargo build`, and `pytest tests/`, each
+scoped to what the PR touched.
+
 ## Quick start (the launcher)
 
 ```bash

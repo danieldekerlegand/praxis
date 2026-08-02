@@ -1,0 +1,127 @@
+# The merge gate, in CI. This mirrors `.chief/verify.sh` — same three checks, same
+# path-scoping, same order (the frontend builds before the Rust job's cargo build,
+# because src-tauri embeds ui/dist at compile time and a missing dist silently becomes
+# a placeholder page). Keep the two in sync: verify.sh is what agents run locally.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Which gates does this change need? Same predicates as verify.sh, computed once.
+  # A push or a manual run answers "all of them" — there is no base to diff against.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      ui: ${{ steps.scope.outputs.ui }}
+      rust: ${{ steps.scope.outputs.rust }}
+      python: ${{ steps.scope.outputs.python }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: scope
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            changed="$(git diff --name-only '${{ github.event.pull_request.base.sha }}...HEAD')"
+          else
+            changed="$(git ls-files)"
+          fi
+          echo "$changed" | head -50
+          has() { echo "$changed" | grep -qE "$1" && echo true || echo false; }
+          {
+            echo "ui=$(has '^ui/')"
+            echo "rust=$(has '^src-tauri/')"
+            echo "python=$(has '\.(py|ipynb)$|^notebooks/|^tests/')"
+          } >> "$GITHUB_OUTPUT"
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.ui == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+        working-directory: ui
+      - run: npm run build
+        working-directory: ui
+
+  # Tauri backend. Builds the frontend first so cargo embeds the real bundle rather
+  # than build.rs's placeholder — the same reason verify.sh orders them this way.
+  shell:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Linux webview deps (tauri v2)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
+            libayatana-appindicator3-dev patchelf
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci && npm run build
+        working-directory: ui
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: cargo build --quiet
+        working-directory: src-tauri
+
+  # Notebook core + the completion gate. The launch extra is installed so the launcher
+  # API tests actually run instead of skipping themselves.
+  python:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e '.[launch,dev]'
+      - run: python -m pytest -q tests/
+
+  # macOS bundle, on demand. Not a PR gate: it is the release build, and it is the same
+  # command documented in docs/packaging.md.
+  bundle-macos:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+        working-directory: ui
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm --prefix ui exec -- tauri build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: praxis-macos
+          path: |
+            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/macos/*.app
