@@ -26,7 +26,7 @@
         "Data survives an app restart (write, restart, read back) and there is a storage abstraction the other backends plug into.",
         "Gate green: cargo build + npm run build pass and a round-trip test passes."
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-2",
