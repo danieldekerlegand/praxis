@@ -273,6 +273,13 @@ def test_a_subject_reaches_the_library_only_once_it_has_notebooks(
         "status": "scaffold",
         "recommended": False,
         "note": "",
+        # No checks beside it yet, so it gates nothing and nothing gates it.
+        "gated": False,
+        "complete": False,
+        "passed": 0,
+        "checks": 0,
+        "locked": False,
+        "blockedBy": "",
     }]
 
 
@@ -313,8 +320,19 @@ def thin_reply() -> str:
 
 @pytest.fixture
 def model(monkeypatch):
-    """Replace the provider the launcher would call. Construction itself stays real."""
+    """Replace the provider the launcher would call. Construction itself stays real.
+
+    Three system prompts reach a provider in this app — filling a notebook, writing the
+    knowledge checks that gate it, and marking a learner's short answer — and this tells
+    them apart so each is exercised for real. The returned list counts only the notebook
+    calls, so a test can still say "this spent nothing". What the checks pass produced is
+    asserted off disk, and the short grader passes an answer that names the mechanism,
+    the way the marking key asks.
+    """
+    from praxis.checks import SHORT_GRADER_SYSTEM_PROMPT, SYSTEM_PROMPT as CHECKS_SYSTEM_PROMPT
     from praxis.llm import LLMConfig
+    from test_checks import good_checks
+    from test_checks import reply as checks_reply
 
     def install(reply=passing_reply, block: threading.Event | None = None):
         calls: list[str] = []
@@ -324,6 +342,16 @@ def model(monkeypatch):
                 self.config = LLMConfig(provider="openai", model="test-model", api_key="k")
 
             def complete(self, prompt, **kwargs):
+                if kwargs.get("system") == CHECKS_SYSTEM_PROMPT:
+                    return checks_reply(
+                        good_checks(runnable="NO `code` checks" not in prompt))
+                if kwargs.get("system") == SHORT_GRADER_SYSTEM_PROMPT:
+                    answer = prompt.split("<learner-answer>")[1].split("</learner-answer>")[0]
+                    return json.dumps({
+                        "passed": "mechanism" in answer,
+                        "feedback": "names the mechanism" if "mechanism" in answer
+                                    else "does not name the mechanism",
+                    })
                 calls.append(prompt)
                 if block is not None:
                     block.wait(timeout=10)
@@ -419,6 +447,25 @@ def test_one_topic_can_be_constructed_on_its_own(
     assert charts["done"] == 1  # only the one that was asked for
 
 
+def test_a_constructed_topic_comes_back_gated(
+    client: TestClient, scaffolded: str, model
+) -> None:
+    """A run reports the gate it wrote — counted off the file, the way the badge is."""
+    from praxis.checks import GATED_SECTIONS, checks_path, checkset_failures, load_checks
+
+    model()
+    rel = "subjects/sailing-navigation/01-charts/dead-reckoning.ipynb"
+
+    job = await_job(client, client.post("/api/construct", json={"rel": rel}).json()["id"])
+
+    item = job["items"][0]
+    assert item["checksPhase"] == "generated"
+    assert item["checks"] >= len(GATED_SECTIONS)
+    doc = load_checks(checks_path(launcher_app.library_path(rel)))
+    assert checkset_failures(doc) == []
+    assert item["checks"] == len(doc["checks"])
+
+
 def test_a_module_can_be_constructed_by_directory(
     client: TestClient, scaffolded: str, model
 ) -> None:
@@ -444,6 +491,8 @@ def test_a_draft_that_fails_the_gate_is_never_written(
     item = job["items"][0]
     assert (job["failed"], item["phase"], item["badge"]) == (1, "failed", "scaffold")
     assert item["failures"]  # the grader's own sentences, handed back to the UI
+    # Nothing to gate, so nothing claims to gate it.
+    assert (item["checks"], item["checksPhase"]) == (0, "")
     assert Path(launcher_app.library_path(rel)).read_bytes() == before
     library = client.get("/api/library").json()
     charts = next(d for d in library["domains"] if d["dir"].startswith("subjects/"))
@@ -499,3 +548,290 @@ def test_recent_jobs_are_listed_so_the_shell_can_re_attach(
     listed = client.get("/api/construct").json()
     assert listed["running"] is None
     assert listed["jobs"][0]["id"] == started["id"]
+
+
+# --- learning what was constructed: the gate ---------------------------------
+#
+# The progression smoke test lives here, end to end through the API the shell calls:
+# a failed check leaves the next section locked, a passed one opens it, and posting
+# straight at a locked check is refused rather than graded.
+
+FIRST_REL = "subjects/sailing-navigation/01-charts/dead-reckoning.ipynb"
+SECOND_REL = "subjects/sailing-navigation/01-charts/reading-a-chart.ipynb"
+
+# What the fake short-answer grader marks correct — it looks for "mechanism", the way
+# the marking key in test_checks asks the learner to name one.
+GOOD_SHORT = ("The mechanism is dead reckoning from a known fix; it applies whenever "
+              "the GPS is out, and drifting current is what makes it go wrong.")
+
+
+@pytest.fixture(autouse=True)
+def progress_root(monkeypatch, tmp_path) -> Path:
+    """Learner progress goes to a temp dir — never into the repo checkout."""
+    monkeypatch.setenv("PRAXIS_PROGRESS_DIR", str(tmp_path / "progress"))
+    return tmp_path / "progress"
+
+
+def stored_checks(rel: str) -> list[dict]:
+    """The set on disk, answer key and all — what a learner is never served."""
+    from praxis.checks import checks_path, load_checks
+
+    return load_checks(checks_path(launcher_app.library_path(rel)))["checks"]
+
+
+def right_answer(check: dict) -> object:
+    return {"choice": check.get("answer"), "code": check.get("solution")}.get(
+        check["kind"], GOOD_SHORT)
+
+
+def answer(client: TestClient, rel: str, check: dict, value: object):
+    return client.post(f"/api/study/{rel}",
+                       json={"check_id": check["id"], "answer": value})
+
+
+def pass_section(client: TestClient, rel: str, checks: list[dict], section: str) -> dict:
+    state = client.get(f"/api/study/{rel}").json()
+    for check in checks:
+        if check["section"] != section:
+            continue
+        res = answer(client, rel, check, right_answer(check))
+        assert res.status_code == 200, res.text
+        assert res.json()["outcome"]["passed"], check["id"]
+        state = res.json()["state"]
+    return state
+
+
+@pytest.fixture
+def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
+    """One constructed, gated notebook — a real set of checks written beside it."""
+    model()
+    await_job(client, client.post("/api/construct", json={"rel": FIRST_REL}).json()["id"])
+    return stored_checks(FIRST_REL)
+
+
+def test_a_new_learner_sees_only_the_first_section_unlocked(
+    client: TestClient, gated: list[dict]
+) -> None:
+    from praxis.checks import GATED_SECTIONS
+
+    state = client.get(f"/api/study/{FIRST_REL}").json()
+
+    assert state["gated"] and not state["complete"] and state["locked"] is False
+    assert [s["section"] for s in state["sections"]] == list(GATED_SECTIONS)
+    assert [s["locked"] for s in state["sections"]][0] is False
+    assert all(s["locked"] for s in state["sections"][1:])
+    assert state["unlocked"] == [GATED_SECTIONS[0]]
+    assert state["next"] == GATED_SECTIONS[0]
+
+
+def test_the_answer_key_never_reaches_the_learner(
+    client: TestClient, gated: list[dict]
+) -> None:
+    """The whole reason the set lives beside the notebook, enforced at the API."""
+    state = client.get(f"/api/study/{FIRST_REL}").json()
+    served = [c for s in state["sections"] for c in s["checks"]]
+
+    assert served  # the open section really did hand over its questions
+    for check in served:
+        assert not {"answer", "solution", "test", "expected"} & check.keys()
+        assert check["explanation"] == ""
+    # And a locked section hands over nothing at all — not even the question.
+    assert all(s["checks"] == [] and s["n"] >= 1 for s in state["sections"][1:])
+
+
+def test_a_failed_check_keeps_the_next_section_locked_and_a_passed_one_opens_it(
+    client: TestClient, gated: list[dict]
+) -> None:
+    """The progression smoke test: the gate moves only on a real pass."""
+    from praxis.checks import GATED_SECTIONS
+
+    first = next(c for c in gated if c["section"] == GATED_SECTIONS[0])
+    wrong = 0 if first["answer"] != 0 else 1
+
+    res = answer(client, FIRST_REL, first, wrong)
+    assert res.status_code == 200
+    assert res.json()["outcome"]["passed"] is False
+    state = res.json()["state"]
+    assert state["sections"][1]["locked"] is True
+    assert state["unlocked"] == [GATED_SECTIONS[0]]
+
+    res = answer(client, FIRST_REL, first, first["answer"])
+    assert res.json()["outcome"]["passed"] is True
+    state = res.json()["state"]
+    assert state["sections"][0]["complete"] and state["sections"][0]["passed"] == 1
+    assert state["sections"][1]["locked"] is False
+    assert state["sections"][1]["checks"], "the newly opened section serves its questions"
+    assert state["next"] == GATED_SECTIONS[1]
+    assert all(s["locked"] for s in state["sections"][2:])
+
+
+def test_a_locked_check_is_refused_rather_than_graded(
+    client: TestClient, gated: list[dict], progress_root: Path
+) -> None:
+    """Skipping the gate is the attack: post straight at a check further along."""
+    from praxis.checks import GATED_SECTIONS
+
+    last = next(c for c in reversed(gated) if c["section"] == GATED_SECTIONS[-1])
+
+    res = answer(client, FIRST_REL, last, right_answer(last))
+
+    assert res.status_code == 423
+    assert GATED_SECTIONS[-1] in res.json()["error"]
+    assert res.json()["state"]["passed"] == 0
+    # Nothing was graded, so nothing was recorded.
+    assert not any(progress_root.glob("*.json"))
+
+
+def test_every_kind_of_check_grades_and_the_topic_finishes(
+    client: TestClient, gated: list[dict]
+) -> None:
+    """Walk the whole gate, section by section, the way a learner does."""
+    from praxis.checks import GATED_SECTIONS
+
+    state = {}
+    for i, section in enumerate(GATED_SECTIONS):
+        state = pass_section(client, FIRST_REL, gated, section)
+        opened = [s["section"] for s in state["sections"] if not s["locked"]]
+        assert opened == list(GATED_SECTIONS[: i + 2])
+
+    assert state["complete"] and state["next"] == ""
+    assert state["passed"] == state["n"] == len(gated)
+    assert {c["kind"] for c in gated} == {"choice", "short", "code"}
+
+
+def test_a_code_check_is_graded_by_running_the_learners_code(
+    client: TestClient, gated: list[dict]
+) -> None:
+    """Auto-graded means the assertions really ran — a plausible wrong answer fails."""
+    from praxis.checks import GATED_SECTIONS
+
+    code_check = next(c for c in gated if c["kind"] == "code")
+    for section in GATED_SECTIONS[: GATED_SECTIONS.index(code_check["section"])]:
+        pass_section(client, FIRST_REL, gated, section)
+
+    bad = answer(client, FIRST_REL, code_check, "def owned(values):\n    return values")
+    assert bad.status_code == 200 and bad.json()["outcome"]["passed"] is False
+    assert bad.json()["outcome"]["detail"]  # the assertion that failed, for the learner
+
+    good = answer(client, FIRST_REL, code_check, code_check["solution"])
+    assert good.json()["outcome"]["passed"] is True
+
+
+def test_a_short_answer_is_graded_by_the_model_and_recorded_verbatim(
+    client: TestClient, gated: list[dict]
+) -> None:
+    from praxis.checks import GATED_SECTIONS
+
+    written = next(c for c in gated if c["kind"] == "short")
+    for section in GATED_SECTIONS[: GATED_SECTIONS.index(written["section"])]:
+        pass_section(client, FIRST_REL, gated, section)
+
+    weak = answer(client, FIRST_REL, written, "dunno").json()["outcome"]
+    assert weak["passed"] is False and weak["answer"] == "dunno"
+
+    res = answer(client, FIRST_REL, written, GOOD_SHORT).json()
+    assert res["outcome"]["passed"] and res["outcome"]["answer"] == GOOD_SHORT
+    assert res["outcome"]["graded_by"] == "test-model"  # not "auto"
+    served = next(c for s in res["state"]["sections"] for c in s["checks"]
+                  if c["id"] == written["id"])
+    assert served["answered"] and served["outcome"]["answer"] == GOOD_SHORT
+
+
+def test_a_short_answer_needs_a_key_but_the_auto_graded_kinds_do_not(
+    client: TestClient, gated: list[dict], monkeypatch
+) -> None:
+    """Grading locally must not demand a provider — only the written answer does."""
+    from praxis.checks import GATED_SECTIONS
+
+    def unconfigured():
+        raise LLMConfigError("no API key for provider 'anthropic'")
+
+    monkeypatch.setattr(launcher_app, "LLMClient", unconfigured)
+    first = next(c for c in gated if c["section"] == GATED_SECTIONS[0])
+    assert answer(client, FIRST_REL, first, first["answer"]).status_code == 200
+
+    written = next(c for c in gated if c["kind"] == "short")
+    for section in GATED_SECTIONS[1: GATED_SECTIONS.index(written["section"])]:
+        pass_section(client, FIRST_REL, gated, section)
+    res = answer(client, FIRST_REL, written, GOOD_SHORT)
+    assert res.status_code == 503 and "no API key" in res.json()["error"]
+
+
+def test_progress_survives_a_restart_of_the_app(
+    client: TestClient, gated: list[dict]
+) -> None:
+    """A fresh app process, the same learner: the gate is where they left it."""
+    from praxis.checks import GATED_SECTIONS
+
+    pass_section(client, FIRST_REL, gated, GATED_SECTIONS[0])
+
+    restarted = TestClient(create_app())
+    state = restarted.get(f"/api/study/{FIRST_REL}").json()
+
+    assert state["sections"][0]["complete"] and not state["sections"][1]["locked"]
+    assert state["passed"] == 1
+
+
+def test_two_learners_progress_apart(client: TestClient, gated: list[dict]) -> None:
+    from praxis.checks import GATED_SECTIONS
+
+    first = next(c for c in gated if c["section"] == GATED_SECTIONS[0])
+    res = client.post(f"/api/study/{FIRST_REL}?learner=Ada",
+                      json={"check_id": first["id"], "answer": first["answer"]})
+    assert res.status_code == 200 and res.json()["state"]["learner"] == "ada"
+
+    assert client.get(f"/api/study/{FIRST_REL}?learner=Ada").json()["passed"] == 1
+    assert client.get(f"/api/study/{FIRST_REL}").json()["passed"] == 0
+
+
+def test_the_next_topic_is_locked_until_this_one_is_finished(
+    client: TestClient, gated: list[dict], model
+) -> None:
+    """The same rule one level up: a module opens one topic at a time."""
+    from praxis.checks import GATED_SECTIONS
+
+    model()
+    await_job(client, client.post("/api/construct", json={"rel": SECOND_REL}).json()["id"])
+
+    library = client.get("/api/library").json()
+    charts = next(d for d in library["domains"] if d["dir"].startswith("subjects/"))
+    rows = {t["rel"]: t for t in charts["topics"]}
+    assert rows[FIRST_REL]["locked"] is False and rows[FIRST_REL]["gated"]
+    assert rows[SECOND_REL]["locked"] is True
+    assert rows[SECOND_REL]["blockedBy"] == rows[FIRST_REL]["title"]
+    assert charts["gated"] == 2 and charts["passed"] == 0
+
+    second = stored_checks(SECOND_REL)
+    blocked = next(c for c in second if c["section"] == GATED_SECTIONS[0])
+    res = answer(client, SECOND_REL, blocked, right_answer(blocked))
+    assert res.status_code == 423
+    assert client.get(f"/api/study/{SECOND_REL}").json()["locked"] is True
+
+    for section in GATED_SECTIONS:
+        pass_section(client, FIRST_REL, gated, section)
+
+    assert client.get(f"/api/study/{SECOND_REL}").json()["locked"] is False
+    assert answer(client, SECOND_REL, blocked, right_answer(blocked)).status_code == 200
+    library = client.get("/api/library").json()
+    charts = next(d for d in library["domains"] if d["dir"].startswith("subjects/"))
+    assert {t["rel"]: t["locked"] for t in charts["topics"]} == {
+        FIRST_REL: False, SECOND_REL: False}
+    assert charts["passed"] == 1
+
+
+def test_an_ungated_seed_notebook_is_open_and_says_so(client: TestClient) -> None:
+    """221 hand-written notebooks have no checks: nothing to gate, nothing locked."""
+    library = client.get("/api/library").json()
+    seed = next(d for d in library["domains"] if not d["dir"].startswith("subjects/"))
+    assert not any(t["gated"] or t["locked"] for t in seed["topics"])
+
+    state = client.get(f"/api/study/{seed['topics'][0]['rel']}").json()
+    assert state["gated"] is False and state["sections"] == []
+    assert state["locked"] is False
+
+
+def test_study_refuses_what_is_not_in_the_library(client: TestClient, gated) -> None:
+    assert client.get("/api/study/nope/x.ipynb").status_code == 404
+    assert client.post("/api/study/nope/x.ipynb", json={}).status_code == 404
+    assert client.post(f"/api/study/{FIRST_REL}",
+                       json={"check_id": "made-up"}).status_code == 404

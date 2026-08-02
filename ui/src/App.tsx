@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import DefineSubject from "./DefineSubject";
+import KnowledgeChecks from "./KnowledgeChecks";
 import { itemFor, jobSummary, phaseBadge, useConstruction } from "./construct";
 import { appInfo, isTauri, launcherStatus, type AppInfo, type LauncherStatus } from "./tauri";
 import { fetchLibrary, labUrl, renderUrl, type Domain, type Library, type Topic } from "./library";
@@ -13,7 +14,15 @@ const CORE = [
   ["notebooks/", "221 seed tutorials across 10 domains"],
 ];
 
-type Reading = { topic: Topic; mode: "render" | "lab" };
+/** Read it, run it, or answer for it — the third is where progression is earned. */
+const MODES = {
+  render: "rendered",
+  checks: "knowledge checks",
+  lab: "live in Lab",
+} as const;
+
+type Mode = keyof typeof MODES;
+type Reading = { topic: Topic; mode: Mode };
 
 /** Browse what exists, or define something new. */
 type View = "library" | "subjects";
@@ -77,6 +86,13 @@ export default function App() {
   });
   const { job } = construction;
   const unbuilt = active ? active.n - active.done : 0;
+
+  // The open topic, re-read from the library rather than kept in `reading`: answering a
+  // check refetches the library, and this is what makes the counts and the locks in the
+  // reader move with it instead of showing the state the topic was opened in.
+  const open: Topic | null = reading
+    ? active?.topics.find((t) => t.rel === reading.topic.rel) ?? reading.topic
+    : null;
 
   return (
     <div className="shell">
@@ -147,28 +163,54 @@ export default function App() {
                   ← {active.name}
                 </button>
                 <span className="rtitle">
-                  {library.badge[reading.topic.status]} {reading.topic.title}
+                  {library.badge[open!.status]} {open!.title}
+                  {open!.locked && (
+                    <span className="lock" title={`finish ${open!.blockedBy} first`}>
+                      🔒
+                    </span>
+                  )}
                 </span>
                 <span className="tabs">
-                  {(["render", "lab"] as const).map((mode) => (
+                  {(Object.keys(MODES) as Mode[]).map((mode) => (
                     <button
                       key={mode}
                       className={reading.mode === mode ? "tab active" : "tab"}
                       onClick={() => setReading({ ...reading, mode })}
                     >
-                      {mode === "render" ? "rendered" : "live in Lab"}
+                      {MODES[mode]}
+                      {mode === "checks" && open!.gated && (
+                        <span className="count">
+                          {open!.passed}/{open!.checks}
+                        </span>
+                      )}
                     </button>
                   ))}
                 </span>
               </div>
-              <iframe
-                title={reading.topic.title}
-                src={
-                  reading.mode === "render"
-                    ? renderUrl(status.url!, reading.topic.rel)
-                    : labUrl(library, reading.topic.rel)
-                }
-              />
+              {reading.mode === "checks" ? (
+                // Answering is what moves the gate, and the launcher records it, so
+                // reload the library afterwards: a finished topic unlocks the next one.
+                <div className="readerpane">
+                  <KnowledgeChecks
+                    base={status.url!}
+                    rel={open!.rel}
+                    onGraded={() => {
+                      if (status.url) {
+                        fetchLibrary(status.url).then(setLibrary).catch(() => undefined);
+                      }
+                    }}
+                  />
+                </div>
+              ) : (
+                <iframe
+                  title={open!.title}
+                  src={
+                    reading.mode === "render"
+                      ? renderUrl(status.url!, open!.rel)
+                      : labUrl(library, open!.rel)
+                  }
+                />
+              )}
               {reading.mode === "lab" && (
                 <p className="hint">
                   Live notebooks need JupyterLab running: <code>praxis-lab</code>
@@ -179,6 +221,12 @@ export default function App() {
             <main>
               <h1>{active.title}</h1>
               <p className="blurb">{active.blurb}</p>
+              {active.gated > 0 && (
+                <p className="legend">
+                  🔒 Gated: {active.passed}/{active.gated} tutorials passed. Each one opens
+                  when you pass the knowledge checks in the one before it.
+                </p>
+              )}
 
               <div className="buildrow">
                 <button
@@ -206,7 +254,12 @@ export default function App() {
                 {active.topics.map((t) => {
                   const item = itemFor(job, t.rel);
                   return (
-                    <li key={t.rel} className={`topic status-${item?.badge || t.status}`}>
+                    <li
+                      key={t.rel}
+                      className={`topic status-${item?.badge || t.status}${
+                        t.locked ? " locked" : ""
+                      }`}
+                    >
                       <span className="badge" title={item?.detail || undefined}>
                         {phaseBadge(item, library.badge, t.status)}
                       </span>
@@ -217,8 +270,24 @@ export default function App() {
                             ⭐
                           </span>
                         )}
+                        {t.locked ? (
+                          <span className="lock" title={`finish ${t.blockedBy} first`}>
+                            🔒
+                          </span>
+                        ) : (
+                          t.gated && (
+                            <span
+                              className={t.complete ? "gate passed" : "gate"}
+                              title="knowledge checks passed"
+                            >
+                              {t.passed}/{t.checks}
+                            </span>
+                          )
+                        )}
                         {item?.failures.length ? (
                           <span className="note">{item.failures[0]}</span>
+                        ) : t.locked ? (
+                          <span className="note">locked until you finish {t.blockedBy}</span>
                         ) : (
                           t.note && <span className="note">{t.note}</span>
                         )}
@@ -238,11 +307,28 @@ export default function App() {
                         >
                           {t.status === "complete" ? "rebuild" : "build"}
                         </button>
-                        <button onClick={() => setReading({ topic: t, mode: "render" })}>
+                        <button
+                          title={
+                            t.locked
+                              ? `pass ${t.blockedBy} to unlock this`
+                              : t.gated
+                                ? "answer the checks that unlock this tutorial"
+                                : "no knowledge checks yet — build this topic to gate it"
+                          }
+                          disabled={t.locked || !t.gated}
+                          onClick={() => setReading({ topic: t, mode: "checks" })}
+                        >
+                          {t.locked ? "🔒 locked" : "checks"}
+                        </button>
+                        <button
+                          disabled={t.locked}
+                          onClick={() => setReading({ topic: t, mode: "render" })}
+                        >
                           open
                         </button>
                         <button
                           className="ghost"
+                          disabled={t.locked}
                           onClick={() => setReading({ topic: t, mode: "lab" })}
                         >
                           in Lab

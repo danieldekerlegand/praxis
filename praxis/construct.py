@@ -20,9 +20,15 @@ explicit about, because they are the anti-fabrication contract:
 Like praxis/curriculum_gen.py the model is asked for JSON and nothing else, the client
 is injectable so tests never touch the network, and everything past the parse is strict.
 
+A constructed notebook is then given the knowledge checks that gate it
+(`praxis.checks.generate_checks`, written beside it as `<slug>.checks.json`). Same two
+invariants — a set that isn't gradable is never written, an existing one is skipped —
+so a topic whose notebook is already ✅ but has no checks yet gains them on a re-run.
+
 CLI:
     python -m praxis.construct notebooks/subjects/rust/01-basics/ownership.ipynb
     python -m praxis.construct --force <path>      # rebuild an already-complete notebook
+    python -m praxis.construct --no-checks <path>  # notebook only, no knowledge checks
     python -m praxis.construct --execute <path>    # also run it through nbconvert
     python -m praxis.construct --subject rust      # the whole curriculum, resumably
 """
@@ -33,7 +39,7 @@ import json
 import subprocess
 import sys
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -52,6 +58,7 @@ from curriculum import (  # noqa: E402
     topic_path,
 )
 from nbstatus import notebook_meta, status_from_dict  # noqa: E402
+from praxis.checks import ChecksResult, generate_checks  # noqa: E402
 from praxis.curriculum_gen import extract_json  # noqa: E402
 from praxis.llm import LLMClient, LLMError  # noqa: E402
 from praxis.rubric import construction_failures, notebook_text  # noqa: E402
@@ -94,15 +101,24 @@ class ConstructionResult:
     chars: int = 0
     failures: tuple[str, ...] = ()
     detail: str = ""
+    # The knowledge checks written beside the notebook (praxis/checks.py), or None when
+    # the run was told to skip them / never got a notebook worth checking.
+    checks: ChecksResult | None = None
 
     @property
     def ok(self) -> bool:
         return self.status in ("constructed", "skipped")
 
+    @property
+    def checks_ok(self) -> bool:
+        """Whether this topic can be gated — no checks asked for counts as fine."""
+        return self.checks is None or self.checks.ok
+
     def summary(self) -> str:
         mark = {"constructed": "✅", "skipped": "•", "failed": "⚠️"}[self.status]
         tail = f" — {self.detail or '; '.join(self.failures)}" if self.status == "failed" else ""
-        return f"{mark} {self.title} ({self.status}, {self.chars} chars){tail}"
+        checks = f"  ·  {self.checks.count} checks {self.checks.status}" if self.checks else ""
+        return f"{mark} {self.title} ({self.status}, {self.chars} chars){checks}{tail}"
 
 
 # --- the prompt -------------------------------------------------------------
@@ -306,8 +322,13 @@ def construct_topic(
     attempts: int = DEFAULT_ATTEMPTS,
     force: bool = False,
     write: bool = True,
+    checks: bool = True,
 ) -> ConstructionResult:
     """Fill one topic's notebook to the rubric. Never writes content that fails the gate.
+
+    A tutorial is not finished when its prose is: unless `checks=False`, the notebook is
+    followed by the knowledge checks that gate it (praxis/checks.py), written beside it.
+    Both halves are idempotent, so a resumed run generates only what is missing.
 
     Returns a ConstructionResult rather than raising, so a batch run can carry on past
     a topic the model kept getting wrong (a raise here would strand the rest).
@@ -315,9 +336,13 @@ def construct_topic(
     path = topic_path(domain, topic)
     existing = _read_notebook(path) if path.is_file() else None
     if existing is not None and not force and status_from_dict(existing)[0] == "complete":
-        return ConstructionResult(
-            path=path, slug=topic.slug, title=topic.title, status="skipped",
-            chars=len(notebook_text(existing)), detail="already complete",
+        return _with_checks(
+            ConstructionResult(
+                path=path, slug=topic.slug, title=topic.title, status="skipped",
+                chars=len(notebook_text(existing)), detail="already complete",
+            ),
+            domain, topic, existing, enabled=checks, client=client, subject=subject,
+            attempts=attempts, force=force, write=write,
         )
 
     client = client or LLMClient()
@@ -343,9 +368,13 @@ def construct_topic(
             if write:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(json.dumps(nb, indent=1))
-            return ConstructionResult(
-                path=path, slug=topic.slug, title=topic.title, status="constructed",
-                attempts=used, chars=len(notebook_text(nb)),
+            return _with_checks(
+                ConstructionResult(
+                    path=path, slug=topic.slug, title=topic.title, status="constructed",
+                    attempts=used, chars=len(notebook_text(nb)),
+                ),
+                domain, topic, nb, enabled=checks, client=client, subject=subject,
+                attempts=attempts, force=force, write=write,
             )
 
     return ConstructionResult(
@@ -353,6 +382,26 @@ def construct_topic(
         attempts=used, chars=len(notebook_text(nb)) if nb else 0,
         failures=tuple(failures), detail=detail,
     )
+
+
+def _with_checks(
+    result: ConstructionResult,
+    domain: Domain,
+    topic: Topic,
+    nb: dict,
+    *,
+    enabled: bool,
+    **kwargs,
+) -> ConstructionResult:
+    """Attach the topic's knowledge checks to a notebook that passed the gate.
+
+    Reported alongside the notebook rather than folded into it: the notebook on disk is
+    genuinely complete either way, and a set of checks the model could not make gradable
+    must not un-write it. `result.checks_ok` is the "this tutorial can be gated" half.
+    """
+    if not enabled:
+        return result
+    return replace(result, checks=generate_checks(domain, topic, notebook=nb, **kwargs))
 
 
 # --- constructing many ------------------------------------------------------
@@ -549,6 +598,7 @@ def execute_notebook(path: str | Path, timeout: int = 600) -> tuple[bool, str]:
 def _main(argv: list[str]) -> int:
     force = "--force" in argv
     execute = "--execute" in argv
+    checks = "--no-checks" not in argv
     subject_slug = ""
     if "--subject" in argv:
         i = argv.index("--subject")
@@ -563,14 +613,15 @@ def _main(argv: list[str]) -> int:
     results: list[ConstructionResult] = []
     if subject_slug:
         try:
-            results = construct_subject(load_subject(subject_slug), force=force)
+            results = construct_subject(load_subject(subject_slug), force=force,
+                                        checks=checks)
         except CurriculumError as exc:
             print(f"praxis.construct: {exc}", file=sys.stderr)
             return 1
 
     for raw in paths:
         try:
-            results.append(construct_path(raw, force=force))
+            results.append(construct_path(raw, force=force, checks=checks))
         except CurriculumError as exc:
             print(f"praxis.construct: {exc}", file=sys.stderr)
             failed += 1
@@ -579,6 +630,10 @@ def _main(argv: list[str]) -> int:
         print(result.summary())
         for failure in result.failures:
             print(f"    - {failure}", file=sys.stderr)
+        if not result.checks_ok:
+            for failure in result.checks.failures or (result.checks.detail,):
+                print(f"    - checks: {failure}", file=sys.stderr)
+            failed += 1
         if not result.ok:
             failed += 1
         elif execute and result.status == "constructed":

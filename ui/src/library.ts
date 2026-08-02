@@ -15,6 +15,16 @@ export type Topic = {
   status: Status;
   recommended: boolean;
   note: string;
+  /** True once knowledge checks have been written beside this notebook. */
+  gated: boolean;
+  /** Every one of them passed. */
+  complete: boolean;
+  passed: number;
+  checks: number;
+  /** Locked while an earlier topic in the same module is unfinished. */
+  locked: boolean;
+  /** The title of that topic. */
+  blockedBy: string;
 };
 
 export type Domain = {
@@ -26,6 +36,9 @@ export type Domain = {
   /** Topic count, and how many of them are ✅ complete. */
   n: number;
   done: number;
+  /** How many carry knowledge checks, and how many the learner has passed. */
+  gated: number;
+  passed: number;
 };
 
 export type Library = {
