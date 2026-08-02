@@ -23,6 +23,10 @@ launch = [
 ]
 dev = [
     "pytest>=8.0",
+    # fastapi's TestClient (tests/test_launcher_api.py) needs it. It arrives with the
+    # launch extra too — via jupyterlab — but the launcher gate should not depend on
+    # another package's dependency list to keep working in CI.
+    "httpx>=0.23,<1",
 ]
 
 [project.scripts]

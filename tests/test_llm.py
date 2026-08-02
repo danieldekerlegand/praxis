@@ -25,6 +25,7 @@ LEAKY = (
     "PRAXIS_LLM_MODEL",
     "PRAXIS_LLM_API_KEY",
     "PRAXIS_LLM_BASE_URL",
+    "PRAXIS_LLM_TIMEOUT",
     "PRAXIS_CONFIG",
     "ANTHROPIC_API_KEY",
     "OPENAI_API_KEY",
@@ -135,6 +136,38 @@ def test_a_keyless_hosted_provider_is_a_config_error(monkeypatch):
 def test_unknown_provider_is_rejected(monkeypatch):
     monkeypatch.setenv("PRAXIS_LLM_PROVIDER", "gemini")
     with pytest.raises(llm.LLMConfigError, match="unknown provider"):
+        llm.load_config()
+
+
+# --- timeout: the knob a slow local model needs --------------------------
+
+
+def test_timeout_defaults_and_reaches_the_client(monkeypatch):
+    """No plumbing: a client built with no argument follows the resolved config."""
+    monkeypatch.setenv("PRAXIS_LLM_BASE_URL", "http://127.0.0.1:1234")
+    assert llm.load_config().timeout == llm.DEFAULT_TIMEOUT
+
+    monkeypatch.setenv("PRAXIS_LLM_TIMEOUT", "900")
+    assert llm.load_config().timeout == 900.0
+    assert llm.LLMClient().timeout == 900.0
+    # An explicit argument still wins over the environment.
+    assert llm.LLMClient(timeout=5).timeout == 5
+
+
+def test_timeout_comes_from_the_config_file_too(monkeypatch, tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"llm": {"base_url": "http://127.0.0.1:1234",
+                                        "timeout": 600}}))
+    monkeypatch.setenv("PRAXIS_CONFIG", str(path))
+    assert llm.load_config().timeout == 600.0
+
+
+@pytest.mark.parametrize("bad", ["soon", "0", "-30"])
+def test_an_unusable_timeout_is_a_config_error(monkeypatch, bad):
+    """Loud at startup, not two minutes into a construction run."""
+    monkeypatch.setenv("PRAXIS_LLM_BASE_URL", "http://127.0.0.1:1234")
+    monkeypatch.setenv("PRAXIS_LLM_TIMEOUT", bad)
+    with pytest.raises(llm.LLMConfigError, match="PRAXIS_LLM_TIMEOUT"):
         llm.load_config()
 
 

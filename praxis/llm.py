@@ -26,6 +26,8 @@ Env vars, all optional but at least one key needed for a direct provider:
   PRAXIS_LLM_MODEL      overrides the per-provider default
   PRAXIS_LLM_API_KEY    overrides ANTHROPIC_API_KEY / OPENAI_API_KEY
   PRAXIS_LLM_BASE_URL   overrides the provider endpoint (also selects `local` on its own)
+  PRAXIS_LLM_TIMEOUT    seconds to wait for one reply (default 120; raise it for a slow
+                        local model — constructing a notebook is a long single reply)
   ANTHROPIC_API_KEY / OPENAI_API_KEY
   AGORA_BASE_URL        set -> route through agora; unset -> go direct
   AGORA_API_KEY         key for the router (falls back to the provider key)
@@ -100,6 +102,10 @@ class LLMConfig:
     api_key: str = ""
     base_url: str = ""
     agora_base_url: str = ""
+    # Seconds to wait for one reply. A local server generating a 9000-character
+    # notebook is minutes, not seconds, of work, so this has to be raisable from
+    # outside — the default is sized for a hosted provider.
+    timeout: float = DEFAULT_TIMEOUT
 
     @property
     def routed_via_agora(self) -> bool:
@@ -123,7 +129,8 @@ class LLMConfig:
 
     def describe(self) -> str:
         route = "agora provider-router" if self.routed_via_agora else "direct"
-        return f"{self.provider}/{self.model} via {route} at {self.endpoint}"
+        return (f"{self.provider}/{self.model} via {route} at {self.endpoint} "
+                f"(timeout {self.timeout:g}s)")
 
 
 def _read_config_file(path: Path | None) -> dict:
@@ -166,6 +173,20 @@ def _resolve_provider(env: dict, file_cfg: dict) -> str:
     )
 
 
+def _resolve_timeout(raw: str) -> float:
+    """`PRAXIS_LLM_TIMEOUT` in seconds, or the default. A bad value is an error, not
+    a silent fallback — a run that then dies two minutes in is unexplainable."""
+    if not raw:
+        return DEFAULT_TIMEOUT
+    try:
+        timeout = float(raw)
+    except ValueError:
+        raise LLMConfigError(f"PRAXIS_LLM_TIMEOUT must be a number of seconds, not {raw!r}") from None
+    if timeout <= 0:
+        raise LLMConfigError(f"PRAXIS_LLM_TIMEOUT must be positive, not {timeout}")
+    return timeout
+
+
 def load_config(env: dict | None = None, config_path: str | Path | None = None) -> LLMConfig:
     """Resolve a config from env + config file. Raises LLMConfigError if it can't."""
     env = dict(os.environ if env is None else env)
@@ -177,6 +198,8 @@ def load_config(env: dict | None = None, config_path: str | Path | None = None) 
     model = _pick(env, file_cfg, "PRAXIS_LLM_MODEL", "model") or DEFAULT_MODEL[provider]
     base_url = _pick(env, file_cfg, "PRAXIS_LLM_BASE_URL", "base_url")
     agora_base_url = _pick(env, file_cfg, "AGORA_BASE_URL", "agora_base_url")
+
+    timeout = _resolve_timeout(_pick(env, file_cfg, "PRAXIS_LLM_TIMEOUT", "timeout"))
 
     api_key = _pick(env, file_cfg, "PRAXIS_LLM_API_KEY", "api_key")
     if not api_key:
@@ -195,6 +218,7 @@ def load_config(env: dict | None = None, config_path: str | Path | None = None) 
         api_key=api_key,
         base_url=base_url,
         agora_base_url=agora_base_url,
+        timeout=timeout,
     )
 
 
@@ -206,9 +230,11 @@ def _urlopen(request: urllib.request.Request, timeout: float):
 class LLMClient:
     """A minimal chat client over whichever provider the environment selected."""
 
-    def __init__(self, config: LLMConfig | None = None, timeout: float = DEFAULT_TIMEOUT):
+    def __init__(self, config: LLMConfig | None = None, timeout: float | None = None):
         self.config = config or load_config()
-        self.timeout = timeout
+        # An explicit argument wins; otherwise follow the resolved config, so
+        # PRAXIS_LLM_TIMEOUT reaches every caller without one of them plumbing it.
+        self.timeout = self.config.timeout if timeout is None else timeout
 
     # -- request building ------------------------------------------------
 

@@ -215,3 +215,20 @@ Same reason `launcher.app.library_path()` exists for `/render`.
 `python3 -m pytest -q tests/` (notebook core + launcher API), `npm run build` in `ui/`,
 `cargo build` in `src-tauri/`. `.chief/verify.sh` runs them path-scoped. The launcher tests
 skip themselves without the launch extra: `uv pip install --python .venv/bin/python -e '.[launch]'`.
+
+`.github/workflows/ci.yml` is the same three checks on every PR to `main`, with the same
+path predicates — change one and change the other. Its Rust job builds the frontend first
+for the reason in **Build order** above.
+
+## Bundling
+
+`docs/packaging.md` is the contract. The Tauri CLI is a dev dependency of `ui/`, but it
+locates `src-tauri/` by walking up from the **working directory** — so a bundle is built
+from the repo root (`npm --prefix ui exec -- tauri build`), never from inside `ui/`, where
+it silently finds no app. `tauri build` runs `beforeBuildCommand` itself, so it cannot
+embed a stale `ui/dist`.
+
+The bundle is the shell only: `library.rs` still discovers `curriculum.py` + `launcher/`
+by walking up from the binary and the cwd, and the interpreter via `PRAXIS_PYTHON` /
+`.venv` / `python3`. No interpreter is embedded — a `.app` moved away from a checkout with
+the launch extra reports it through `LauncherStatus::failed` rather than failing silently.
