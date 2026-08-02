@@ -23,6 +23,7 @@ replace it.
 | [`scaffold_notebooks.py`](scaffold_notebooks.py) | **The scaffolder** — turns a subject's topic list into notebook scaffolds. |
 | [`nbstatus.py`](nbstatus.py) | **The gate (heuristic side)** — the status badge every topic carries: 🔴 scaffold · 🟡 partial · ✅ complete. |
 | [`tests/test_notebooks.py`](tests/test_notebooks.py) | **The gate (authoritative side)** — a tutorial is complete only when this passes for it. |
+| [`praxis/llm.py`](praxis/llm.py) | **The BYO-key LLM client** every construction step calls through (see below). |
 | [`launcher/`](launcher/) | The FastAPI browse/launch/render UI. The desktop shell wraps this. |
 | [`notebooks/`](notebooks/) | **221 seed notebooks across 10 domains** (+ the legacy DevOps/MLOps library). |
 | [`CURRICULUM.md`](CURRICULUM.md) | Generated human index with live status badges. |
@@ -45,6 +46,39 @@ library is preserved under [`notebooks/11-devops-mlops-infra/`](notebooks/11-dev
 
 The subject-definition, AI-construction, gating, and storage capabilities land
 incrementally; the core above is what they build on.
+
+## LLM access (bring your own key)
+
+[`praxis/llm.py`](praxis/llm.py) is the single place Praxis talks to a model. It uses
+only the standard library, and it **never reads a key from source** — provider, key,
+model, and endpoint come from the environment first, then from a JSON config file
+(`$PRAXIS_CONFIG`, else `~/.config/praxis/config.json`).
+
+Three direct providers, selected by `PRAXIS_LLM_PROVIDER` or inferred from whichever
+credential is present:
+
+```bash
+export ANTHROPIC_API_KEY=...                        # -> anthropic, /v1/messages
+export OPENAI_API_KEY=...                           # -> openai, /v1/chat/completions
+export PRAXIS_LLM_BASE_URL=http://localhost:11434   # -> local OpenAI-compatible server
+```
+
+**Routing:** when **`AGORA_BASE_URL` is set, every call is routed through agora's
+provider-router** (`<AGORA_BASE_URL>/v1/chat/completions`, authenticated with
+`AGORA_API_KEY` if set, otherwise the provider key) instead of the provider's own
+endpoint; the model string is passed through untouched, so set `PRAXIS_LLM_MODEL` to
+whatever the router expects. When **`AGORA_BASE_URL` is unset, calls go direct** to the
+provider. Praxis is standalone — agora is optional, never required.
+
+Other knobs: `PRAXIS_LLM_MODEL` (overrides the per-provider default),
+`PRAXIS_LLM_API_KEY` (overrides the provider-specific key variable).
+
+```bash
+python -m praxis.llm     # doctor: prints the resolved route, spends no tokens
+```
+
+Never commit a key. `tests/test_llm.py` covers every routing mode against a mocked
+response, so the suite makes no network calls.
 
 ## The desktop shell
 
