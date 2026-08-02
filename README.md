@@ -45,6 +45,10 @@ library is preserved under [`notebooks/11-devops-mlops-infra/`](notebooks/11-dev
   provider-router. Never hardcode or commit a key. Praxis is standalone — no hard
   dependency on any other system.
 
+- **Your data is yours and lives in one place**: subjects, tutorials and progress are
+  written under a single storage root — your app-data directory by default, and one
+  directory you can copy. See [docs/storage.md](docs/storage.md).
+
 The subject-definition, AI-construction, gating, and storage capabilities land
 incrementally; the core above is what they build on.
 
@@ -137,8 +141,9 @@ status badge (🔴 scaffold · 🟡 partial · ✅ complete).
 Open the desktop shell, hit **define a subject**, and describe what you want to learn in
 your own words. Praxis asks your model (see above — your key, your provider) for a
 curriculum: modules, then one notebook per topic, each tagged runnable or conceptual. The
-result is saved to `notebooks/subjects/<slug>/curriculum.json` and shown for review before
-any notebook is written.
+result is saved to `<storage root>/subjects/<slug>/curriculum.json` and shown for review
+before any notebook is written. That root is your app-data directory by default — see
+[docs/storage.md](docs/storage.md), or the path in the app's footer.
 
 The same thing from a terminal:
 
@@ -152,7 +157,7 @@ python curriculum.py                # what is defined: seed domains + your subje
 
 Reviewing is the point of the pause: nothing is written into the library until you hit
 **Scaffold N notebooks**. That writes one notebook per topic under
-`notebooks/subjects/<slug>/<NN-module>/<topic>.ipynb`, each carrying the 8 rubric sections
+`<storage root>/subjects/<slug>/<NN-module>/<topic>.ipynb`, each carrying the 8 rubric sections
 as TODOs and `metadata.praxis.status = "scaffold"` — so it lands in the library badged 🔴,
 ready for an agent (or you) to fill. It is safe to hit again: a topic that already has a
 notebook is skipped, never rewritten, so re-scaffolding a grown curriculum only adds what
@@ -172,10 +177,12 @@ The launcher serves it over HTTP — this is what the shell calls:
 | `GET /api/subjects/<slug>` | one curriculum, modules → topics |
 | `POST /api/subjects` | `{"goal": "..."}` → generate + persist (spends tokens) |
 | `POST /api/subjects/<slug>/scaffold` | the reviewed curriculum → 🔴 notebooks on disk |
+| `GET /api/storage` | which backend is holding your work, and whether it's reachable |
 
 A subject's modules are ordinary domains, so the scaffolder, the badges and the gate treat
-them exactly like the seed library. Generated subjects are yours, not the product's:
-`notebooks/subjects/` is gitignored.
+them exactly like the seed library. Generated subjects are yours, not the product's: they
+are written to your own storage root, outside the repo entirely
+([docs/storage.md](docs/storage.md)).
 
 To edit the **seed** curriculum instead, change [`curriculum.py`](curriculum.py)
 (add/remove topics; `recommended=True` marks suggested additions), then:

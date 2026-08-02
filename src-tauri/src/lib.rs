@@ -44,9 +44,17 @@ pub fn run() {
         .manage(launcher.clone())
         .invoke_handler(tauri::generate_handler![app_info, launcher_status])
         .setup(|app| {
+            let launcher = app.state::<Arc<Launcher>>().inner().clone();
+            // Where the user's subjects, tutorials and progress live. Only the shell can
+            // ask Tauri for this, so it is resolved here and handed to the Python side;
+            // praxis/storage.py owns everything below it.
+            match app.path().app_data_dir() {
+                Ok(dir) => launcher.use_app_data(dir),
+                Err(err) => eprintln!("praxis: no app-data directory ({err}) — \
+                                       storage falls back to the per-OS default"),
+            }
             // Off the main thread: starting uvicorn takes a second or two and the window
             // should be up (showing "starting the launcher…") the whole time.
-            let launcher = app.state::<Arc<Launcher>>().inner().clone();
             std::thread::spawn(move || launcher.start());
             Ok(())
         })

@@ -18,9 +18,9 @@ the seed library browsable: 221 hand-written notebooks have no `<slug>.checks.js
 there is no gate to be stuck behind. Gating only ever appears where the constructor
 actually wrote questions.
 
-Progress persists as one JSON file per learner under `progress_dir()`
-(`PRAXIS_PROGRESS_DIR` relocates it, the way `PRAXIS_SUBJECTS_DIR` relocates subjects),
-so closing the app and reopening it resumes where the learner stopped. What is stored
+Progress persists as one JSON file per learner under `progress_dir()` — beside the
+learner's subjects on whichever backend `praxis/storage.py` says is active, so closing
+the app and reopening it resumes where the learner stopped. What is stored
 is the whole `CheckOutcome` — including the learner's answer verbatim and who graded
 it — not a boolean, because "did they pass" is a record, not a bit.
 """
@@ -28,7 +28,6 @@ it — not a boolean, because "did they pass" is a record, not a bit.
 from __future__ import annotations
 
 import json
-import os
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -36,7 +35,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from curriculum import ROOT, slugify  # noqa: E402
+from curriculum import slugify  # noqa: E402
+from praxis import storage  # noqa: E402
 from praxis.checks import (  # noqa: E402
     GATED_SECTIONS,
     CheckOutcome,
@@ -49,9 +49,13 @@ DEFAULT_LEARNER = "default"
 
 
 def progress_dir() -> Path:
-    """Where learner progress is kept. `PRAXIS_PROGRESS_DIR` relocates it (tests)."""
-    override = os.environ.get("PRAXIS_PROGRESS_DIR")
-    return Path(override) if override else ROOT / ".praxis" / "progress"
+    """Where learner progress is kept — the active storage backend decides.
+
+    Beside the learner's subjects under `praxis.storage`'s root, so choosing a backend
+    moves what they built and how far they got together. `PRAXIS_PROGRESS_DIR` still
+    relocates just this leaf (tests).
+    """
+    return storage.progress_dir()
 
 
 def learner_id(name: object) -> str:

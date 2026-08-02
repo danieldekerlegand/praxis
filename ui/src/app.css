@@ -199,3 +199,6 @@ footer {
   padding: 10px 20px; border-top: 1px solid var(--line);
   background: var(--panel); color: var(--muted); font-size: 12px;
 }
+/* Where the user's own work is being written (praxis/storage.py). */
+footer .store { white-space: nowrap; }
+footer .store.error { color: #e5534b; }

@@ -66,6 +66,18 @@ def test_healthz_is_the_shells_readiness_probe(client: TestClient) -> None:
     assert res.text == "ok"
 
 
+def test_storage_reports_where_the_users_data_is(client: TestClient, app_dir: Path) -> None:
+    """The shell's footer answers "where is my work?" from this, not from a guess."""
+    res = client.get("/api/storage")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["kind"] == "app"
+    assert body["available"] is True
+    assert body["root"] == str(app_dir / "data")
+    assert body["subjects"].endswith("subjects") and body["progress"].endswith("progress")
+    assert "app" in body["kinds"]
+
+
 def test_library_carries_every_seed_notebook(library: dict) -> None:
     on_disk = len(list((ROOT / "notebooks").rglob("*.ipynb")))
     assert library["total"] == on_disk

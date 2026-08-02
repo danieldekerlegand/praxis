@@ -7,6 +7,10 @@
 //!
 //! The Python side is not bundled yet (packaging is a later band), so the interpreter is
 //! discovered at runtime: `$PRAXIS_PYTHON`, then the repo's `.venv`, then `python3`.
+//!
+//! The shell also decides *where the user's data lives*, in the one way only it can: it
+//! passes Tauri's `app_data_dir()` down as `PRAXIS_APP_DIR` (see [`Launcher::use_app_data`]),
+//! and `praxis/storage.py` puts subjects, tutorials and progress under it.
 
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
@@ -48,11 +52,22 @@ impl LauncherStatus {
 pub struct Launcher {
     status: Mutex<LauncherStatus>,
     child: Mutex<Option<Child>>,
+    /// Tauri's `app_data_dir()`, handed to the Python side as `PRAXIS_APP_DIR`.
+    ///
+    /// Storage lives in `praxis/storage.py`, which computes this same per-OS path from
+    /// the bundle identifier when nothing is set — so the launcher run by hand reads the
+    /// data the app wrote. Passing it explicitly means the two can't drift if Tauri ever
+    /// resolves it differently (a portable build, a sandbox).
+    app_data: Mutex<Option<PathBuf>>,
 }
 
 impl Default for Launcher {
     fn default() -> Self {
-        Self { status: Mutex::new(LauncherStatus::starting()), child: Mutex::new(None) }
+        Self {
+            status: Mutex::new(LauncherStatus::starting()),
+            child: Mutex::new(None),
+            app_data: Mutex::new(None),
+        }
     }
 }
 
@@ -63,6 +78,19 @@ impl Launcher {
 
     fn set(&self, status: LauncherStatus) {
         *self.status.lock().expect("launcher status poisoned") = status;
+    }
+
+    /// Tell the launcher where this app keeps user data. Call before `start`.
+    ///
+    /// Created here rather than in Python: Tauri owns the directory, and a user whose
+    /// app-data dir can't be made should hear about it from the shell, not from the
+    /// first subject they try to save.
+    pub fn use_app_data(&self, dir: PathBuf) {
+        if let Err(err) = std::fs::create_dir_all(&dir) {
+            eprintln!("praxis: could not create {}: {err}", dir.display());
+            return;
+        }
+        *self.app_data.lock().expect("launcher app_data poisoned") = Some(dir);
     }
 
     /// Kill the child. Called on app exit; safe to call twice.
@@ -129,7 +157,8 @@ impl Launcher {
             }
         };
 
-        let spawned = Command::new(&python)
+        let mut command = Command::new(&python);
+        command
             .args([
                 "-m",
                 "uvicorn",
@@ -148,8 +177,11 @@ impl Launcher {
             .env("PRAXIS_PARENT_PID", std::process::id().to_string())
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn();
+            .stderr(Stdio::null());
+        if let Some(dir) = self.app_data.lock().expect("launcher app_data poisoned").clone() {
+            command.env("PRAXIS_APP_DIR", dir);
+        }
+        let spawned = command.spawn();
 
         match spawned {
             Ok(child) => *self.child.lock().expect("launcher child poisoned") = Some(child),

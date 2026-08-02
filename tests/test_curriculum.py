@@ -28,6 +28,7 @@ from curriculum import (  # noqa: E402
     subject_from_dict,
     subjects_dir,
 )
+from praxis import storage  # noqa: E402
 
 PAYLOAD = {
     "title": "Embedded Rust",
@@ -162,9 +163,12 @@ def test_missing_subject_is_an_error_not_a_crash():
         load_subject("never-defined")
 
 
-def test_subjects_dir_is_relocatable(monkeypatch, tmp_path):
+def test_subjects_dir_follows_the_active_storage_backend(monkeypatch, tmp_path, app_dir):
+    """A user's subjects are their data: they live on the storage backend, not in the
+    shipped library. `PRAXIS_SUBJECTS_DIR` still moves that one leaf."""
     monkeypatch.delenv("PRAXIS_SUBJECTS_DIR", raising=False)
-    assert subjects_dir() == curriculum.NOTEBOOKS_DIR / "subjects"
+    assert subjects_dir() == storage.subjects_dir() == app_dir / "data" / "subjects"
+    assert subjects_dir() != curriculum.NOTEBOOKS_DIR / "subjects"
     monkeypatch.setenv("PRAXIS_SUBJECTS_DIR", str(tmp_path))
     assert subjects_dir() == tmp_path
 

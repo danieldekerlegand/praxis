@@ -24,6 +24,9 @@ Learning is the other write, and the one the whole thing is for:
     GET  /api/study/<rel>               a notebook's gate: sections, locked, passed
     POST /api/study/<rel>               grade one answer and move the gate (423 if locked)
 
+Everything those writes land on lives wherever `praxis/storage.py` says:
+    GET  /api/storage                   the active backend, its root, and whether it's there
+
 Construction is the one call that can't answer inside a request — it is a model call per
 notebook — so it returns a job (launcher/jobs.py) the UI polls while 🔴 → 🟡 → ✅ moves.
 
@@ -64,6 +67,7 @@ from praxis.checks import CheckError, checks_path, grade, load_checks, needs_che
 from praxis.construct import topic_for_rel  # noqa: E402
 from praxis.curriculum_gen import generate_and_save  # noqa: E402
 from praxis.llm import LLMClient, LLMConfigError, LLMError  # noqa: E402
+from praxis import storage  # noqa: E402
 from praxis.progress import (  # noqa: E402
     DEFAULT_LEARNER,
     gate_for,
@@ -567,6 +571,16 @@ def create_app():
 
         record_outcome(learner, rel, outcome)
         return {"outcome": outcome.to_dict(), "state": study_model(rel, learner)}
+
+    @app.get("/api/storage", response_class=JSONResponse)
+    def api_storage():
+        """Where this app is keeping the user's subjects and progress, right now.
+
+        Read-only, and computed per request — a backend that has gone away (an unplugged
+        drive) reports `available: false` with the reason rather than 500ing. Credentials
+        in a backend's options never cross this boundary (`Backend.public_options`).
+        """
+        return storage.describe()
 
     @app.get("/render/{rel:path}", response_class=HTMLResponse)
     def render(rel: str):

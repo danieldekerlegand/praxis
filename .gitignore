@@ -12,8 +12,10 @@ __pycache__/
 .praxis/
 *.DS_Store
 
-# Subjects a user defines in the app — their curricula and notebooks, not the
-# seed library. notebooks/<NN-domain>/ stays tracked.
+# A user's own subjects and progress live on the active storage backend (see
+# docs/storage.md), outside the repo. These two are the pre-storage locations and
+# whatever PRAXIS_SUBJECTS_DIR/PRAXIS_PROGRESS_DIR may still point at — never tracked.
+# notebooks/<NN-domain>/ (the seed library) stays tracked.
 notebooks/subjects/
 
 # Tauri shell build output

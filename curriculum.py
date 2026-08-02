@@ -39,9 +39,14 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from praxis import storage  # noqa: E402  (needs the line above when run as a script)
 
 
 @dataclass(frozen=True)
@@ -356,9 +361,14 @@ class CurriculumError(ValueError):
 
 
 def subjects_dir() -> Path:
-    """Where generated subjects live. `PRAXIS_SUBJECTS_DIR` relocates them (tests)."""
-    override = os.environ.get("PRAXIS_SUBJECTS_DIR")
-    return Path(override) if override else NOTEBOOKS_DIR / SUBJECTS_ROOT
+    """Where generated subjects live — the active storage backend decides.
+
+    A user's subjects are their data, not part of the shipped library, so they sit under
+    `praxis.storage`'s root (the app-data directory by default) rather than beside the
+    seed notebooks. `PRAXIS_SUBJECTS_DIR` still relocates just this leaf, which is how
+    the tests keep out of a developer's real storage.
+    """
+    return storage.subjects_dir()
 
 
 def slugify(text: str, fallback: str = "") -> str:
