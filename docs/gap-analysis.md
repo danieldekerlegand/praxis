@@ -228,6 +228,34 @@ High-value neighbors worth a refresher. They're already scaffolded and tagged `r
 - **Plotly**
 - **Quarto** — CLI/publishing
 
+### Model Evaluation
+
+- **Eval Harness Design**
+- **LLM-as-a-Judge**
+- **The Statistics of Evals**
+- **Benchmark Contamination**
+
+### Interpretability
+
+- **Linear Probes**
+- **Sparse Autoencoders & Superposition**
+- **Activation Steering**
+
+### Pre-training
+
+- **Tokenization & Byte-Pair Encoding**
+- **Scaling Laws**
+- **Data Deduplication & Curation**
+- **Mixed-Precision Numerics**
+
+### RL & Training Dynamics
+
+- **PPO from Scratch**
+- **GRPO & Verifiable Rewards**
+- **Reward Models & Reward Hacking**
+- **Training Dynamics & Loss Spikes**
+- **Optimizer Internals**
+
 ## 3. Existing but unlisted — the legacy library
 
 The repo already contained **64 MLOps / AWS / GPU-infra notebooks** on a different curriculum than the study list. Per the project decision they're retained as one domain, **DevOps/MLOps & Infra** (`notebooks/11-devops-mlops-infra/`), and their 34 template stubs are finished by Ralph alongside the new material.

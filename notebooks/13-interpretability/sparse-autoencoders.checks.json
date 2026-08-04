@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "slug": "sparse-autoencoders",
+  "title": "Sparse Autoencoders & Superposition",
+  "domain": "13-interpretability",
+  "runnable": true,
+  "generated": "2026-08-03T23:59:22+00:00",
+  "generated_by": "hand-authored",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "checks": [
+    {
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "What problem do sparse autoencoders solve that linear probes do not?",
+      "options": [
+        "They find features WITHOUT being told what to look for \u2014 probing requires you to supply labels for a property you already suspect",
+        "They establish causal use of a feature, which probes cannot do",
+        "They work on models whose activations you cannot access",
+        "They are immune to the polysemanticity that makes probes unreliable"
+      ],
+      "answer": 0,
+      "explanation": "Probing is supervised and requires a hypothesis plus labels; an SAE is unsupervised. Neither establishes causal use on its own \u2014 that still requires intervention.",
+      "id": "sparse-autoencoders-01"
+    },
+    {
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Explain superposition using the cocktail-party analogy, and state the condition that makes the underdetermined problem solvable.",
+      "expected": "A correct answer must describe more speakers (features) than microphones (dimensions), so each recording (neuron/dimension) is a MIXTURE of many voices \u2014 which is why individual neurons are polysemantic and uninterpretable. It must identify SPARSITY as the enabling condition: at any moment only a few people are actually speaking, so interference between features is rare enough to tolerate, and separation becomes possible. It should convey that if all features were active simultaneously the problem would be genuinely unsolvable regardless of method. Noting that this is why the dictionary must be overcomplete, and why the L1 penalty encodes the 'few speak at once' assumption, is a plus.",
+      "explanation": "Sparsity is not a convenience of the method; it is the property of the data that makes an underdetermined decomposition identifiable at all.",
+      "id": "sparse-autoencoders-02"
+    },
+    {
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "An SAE achieves very low reconstruction error and a low L1 penalty is used. Why might its features still be uninterpretable?",
+      "options": [
+        "A dense code can reconstruct the data using arbitrary mixtures rather than the real feature directions \u2014 low reconstruction error is necessary but not sufficient",
+        "Reconstruction error and interpretability are measured on different data splits",
+        "Low L1 always produces dead features, which cannot be interpreted",
+        "Interpretability requires the dictionary to be smaller than the input dimension"
+      ],
+      "answer": 0,
+      "explanation": "The notebook's frontier shows exactly this: at small lambda, FVU is near zero while very few true features are recovered. Sparsity is the constraint that makes the decomposition identifiable, so reconstruction alone tells you little.",
+      "id": "sparse-autoencoders-03"
+    },
+    {
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write `l0_sparsity(codes, eps=1e-6)` where `codes` is a list of lists of floats (one row per input). Return the MEAN number of entries per row whose absolute value exceeds eps. Return 0.0 for an empty input. Standard library only.",
+      "starter": "def l0_sparsity(codes, eps=1e-6):\n    ...\n",
+      "solution": "def l0_sparsity(codes, eps=1e-6):\n    rows = list(codes)\n    if not rows:\n        return 0.0\n    total = sum(sum(1 for v in row if abs(v) > eps) for row in rows)\n    return total / len(rows)\n",
+      "test": "assert abs(l0_sparsity([[1.0, 0.0, 0.0], [0.0, 2.0, 0.0]]) - 1.0) < 1e-9\nassert abs(l0_sparsity([[1.0, 1.0], [1.0, 1.0]]) - 2.0) < 1e-9\nassert abs(l0_sparsity([[0.0, 0.0]]) - 0.0) < 1e-9\nassert l0_sparsity([]) == 0.0\nassert abs(l0_sparsity([[1e-9, 5.0]]) - 1.0) < 1e-9, 'eps must exclude tiny values'\nassert abs(l0_sparsity([[-3.0, 0.0, 4.0]]) - 2.0) < 1e-9, 'use absolute value'\nassert abs(l0_sparsity([[1.0, 0.0], [1.0, 1.0]]) - 1.5) < 1e-9, 'mean over rows'\n",
+      "explanation": "L0 is the sparsity you report, and it is always quoted alongside reconstruction error because the two move in opposite directions \u2014 neither is meaningful alone.",
+      "id": "sparse-autoencoders-04"
+    },
+    {
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "Why is interpreting an SAE feature from its top-activating examples alone a poor practice?",
+      "options": [
+        "It is a biased sample that invites confirmation bias \u2014 the hypothesis should be checked against the whole activation distribution and tested causally",
+        "Top-activating examples are usually dead features, which have no interpretation",
+        "The top examples are dominated by shrinkage, so their magnitudes are wrong",
+        "Feature splitting means the top examples belong to a different feature at another dictionary size"
+      ],
+      "answer": 0,
+      "explanation": "Looking only at where a feature fires most strongly makes almost any story look plausible. The mid-range and the negatives are where a hypothesis gets falsified.",
+      "id": "sparse-autoencoders-05"
+    },
+    {
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Give the honest case for and against SAEs as an interpretability method, including the central methodological difficulty on real activations.",
+      "expected": "FOR: SAEs are the main tool for the UNSUPERVISED question \u2014 finding features without labels or a prior hypothesis \u2014 the features are often far more interpretable than individual neurons, and they can be intervened on (clamped or ablated) to test causal relevance. AGAINST / the central difficulty: on real activations there is NO GROUND TRUTH, so 'did it find the right features' is judged by whether humans think the features look interpretable, which is a weak standard. It should mention at least one known concrete problem \u2014 feature absorption, sensitivity to dictionary size/feature splitting, shrinkage, dead features, or gaps between SAE features and the directions that causally drive behaviour. The recommended stance is to treat SAE output as HYPOTHESES to test causally, not as a readout of the model's thinking.",
+      "explanation": "The superposition framing is explanatory regardless of whether SAEs turn out to be the right way to undo it; the method itself remains unproven in an important sense.",
+      "id": "sparse-autoencoders-06"
+    }
+  ]
+}

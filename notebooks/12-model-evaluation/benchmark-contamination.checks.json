@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "slug": "benchmark-contamination",
+  "title": "Benchmark Contamination",
+  "domain": "12-model-evaluation",
+  "runnable": true,
+  "generated": "2026-08-03T23:59:22+00:00",
+  "generated_by": "hand-authored",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "checks": [
+    {
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "Which form of contamination is most damaging, and why is contamination hard to avoid for any widely-used public benchmark?",
+      "options": [
+        "Verbatim leakage of question AND answer; benchmarks are published on GitHub, mirrored, and discussed across the web that pre-training corpora are scraped from",
+        "Distributional similarity, because it teaches the model the general style of the task",
+        "Input-only leakage, because familiarity with phrasing is the largest single effect",
+        "Indirect leakage through another model's outputs, which is the only form that cannot be detected"
+      ],
+      "answer": 0,
+      "explanation": "Input+label leakage lets the model recall the answer outright. Distributional similarity is legitimate generalisation, not contamination. The unavoidability comes from benchmarks living on the same web that gets crawled.",
+      "id": "benchmark-contamination-01"
+    },
+    {
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Contamination is framed as 'an exam where some questions leaked'. Explain what that framing gets right that 'the model cheated' does not, and name the diagnostic it suggests for a model whose training data you cannot inspect.",
+      "expected": "A correct answer must draw at least two of these consequences: (1) it is a SPECTRUM not a binary \u2014 the useful quantity is how much of the score is attributable to leakage, not whether any occurred; (2) the model has NO NOTION of which items it saw, so there is no intent and asking the model is not a reliable detector; (3) the fix is a FRESH EXAM rather than better invigilation. It must name the diagnostic: compare performance on items from BEFORE versus AFTER the model's training cutoff, holding difficulty fixed \u2014 a temporal split \u2014 since genuine understanding transfers to new items of equal difficulty while memorisation does not.",
+      "explanation": "The analogy yields the temporal split directly, which is the main test available without training-data access.",
+      "id": "benchmark-contamination-02"
+    },
+    {
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A benchmark publishes a unique GUID canary string in its files. What can you conclude if a model cannot reproduce it and it does not appear in a corpus you scanned?",
+      "options": [
+        "Nothing \u2014 a canary miss proves nothing, because the benchmark may have been copied without the canary, reformatted, or merely discussed",
+        "The benchmark is clean for that model, since the canary would have been memorised along with the data",
+        "The corpus predates the benchmark's publication",
+        "The model's tokenizer cannot represent the GUID, so the test is inconclusive by construction"
+      ],
+      "answer": 0,
+      "explanation": "Canaries are a one-sided test: a hit is proof of exposure, a miss is not evidence of cleanliness. That asymmetry runs through every detector in the notebook.",
+      "id": "benchmark-contamination-03"
+    },
+    {
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write `ngram_overlap(text_a, text_b, n)` returning the number of distinct word n-grams that appear in BOTH texts. Split on whitespace and lowercase before comparing. Return 0 if either text has fewer than n words. Standard library only.",
+      "starter": "def ngram_overlap(text_a, text_b, n):\n    ...\n",
+      "solution": "def ngram_overlap(text_a, text_b, n):\n    def grams(t):\n        w = t.lower().split()\n        if len(w) < n:\n            return set()\n        return {' '.join(w[i:i + n]) for i in range(len(w) - n + 1)}\n    return len(grams(text_a) & grams(text_b))\n",
+      "test": "a = 'the quick brown fox jumps over the lazy dog'\nassert ngram_overlap(a, a, 3) == 7, ngram_overlap(a, a, 3)\nassert ngram_overlap(a, 'THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG', 3) == 7\nassert ngram_overlap(a, 'completely unrelated words entirely', 3) == 0\nassert ngram_overlap('short', a, 5) == 0, 'too few words -> 0'\nb = 'the quick brown cat jumps over the lazy dog'\nassert 0 < ngram_overlap(a, b, 3) < 7, 'one edited word removes some but not all'\nassert ngram_overlap(a, b, 13) == 0, 'long n-grams are defeated by one edit'\n",
+      "explanation": "The last assertion is the detector's blind spot: a single substituted word defeats 13-gram matching entirely, which is why an n-gram report is a lower bound on contamination and never a clearance.",
+      "id": "benchmark-contamination-04"
+    },
+    {
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "You detect contaminated items and want to fix it. What is the sound direction, and what is wrong with the alternative?",
+      "options": [
+        "Decontaminate the TRAINING set; removing flagged items from the eval changes what the benchmark measures and preferentially deletes items the model has seen",
+        "Remove the flagged items from the eval, since the training set is too large to filter",
+        "Re-weight the flagged eval items downward in the final average",
+        "Report both the contaminated and decontaminated scores and average them"
+      ],
+      "answer": 0,
+      "explanation": "Deleting eval items silently changes the construct being measured, and the deleted subset is not random with respect to difficulty. Filtering the training data is the direction that preserves the benchmark.",
+      "id": "benchmark-contamination-05"
+    },
+    {
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "You need a benchmark number you can actually trust for a high-stakes decision about a model you did not train. Explain what to do and what it costs.",
+      "expected": "A correct answer must recommend evaluating on data the model CANNOT HAVE SEEN: items written fresh, drawn from after the training cutoff, or held in a private set that has never been published or sent through a third-party API. It must acknowledge the costs: creating fresh items is expensive; a held-out set DECAYS IN VALUE with every use, because you optimise against it whether or not it leaks; and sending private items through a hosted API may itself put them into someone's training data. The practical discipline is to keep a small, fresh, private set for decisions that matter and treat public leaderboard numbers as a weak signal. Noting that detection methods are one-sided and cannot certify cleanliness is a plus.",
+      "explanation": "Detection is damage control; evaluation on genuinely unseen data is the only robust answer, and it is a recurring cost rather than a one-off fix.",
+      "id": "benchmark-contamination-06"
+    }
+  ]
+}

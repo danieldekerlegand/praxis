@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "slug": "tokenization-bpe",
+  "title": "Tokenization & Byte-Pair Encoding",
+  "domain": "14-pretraining",
+  "runnable": true,
+  "generated": "2026-08-04T00:03:27+00:00",
+  "generated_by": "hand-authored",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "checks": [
+    {
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "Why is a tokenizer mistake unusually expensive compared with most other design errors in a model?",
+      "options": [
+        "It is frozen at the start of pre-training, so every parameter is learned downstream of it and fixing it means retraining from scratch",
+        "Tokenizers are the slowest component at inference, so errors there dominate latency",
+        "Tokenizer bugs cause silent numerical overflow in the embedding layer",
+        "The vocabulary size determines the model's parameter count, so a mistake changes the architecture"
+      ],
+      "answer": 0,
+      "explanation": "Adding tokens later means randomly initialised embedding rows in a trained model. There are ways to patch this, but none as good as getting it right first.",
+      "id": "tokenization-bpe-01"
+    },
+    {
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "BPE is described as a compression codebook learned from a corpus. Use that framing to explain why a model handles code and non-English text badly, and why this is not an oversight.",
+      "expected": "A correct answer must state that BPE optimises AVERAGE SEQUENCE LENGTH ON ITS TRAINING CORPUS, so text resembling that corpus compresses to few tokens while anything unlike it fragments toward bytes. It must draw the conclusion that a tokenizer trained mostly on English web text handles code and other languages badly BECAUSE THEY WERE NOT IN THE OBJECTIVE \u2014 this is the algorithm doing exactly what it was asked to do, not neglect or a bug. A strong answer notes the consequence: fragmented input is not merely unfamiliar, it is shredded into more, less-informative pieces before the model sees it, so it is worse quality AND more expensive.",
+      "explanation": "The compression framing makes the failure predictable rather than mysterious: what you put in the corpus is what compresses well.",
+      "id": "tokenization-bpe-02"
+    },
+    {
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "What does 'fertility' measure and why does it matter beyond compression?",
+      "options": [
+        "Tokens per word \u2014 it is simultaneously the cost metric and the fairness metric, since a language with high fertility costs more per word, fits less context, and gets worse quality",
+        "The number of merges learned per unit of corpus, which measures training efficiency",
+        "The fraction of the vocabulary actually used on a given corpus",
+        "How many distinct words map to the same token sequence"
+      ],
+      "answer": 0,
+      "explanation": "Because tokens are the unit of both compute and billing, a user whose language has fertility 4 pays roughly four times as much per word, waits longer, and fits a quarter as much in the context window.",
+      "id": "tokenization-bpe-03"
+    },
+    {
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write `merge_pair(ids, pair, new_id)` \u2014 one step of BPE. Given a list of integer ids, a 2-tuple `pair`, and a replacement id, return a NEW list in which every non-overlapping left-to-right occurrence of `pair` is replaced by `new_id`. Do not mutate the input. Standard library only.",
+      "starter": "def merge_pair(ids, pair, new_id):\n    ...\n",
+      "solution": "def merge_pair(ids, pair, new_id):\n    out, i = [], 0\n    while i < len(ids):\n        if i < len(ids) - 1 and (ids[i], ids[i + 1]) == tuple(pair):\n            out.append(new_id)\n            i += 2\n        else:\n            out.append(ids[i])\n            i += 1\n    return out\n",
+      "test": "assert merge_pair([1, 2, 3, 1, 2], (1, 2), 99) == [99, 3, 99]\nassert merge_pair([1, 1, 1], (1, 1), 7) == [7, 1], 'non-overlapping, left to right'\nassert merge_pair([5, 6], (9, 9), 1) == [5, 6], 'no match -> unchanged'\nassert merge_pair([], (1, 2), 3) == []\nsrc = [1, 2, 4]\nassert merge_pair(src, (1, 2), 8) == [8, 4]\nassert src == [1, 2, 4], 'must not mutate the input'\nassert merge_pair([1, 2, 2], (2, 2), 5) == [1, 5]\n",
+      "explanation": "The non-overlapping left-to-right rule is what makes encoding deterministic. Applying the learned merges in rank order, each via this operation, is the whole encoder.",
+      "id": "tokenization-bpe-04"
+    },
+    {
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "Why do several modern tokenizers force digits to be split individually or in fixed groups, even though that produces longer sequences?",
+      "options": [
+        "A consistent decomposition matters more than a short one \u2014 otherwise '2020' and '2023' get unrelated representations and the model cannot see they are adjacent years",
+        "Because multi-digit tokens overflow the embedding table's index range",
+        "Because digits appear too rarely in web text for BPE to learn useful merges",
+        "Because number tokens are the main cause of high fertility in non-English languages"
+      ],
+      "answer": 0,
+      "explanation": "Whether a number splits into one token or four depends on how frequent it was in the tokenizer's training corpus, which is arbitrary from the model's point of view. Consistency is what makes arithmetic learnable.",
+      "id": "tokenization-bpe-05"
+    },
+    {
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "You are fine-tuning an existing open-weight model on a specialised domain with a lot of unusual vocabulary. Should you train a new tokenizer? Explain, and give the one tokenizer decision that genuinely warrants agonising over.",
+      "expected": "A correct answer must say NO \u2014 use the existing tokenizer unchanged when fine-tuning, because the model's embeddings were learned against it and adding or replacing tokens leaves randomly initialised rows in a trained model, which is a last resort rather than a default. It must identify the decision worth agonising over: VOCABULARY SIZE AND COMPOSITION when training a model FROM SCRATCH, because that is frozen for the life of the model and is where the cost and fairness consequences live (sequence length versus embedding/softmax cost; representation of code and non-English text at their real proportions). A strong answer adds that the tokenizer should be trained on the actual pre-training mixture.",
+      "explanation": "Almost nobody should write their own tokenizer; the value of understanding it is diagnosing the surprising behaviours it causes.",
+      "id": "tokenization-bpe-06"
+    }
+  ]
+}

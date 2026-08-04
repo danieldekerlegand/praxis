@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "slug": "eval-harness-design",
+  "title": "Eval Harness Design",
+  "domain": "12-model-evaluation",
+  "runnable": true,
+  "generated": "2026-08-03T23:59:22+00:00",
+  "generated_by": "hand-authored",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "checks": [
+    {
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "Two papers report different scores for the same model on the same public benchmark. What is the most likely explanation?",
+      "options": [
+        "A difference somewhere in the harness pipeline \u2014 prompt template, few-shot count, answer parser or aggregation",
+        "One of them used a different checkpoint of the model without saying so",
+        "Random variation in the benchmark's item sampling between the two runs",
+        "One of them made an arithmetic error computing the final average"
+      ],
+      "answer": 0,
+      "explanation": "A benchmark score is a pipeline, and several of its stages move the number by several points. The dataset is fixed and shared, so item sampling is not the variable; the harness decisions are.",
+      "id": "eval-harness-design-01"
+    },
+    {
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "An eval is described in this notebook as a scientific instrument. Name the three things a usable instrument needs, and explain what a degenerate baseline tells you about a benchmark's usable range.",
+      "expected": "A correct answer must name: (1) a known NOISE FLOOR \u2014 obtained by running the same model twice, below which no comparison is meaningful; (2) a known SYSTEMATIC BIAS \u2014 e.g. a parser that penalises particular output formats, which is not random error; and (3) a CONTROL \u2014 what the harness scores for a trivial strategy. On the degenerate baseline it must explain that if a strategy like 'always answer A' scores 30%, the benchmark's usable dynamic range is 30\u2013100% rather than 0\u2013100%, so reported gains must be read against that floor rather than against zero.",
+      "explanation": "The failure this prevents is treating a number as a property of the model when it is a property of the apparatus.",
+      "id": "eval-harness-design-02"
+    },
+    {
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Why is log-likelihood scoring of candidate answers usually length-normalised?",
+      "options": [
+        "Longer candidate answers have lower total log-probability by construction, so without normalisation you are partly measuring length",
+        "Because unnormalised log-likelihoods can be positive, which breaks the argmax",
+        "Because the tokenizer splits longer answers into more tokens, which changes their meaning",
+        "Because log-likelihood is only defined up to a constant, and normalisation fixes the constant"
+      ],
+      "answer": 0,
+      "explanation": "Every additional token multiplies in another probability below 1, so total logprob falls with length regardless of quality. Normalising by token count (or by a unconditional baseline) is what makes candidates of different lengths comparable.",
+      "id": "eval-harness-design-03"
+    },
+    {
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write `pass_at_k(n, c, k)` implementing the unbiased pass@k estimator: given n sampled completions of which c passed, the probability that at least one of k drawn samples passes. Use 1 - C(n-c, k)/C(n, k), and return 1.0 when fewer than k failures exist. Standard library only.",
+      "starter": "from math import comb\n\ndef pass_at_k(n, c, k):\n    ...\n",
+      "solution": "from math import comb\n\ndef pass_at_k(n, c, k):\n    if n - c < k:\n        return 1.0\n    return 1.0 - comb(n - c, k) / comb(n, k)\n",
+      "test": "assert pass_at_k(10, 10, 1) == 1.0, 'all pass -> 1.0'\nassert pass_at_k(10, 0, 1) == 0.0, 'none pass -> 0.0'\nassert abs(pass_at_k(10, 1, 1) - 0.1) < 1e-9\nassert abs(pass_at_k(4, 2, 2) - (1 - comb(2,2)/comb(4,2))) < 1e-12\nprev = -1.0\nfor k in (1, 2, 5, 10):\n    v = pass_at_k(20, 4, k)\n    assert v >= prev, 'pass@k must be non-decreasing in k'\n    prev = v\nassert pass_at_k(20, 18, 5) == 1.0, 'only 2 failures, so any 5 must include a pass'\n",
+      "explanation": "Sampling n >> k once and computing every pass@k from those same n samples is both unbiased and far lower-variance than re-sampling k completions per value of k.",
+      "id": "eval-harness-design-04"
+    },
+    {
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "Your harness counts an unparseable model response as incorrect. What does this obscure?",
+      "options": [
+        "A rise in parse failures is a harness regression, and counting it as wrongness makes it look like a capability regression",
+        "Nothing important \u2014 an unparseable answer is not a correct answer, so scoring it wrong is right",
+        "It inflates the score, because unparseable responses might have contained the right answer",
+        "It breaks the aggregation, because the denominator no longer matches the item count"
+      ],
+      "answer": 0,
+      "explanation": "An unparseable response and a wrong answer are different events with different causes. Counting them separately is what lets you notice that a model changed its output format rather than got worse.",
+      "id": "eval-harness-design-05"
+    },
+    {
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "When should you adopt an existing harness such as lm-evaluation-harness rather than writing your own, and what weaker requirement makes a custom harness perfectly adequate for most research work?",
+      "expected": "A correct answer must say that you adopt an existing harness when you need COMPARABILITY WITH PUBLISHED NUMBERS, because matching someone else's score requires adopting all of their pipeline decisions (prompt template, few-shot count, parser, aggregation), not just their dataset. It must then identify the weaker requirement: for tracking your OWN model versions you only need INTERNAL comparability \u2014 the harness held fixed and versioned across your runs \u2014 which is far easier to achieve and is sufficient for most research decisions. Noting that a custom harness is also better for debugging why a model fails is a plus.",
+      "explanation": "Internal comparability is a much weaker and more achievable requirement than external reproducibility, and it is what most decisions actually need.",
+      "id": "eval-harness-design-06"
+    }
+  ]
+}

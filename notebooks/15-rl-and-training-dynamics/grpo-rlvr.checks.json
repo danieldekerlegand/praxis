@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "slug": "grpo-rlvr",
+  "title": "GRPO & Verifiable Rewards",
+  "domain": "15-rl-and-training-dynamics",
+  "runnable": true,
+  "generated": "2026-08-04T00:03:27+00:00",
+  "generated_by": "hand-authored",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "checks": [
+    {
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "What does GRPO replace the critic with, and what does that buy?",
+      "options": [
+        "The group's own mean reward across G completions of the same prompt \u2014 removing a second network to train, roughly halving memory, and eliminating a model that could be wrong",
+        "A learned reward model, which is cheaper to train than a value network",
+        "A moving average of rewards across prompts, which is more stable than a critic",
+        "The reference policy's log-probabilities, which serve as an implicit baseline"
+      ],
+      "answer": 0,
+      "explanation": "For a single prompt answered G times, the other G\u22121 completions already tell you whether one was better than average. That is an unbiased baseline by construction.",
+      "id": "grpo-rlvr-01"
+    },
+    {
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "GRPO is described as 'grading on a curve, one question at a time'. Derive two practical consequences from that framing.",
+      "expected": "A correct answer must derive at least two of: (1) the prompt's INTRINSIC DIFFICULTY CANCELS \u2014 a hard prompt where everyone scores low and an easy one where everyone scores high both produce advantages centred on zero, giving the variance reduction of a perfect state-dependent baseline for free; (2) a UNANIMOUS GROUP TEACHES NOTHING \u2014 if all G completions get the same reward every advantage is zero, so all-correct and all-wrong prompts contribute no gradient despite costing full sampling budget, which makes prompt difficulty selection a first-class concern; (3) G CONTROLS ESTIMATE QUALITY \u2014 small groups give noisy baselines and waste more prompts, large groups cost linearly more sampling.",
+      "explanation": "The comparison set is right there in the group, so no prediction is needed \u2014 but only if the group actually disagrees.",
+      "id": "grpo-rlvr-02"
+    },
+    {
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Why is G=1 impossible for GRPO, and what is the practical cost of a small G beyond noise?",
+      "options": [
+        "A group of one has zero variance so the advantage is undefined; and small groups make a large fraction of prompts unanimous, wasting them entirely",
+        "G=1 works but reduces to vanilla policy gradient, which is simply less efficient",
+        "G=1 makes the KL penalty undefined, and small G destabilises the reference comparison",
+        "Small G biases the advantage estimate upward, systematically over-rewarding completions"
+      ],
+      "answer": 0,
+      "explanation": "The advantage is (r \u2212 mean)/std within the group; with one sample both the deviation and the std are zero. Beyond that, the fraction of degenerate groups is the cost people forget when picking G.",
+      "id": "grpo-rlvr-03"
+    },
+    {
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write `group_advantage(rewards, eps=1e-8)` returning a list of group-relative advantages: each reward minus the group mean, divided by (group standard deviation + eps). Use the population standard deviation. Return a list of 0.0 for an empty input. Standard library only.",
+      "starter": "def group_advantage(rewards, eps=1e-8):\n    ...\n",
+      "solution": "def group_advantage(rewards, eps=1e-8):\n    r = list(rewards)\n    if not r:\n        return []\n    mean = sum(r) / len(r)\n    var = sum((x - mean) ** 2 for x in r) / len(r)\n    sd = var ** 0.5\n    return [(x - mean) / (sd + eps) for x in r]\n",
+      "test": "a = group_advantage([1.0, 1.0, 1.0, 1.0])\nassert all(abs(x) < 1e-6 for x in a), 'unanimous group -> zero advantage'\na = group_advantage([0.0, 0.0, 0.0])\nassert all(abs(x) < 1e-6 for x in a), 'all-wrong group -> zero advantage'\na = group_advantage([1.0, 0.0])\nassert a[0] > 0 > a[1], 'better than average is positive'\nassert abs(sum(group_advantage([3.0, 1.0, 2.0, 6.0]))) < 1e-6, 'advantages sum to ~0'\na = group_advantage([1.0, 0.0, 0.0, 0.0])\nassert abs(a[0]) > abs(a[1]), 'the lone winner deviates most'\nassert group_advantage([]) == []\n",
+      "explanation": "The first two assertions are GRPO's defining constraint: unanimous groups produce no gradient at all, so you learn only from prompts the model gets right SOMETIMES.",
+      "id": "grpo-rlvr-04"
+    },
+    {
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "Under RLVR, where does reward hacking relocate to?",
+      "options": [
+        "Gaming the CHECKER \u2014 a weak verifier can be satisfied by output that does not demonstrate the capability, such as emitting many candidate answers",
+        "Gaming the reward model, which is still present but harder to detect",
+        "It is eliminated, because a verifiable reward is by definition the true objective",
+        "Gaming the KL penalty by staying artificially close to the reference policy"
+      ],
+      "answer": 0,
+      "explanation": "Under RLVR the checker IS the objective, so any gap between the checker and the capability you meant will be found and exploited. The engineering effort moves from reward-model training to checker design.",
+      "id": "grpo-rlvr-05"
+    },
+    {
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Compare GRPO+RLVR against PPO with a learned reward model: when does each win, and what is the deeper shift RLVR represents?",
+      "expected": "A correct answer must say GRPO+RLVR wins where rewards are CHECKABLE (maths, code, tests, exact answers) and sampling is cheap enough to draw G completions per prompt \u2014 no critic to train, no critic to be wrong. PPO wins where the reward must be a LEARNED MODEL because the task is open-ended with no checker, where sampling is very expensive (PPO reuses each rollout for several epochs while GRPO needs G samples per prompt), or where a trustworthy critic already exists. It must identify the deeper shift: moving from LEARNED to CHECKABLE rewards removes the reward-hacking failure mode that dominates RLHF and replaces it with CHECKER DESIGN \u2014 a better problem, because a checker's failures are inspectable in a way a reward model's are not. Noting that GRPO is not a better optimiser, just PPO with the critic replaced by a group baseline, is a plus.",
+      "explanation": "The algorithmic change is modest; the change in what the reward IS is the consequential part.",
+      "id": "grpo-rlvr-06"
+    }
+  ]
+}

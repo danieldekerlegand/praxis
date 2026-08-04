@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "slug": "llm-as-judge",
+  "title": "LLM-as-a-Judge",
+  "domain": "12-model-evaluation",
+  "runnable": true,
+  "generated": "2026-08-03T23:59:22+00:00",
+  "generated_by": "hand-authored",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "checks": [
+    {
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "You need to score open-ended responses and a programmatic check is available for the task. Why prefer the programmatic check over a judge model?",
+      "options": [
+        "It is cheaper, deterministic, and cannot be biased \u2014 a judge is what you use when nothing better exists",
+        "Judge models are only accurate on short responses, so they cannot be used for open-ended text",
+        "Programmatic checks measure a different construct that is generally more useful",
+        "Judge models require human labels to work at all, and programmatic checks do not"
+      ],
+      "answer": 0,
+      "explanation": "A judge is a cheap approximation to human evaluation, and it is the fallback rather than the default. Where a test suite, exact answer or schema exists, it is strictly better on cost, determinism and bias.",
+      "id": "llm-as-judge-01"
+    },
+    {
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "The notebook describes a judge as 'a reviewer with predictable prejudices'. Describe the single experimental trick that detects every one of those prejudices, and apply it to both position bias and verbosity bias.",
+      "expected": "A correct answer must state the general trick: present the SAME content in a DIFFERENT arrangement (or change one feature while holding quality constant) and check whether the verdict moves \u2014 a judge that gives inconsistent verdicts on logically equivalent inputs cannot be measuring quality. For POSITION BIAS it must describe swapping the order of the two responses and measuring the first-slot win rate (50% is unbiased) or the consistency rate under swap. For VERBOSITY BIAS it must describe an INTERVENTION such as padding a response with contentless text and measuring whether the score rises \u2014 and ideally note that a mere correlation between length and score proves nothing, because longer answers genuinely are often better.",
+      "explanation": "Swap the order, pad the text, compare to human labels \u2014 one methodology, applied to each suspected bias in turn.",
+      "id": "llm-as-judge-02"
+    },
+    {
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "You validate a judge against human labels and get 92% agreement. Why might this be worthless?",
+      "options": [
+        "If the labels are heavily skewed, a judge with no skill that always predicts the majority class achieves a similar number \u2014 you need a chance-corrected statistic such as Cohen's kappa",
+        "92% is below the 95% threshold conventionally required for judge validation",
+        "Raw agreement cannot be computed when the judge and humans use different scales",
+        "Agreement measured on a sample never generalises to the full dataset"
+      ],
+      "answer": 0,
+      "explanation": "The notebook shows a no-skill judge reaching 95% raw agreement on 95/5 labels while kappa correctly reports ~0. Always report a chance-corrected measure.",
+      "id": "llm-as-judge-03"
+    },
+    {
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write `first_slot_win_rate(verdicts_a_first, verdicts_b_first)`. Each argument is a list of strings 'A' or 'B' giving the judge's verdict for the same pairs under the two orderings. Return the fraction of ALL verdicts (both lists pooled) that chose the first-shown slot, i.e. the fraction equal to 'A'. Standard library only.",
+      "starter": "def first_slot_win_rate(verdicts_a_first, verdicts_b_first):\n    ...\n",
+      "solution": "def first_slot_win_rate(verdicts_a_first, verdicts_b_first):\n    all_v = list(verdicts_a_first) + list(verdicts_b_first)\n    if not all_v:\n        return 0.0\n    return sum(1 for v in all_v if v == 'A') / len(all_v)\n",
+      "test": "assert abs(first_slot_win_rate(['A','B'], ['A','B']) - 0.5) < 1e-9, 'unbiased'\nassert abs(first_slot_win_rate(['A','A'], ['A','A']) - 1.0) < 1e-9, 'always first slot'\nassert abs(first_slot_win_rate(['B','B'], ['B','B']) - 0.0) < 1e-9\nassert abs(first_slot_win_rate(['A','A','A'], ['B']) - 0.75) < 1e-9\nassert first_slot_win_rate([], []) == 0.0, 'must not divide by zero'\n",
+      "explanation": "Averaged over both orderings the content is identical, so any departure from 50% is position bias and nothing else. This needs no ground truth, which is what makes it usable on any judge.",
+      "id": "llm-as-judge-04"
+    },
+    {
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "Which practice most undermines the validity of a pairwise judging setup?",
+      "options": [
+        "Letting the judge see which system produced which response \u2014 any label reintroduces every bias you controlled for",
+        "Allowing the judge to output a tie instead of forcing a choice",
+        "Using a judge from a different model family than the systems under test",
+        "Running each pair under both orderings and averaging the verdicts"
+      ],
+      "answer": 0,
+      "explanation": "Blinding is the precondition for everything else. The other three options are all recommended practice: ties avoid coin-flip noise, a different family avoids self-preference, and both orderings control position bias.",
+      "id": "llm-as-judge-05"
+    },
+    {
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Describe the most reliable pairwise judging configuration available cheaply, listing at least four specific choices, and say what must be reported alongside the result.",
+      "expected": "A correct answer must list at least four of: PAIRWISE rather than pointwise comparison; BOTH ORDERINGS judged and averaged (with disagreement treated as a tie); TIES ALLOWED rather than forced choice; a RUBRIC that explicitly names what NOT to reward (length, confident tone); a judge from a DIFFERENT MODEL FAMILY than the systems under test; and blinding of system identity. It must state that a JUDGE\u2013HUMAN AGREEMENT statistic (chance-corrected, e.g. Cohen's kappa) on a labelled sample must be reported alongside the result, since without it the number has unknown validity.",
+      "explanation": "The configuration is cheap; the agreement number is what converts the judge from an unaccountable oracle into an instrument with known error characteristics.",
+      "id": "llm-as-judge-06"
+    }
+  ]
+}

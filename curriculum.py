@@ -318,6 +318,57 @@ DOMAINS: list[Domain] = [
         topics=(),
         source="filesystem",
     ),
+    # Domains 12-15 are ordered study tracks rather than reference collections: each is
+    # a short, deliberately sequential path, so its knowledge checks gate it end to end
+    # (module_gates orders a module's topics, so topic N+1 opens when topic N is passed).
+    Domain(
+        "12-model-evaluation",
+        "Model Evaluation",
+        "How to measure a model and be right about it — harness design, model-graded "
+        "evaluation, the statistics of benchmark scores, and contamination.",
+        (
+            T("eval-harness-design", "Eval Harness Design", recommended=True),
+            T("llm-as-judge", "LLM-as-a-Judge", recommended=True),
+            T("eval-statistics", "The Statistics of Evals", recommended=True),
+            T("benchmark-contamination", "Benchmark Contamination", recommended=True),
+        ),
+    ),
+    Domain(
+        "13-interpretability",
+        "Interpretability",
+        "Reading what a model has represented rather than what it outputs — probing, "
+        "sparse feature dictionaries, and causal intervention on activations.",
+        (
+            T("linear-probes", "Linear Probes", recommended=True),
+            T("sparse-autoencoders", "Sparse Autoencoders & Superposition", recommended=True),
+            T("activation-steering", "Activation Steering", recommended=True),
+        ),
+    ),
+    Domain(
+        "14-pretraining",
+        "Pre-training",
+        "What happens before fine-tuning: the tokenizer, the data, the numerics, and "
+        "the scaling laws that decide how to spend a compute budget.",
+        (
+            T("tokenization-bpe", "Tokenization & Byte-Pair Encoding", recommended=True),
+            T("scaling-laws", "Scaling Laws", recommended=True),
+            T("data-deduplication", "Data Deduplication & Curation", recommended=True),
+            T("mixed-precision-numerics", "Mixed-Precision Numerics", recommended=True),
+        ),
+    ),
+    Domain(
+        "15-rl-and-training-dynamics",
+        "RL & Training Dynamics",
+        "Post-training with reinforcement learning, and the diagnostics that tell you "
+        "what a training run is actually doing.",
+        (
+            T("ppo-from-scratch", "PPO from Scratch", recommended=True),
+            T("grpo-rlvr", "GRPO & Verifiable Rewards", recommended=True),
+            T("reward-models-and-hacking", "Reward Models & Reward Hacking", recommended=True),
+            T("training-dynamics", "Training Dynamics & Loss Spikes", recommended=True),
+            T("optimizer-internals", "Optimizer Internals", recommended=True),
+        ),
+    ),
 ]
 
 ROOT = Path(__file__).resolve().parent

@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "slug": "scaling-laws",
+  "title": "Scaling Laws",
+  "domain": "14-pretraining",
+  "runnable": true,
+  "generated": "2026-08-04T00:03:27+00:00",
+  "generated_by": "hand-authored",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "checks": [
+    {
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "What practical capability do scaling laws provide that makes large-scale training an engineering discipline rather than a gamble?",
+      "options": [
+        "Loss follows a power law regularly enough to EXTRAPOLATE from cheap small runs to an expensive large one before committing the budget",
+        "They prove that loss decreases monotonically with model size, so bigger is always better",
+        "They determine the optimal architecture for a given compute budget",
+        "They predict which capabilities will emerge at a given scale"
+      ],
+      "answer": 0,
+      "explanation": "A power law is a straight line on log-log axes, which is why a sweep of small models can predict the large one. Scaling laws predict LOSS, not capabilities, and say nothing about architecture.",
+      "id": "scaling-laws-01"
+    },
+    {
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Explain the compute-budget constraint geometrically, and what the compute-optimal point is in that picture. Use the relation C \u2248 6ND.",
+      "expected": "A correct answer must explain that with C fixed, C \u2248 6ND means N and D trade off inversely, so on log-log axes of N against D a fixed compute budget is a STRAIGHT LINE OF SLOPE \u22121. Every point on that line is a model you could train for the same cost: tall-and-thin (large model, little data) at one end, short-and-wide (small model, lots of data) at the other. Loss is a SURFACE over that plane, and the compute-optimal point is where the budget line TOUCHES THE LOWEST LOSS CONTOUR \u2014 i.e. the tangency. A strong answer notes that Kaplan and Chinchilla did not disagree that this point exists, only about where it is.",
+      "explanation": "The budget line plus loss contours is the whole picture, and it makes the compute-optimal question obviously well-posed.",
+      "id": "scaling-laws-02"
+    },
+    {
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Why must a scaling-law fit include an irreducible-loss term L\u221e?",
+      "options": [
+        "A pure power law predicts loss reaching zero at infinite scale, which is impossible because the data itself is not deterministic \u2014 and omitting the term distorts the fitted exponent",
+        "Because L\u221e is what determines the compute-optimal ratio of parameters to tokens",
+        "Because without it the fit cannot be performed in log space",
+        "Because the exponent is only identifiable when the floor is fixed at zero"
+      ],
+      "answer": 0,
+      "explanation": "L\u221e is the entropy of the data. A floorless fit keeps descending forever and eventually predicts a model compressing the data better than its own entropy allows \u2014 and the misfit biases the exponent long before that.",
+      "id": "scaling-laws-03"
+    },
+    {
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write `compute_flops(n_params, n_tokens)` returning the approximate training FLOPs 6*N*D, and `tokens_for_budget(n_params, flops)` returning the token count that exactly exhausts a budget for a given parameter count. Both must be exact for large integers. Standard library only.",
+      "starter": "def compute_flops(n_params, n_tokens):\n    ...\n\ndef tokens_for_budget(n_params, flops):\n    ...\n",
+      "solution": "def compute_flops(n_params, n_tokens):\n    return 6 * n_params * n_tokens\n\ndef tokens_for_budget(n_params, flops):\n    return flops / (6 * n_params)\n",
+      "test": "assert compute_flops(70_000_000_000, 1_400_000_000_000) == 6 * 70 * 10**9 * 14 * 10**11\nassert compute_flops(1, 1) == 6\nN = 7 * 10**9\nC = 10**22\nD = tokens_for_budget(N, C)\nassert abs(compute_flops(N, D) - C) / C < 1e-9, 'must round-trip'\nassert tokens_for_budget(2 * N, C) < tokens_for_budget(N, C), 'bigger model, fewer tokens'\nassert abs(tokens_for_budget(N, 2 * C) / tokens_for_budget(N, C) - 2.0) < 1e-9\n",
+      "explanation": "C \u2248 6ND is two FLOPs for the forward pass and four for the backward, per parameter per token. It ignores attention's quadratic term and assumes dense models \u2014 for a mixture of experts, N is ACTIVE parameters.",
+      "id": "scaling-laws-04"
+    },
+    {
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "You are told a model should be trained at 20 tokens per parameter. When is that the wrong target, and why?",
+      "options": [
+        "When the model will be SERVED heavily \u2014 compute-optimal minimises training loss per training FLOP, but if inference dominates the lifetime cost you should train a smaller model on far more tokens",
+        "When the model uses a mixture-of-experts architecture, where the ratio should be halved",
+        "When the training data has been deduplicated, which changes the effective token count",
+        "When you are fine-tuning rather than pre-training, where the ratio should be doubled"
+      ],
+      "answer": 0,
+      "explanation": "Chinchilla answers 'cheapest to train'. If you will serve billions of tokens the right objective is total lifetime cost, and that pushes the optimum toward smaller, deliberately over-trained models.",
+      "id": "scaling-laws-05"
+    },
+    {
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "How much should you trust a scaling-law extrapolation, and what is the appropriate way to use these laws in practice?",
+      "expected": "A correct answer must say that fits are valid INSIDE the range they were measured over, that error grows with the number of orders of magnitude extrapolated, and that small errors in the exponent compound enormously across orders \u2014 so a prediction more than roughly two orders beyond your data should be treated as a hypothesis rather than a number. It must recommend using the laws for RELATIVE decisions from cheap small runs (this split beats that split; this architecture scales better \u2014 comparing fitted curves rather than single points), re-fitting the constants on your OWN data and architecture rather than borrowing published ones, and buying an intermediate-scale run to check the curve before committing a full budget. Noting that the constants are dataset-specific, and that even Chinchilla's published fits have been re-analysed and corrected, is a plus.",
+      "explanation": "Scaling laws are an empirical regularity, not a theory; they earn their keep on relative comparisons, not absolute long-range predictions.",
+      "id": "scaling-laws-06"
+    }
+  ]
+}

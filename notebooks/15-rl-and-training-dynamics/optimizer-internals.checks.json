@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "slug": "optimizer-internals",
+  "title": "Optimizer Internals",
+  "domain": "15-rl-and-training-dynamics",
+  "runnable": true,
+  "generated": "2026-08-04T00:03:27+00:00",
+  "generated_by": "hand-authored",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "checks": [
+    {
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "What underlying problem are momentum and adaptive methods both responding to?",
+      "options": [
+        "Ill-conditioning \u2014 some directions are steep and some nearly flat, so plain gradient descent must use a step small enough for the steepest and therefore crawls along the flattest",
+        "Stochastic gradient noise from mini-batching, which both methods average away",
+        "Non-convexity, which causes plain gradient descent to get stuck in local minima",
+        "Vanishing gradients in deep networks, which both methods rescale"
+      ],
+      "answer": 0,
+      "explanation": "The condition number determines how badly plain SGD is limited. Momentum accumulates consistent progress; adaptive methods rescale per parameter so one step size suits every axis.",
+      "id": "optimizer-internals-01"
+    },
+    {
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Using the narrow-valley picture, explain what momentum and Adam each do, and why an Adam learning rate means something different from an SGD learning rate.",
+      "expected": "A correct answer must describe MOMENTUM as giving the ball mass: side-to-side oscillations across the steep walls alternate in direction and CANCEL, while consistent motion along the valley floor ACCUMULATES. It must describe ADAM as rescaling each axis by how large its gradients have been, effectively RESHAPING THE VALLEY INTO A BOWL, so that a single step size becomes appropriate for both the steep and flat directions. On the learning rate it must explain that an Adam step is roughly `lr` in RELATIVE terms per parameter regardless of gradient magnitude (because the gradient is divided by its own running scale), whereas an SGD step is proportional to the gradient \u2014 which is why the two optimisers' learning rates are not comparable and why a healthy run keeps \u2016\u0394w\u2016/\u2016w\u2016 near 1e-3.",
+      "explanation": "The reshaping picture also explains Adam's robustness to learning-rate choice, and why comparing optimisers at a single shared lr measures almost nothing.",
+      "id": "optimizer-internals-02"
+    },
+    {
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Why does removing Adam's bias correction do more damage than simply shrinking the early steps?",
+      "options": [
+        "m and v recover from their zero initialisation at different rates (beta1=0.9 in tens of steps, beta2=0.999 in thousands), so the mismatch does not cancel in m/sqrt(v)",
+        "Because without correction the moments can become negative, producing NaN in the square root",
+        "Because the correction is what keeps the second moment from underflowing in fp16",
+        "Because the uncorrected estimates are biased upward, so the early steps are too small"
+      ],
+      "answer": 0,
+      "explanation": "Adam divides one biased estimate by the square root of another that recovers far more slowly. The notebook shows the resulting step-size error exceeding 3x at step 1 and worsening to over 6x before decaying.",
+      "id": "optimizer-internals-03"
+    },
+    {
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write `adam_step(g, m, v, t, lr=0.001, b1=0.9, b2=0.999, eps=1e-8)` for a single scalar parameter. Update the moments, apply bias correction, and return `(update, new_m, new_v)` where `update` is the amount to SUBTRACT from the parameter. Standard library only.",
+      "starter": "def adam_step(g, m, v, t, lr=0.001, b1=0.9, b2=0.999, eps=1e-8):\n    ...\n",
+      "solution": "def adam_step(g, m, v, t, lr=0.001, b1=0.9, b2=0.999, eps=1e-8):\n    m = b1 * m + (1 - b1) * g\n    v = b2 * v + (1 - b2) * g * g\n    mh = m / (1 - b1 ** t)\n    vh = v / (1 - b2 ** t)\n    return (lr * mh / (vh ** 0.5 + eps), m, v)\n",
+      "test": "u, m, v = adam_step(1.0, 0.0, 0.0, 1)\nassert abs(u - 0.001) < 1e-6, 'first step is ~lr regardless of gradient size'\nu2, _, _ = adam_step(100.0, 0.0, 0.0, 1)\nassert abs(u2 - 0.001) < 1e-6, 'scale-free: a 100x gradient gives the same step'\nu3, _, _ = adam_step(-1.0, 0.0, 0.0, 1)\nassert u3 < 0, 'sign of the gradient must be preserved'\nm = v = 0.0\nfor t in range(1, 51):\n    u, m, v = adam_step(0.5, m, v, t)\nassert abs(u - 0.001) < 2e-4, 'steady constant gradient -> step approaches lr'\nassert m > 0 and v > 0\n",
+      "explanation": "The scale-free property is the whole point: dividing the gradient by its own running magnitude means a 100x larger gradient produces the same step, which is why one learning rate suits every parameter.",
+      "id": "optimizer-internals-04"
+    },
+    {
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "Why should `weight_decay` not be transferred unchanged when switching from Adam to AdamW?",
+      "options": [
+        "They are different quantities \u2014 Adam's L2 is divided by the per-parameter adaptive scaling so parameters with large gradients are decayed LESS, while AdamW applies decay uniformly to the weights",
+        "AdamW applies decay twice per step, so the value must be halved",
+        "AdamW's decay is applied before the gradient step rather than after, which changes its units",
+        "AdamW omits bias correction on the decay term, so it needs a larger value to compensate"
+      ],
+      "answer": 0,
+      "explanation": "Folding L2 into the gradient means it passes through the same 1/sqrt(v) scaling, so regularisation strength ends up depending on gradient history \u2014 exactly backwards. Decoupling fixes it, and AdamW typically wants a larger value.",
+      "id": "optimizer-internals-05"
+    },
+    {
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "A colleague reports that a new optimiser beat AdamW on their benchmark. What is the first question to ask, and what interaction with scale matters more than the optimiser choice?",
+      "expected": "A correct answer must ask whether EACH OPTIMISER'S LEARNING RATE WAS TUNED SEPARATELY \u2014 different optimisers have different optimal learning-rate ranges, so a comparison at a single shared lr mostly measures which one happens to suit that value, and most claimed improvements do not survive a fair comparison. It must identify the more important interaction: LEARNING RATE DOES NOT TRANSFER ACROSS MODEL SIZES \u2014 the optimal lr changes with width and depth, and the single most common cause of a large run underperforming is an lr tuned at small scale and reused. It should mention \u00b5P-style parameterisations as the principled fix, or re-tuning at scale.",
+      "explanation": "The optimiser choice is largely settled; the scale-transfer problem is where the real losses occur.",
+      "id": "optimizer-internals-06"
+    }
+  ]
+}

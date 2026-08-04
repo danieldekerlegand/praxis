@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "slug": "training-dynamics",
+  "title": "Training Dynamics & Loss Spikes",
+  "domain": "15-rl-and-training-dynamics",
+  "runnable": true,
+  "generated": "2026-08-04T00:03:27+00:00",
+  "generated_by": "hand-authored",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "checks": [
+    {
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "Why is the loss curve a poor primary instrument for detecting training problems?",
+      "options": [
+        "It is a lagging indicator \u2014 gradient norms, update-to-weight ratios and activation statistics move first, often hundreds of steps earlier",
+        "It is too noisy at large batch sizes to show anything useful",
+        "It only reflects the training distribution, not the model's real quality",
+        "It cannot be computed often enough at scale to catch fast failures"
+      ],
+      "answer": 0,
+      "explanation": "By the time the loss moves, the cause is several hundred steps behind you \u2014 and the leading indicators cost almost nothing to log but cannot be added retrospectively to a failed run.",
+      "id": "training-dynamics-01"
+    },
+    {
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Training is framed as a vehicle on an unknown road with a lagging speedometer. Explain what warmup and gradient clipping correspond to, and why a non-recovering loss spike is fatal in a way a bad evaluation result is not.",
+      "expected": "A correct answer must map WARMUP to accelerating gently because you do not yet know the road \u2014 specifically, at initialisation the curvature estimate (Adam's second moment) is based on almost no data, so full speed immediately is how runs die early. It must map GRADIENT CLIPPING to a SPEED LIMITER that does not prevent meeting a cliff but caps how far a single bad reading can throw you. On the spike it must explain the AUTOREGRESSIVE asymmetry: the next gradient is computed FROM WHERE YOU NOW ARE, so there is no restoring force pulling the run back \u2014 unlike an evaluation result, which is a measurement that does not change the thing being measured.",
+      "explanation": "The autoregressive point is what makes training instability categorically different from noisy measurement.",
+      "id": "training-dynamics-02"
+    },
+    {
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "What is the update-to-weight ratio and what makes it more useful per-layer than the raw gradient norm?",
+      "options": [
+        "\u2016\u0394w\u2016/\u2016w\u2016 \u2014 the effective learning rate, which should be near 1e-3 and roughly UNIFORM across layers; the raw gradient norm ignores that layers have very different weight scales",
+        "The ratio of gradient norm to weight norm, which detects vanishing gradients specifically",
+        "The fraction of parameters that changed sign in an update, which detects oscillation",
+        "The ratio of the current update to the previous one, which detects momentum build-up"
+      ],
+      "answer": 0,
+      "explanation": "Identical gradients and a single learning rate produce wildly different effective step sizes across layers of different weight scale. A layer whose ratio is far from the others is either not learning or about to destabilise.",
+      "id": "training-dynamics-03"
+    },
+    {
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write `clip_by_global_norm(grads, max_norm)` where `grads` is a list of floats. If the L2 norm exceeds `max_norm`, rescale every element by max_norm/norm; otherwise return the values unchanged. Return a NEW list and also return whether clipping occurred, as a `(clipped_grads, was_clipped)` tuple. Standard library only.",
+      "starter": "def clip_by_global_norm(grads, max_norm):\n    ...\n",
+      "solution": "def clip_by_global_norm(grads, max_norm):\n    g = list(grads)\n    norm = sum(x * x for x in g) ** 0.5\n    if norm <= max_norm or norm == 0:\n        return (g, False)\n    scale = max_norm / norm\n    return ([x * scale for x in g], True)\n",
+      "test": "g, c = clip_by_global_norm([3.0, 4.0], 10.0)\nassert c is False and g == [3.0, 4.0], 'under the threshold -> untouched'\ng, c = clip_by_global_norm([3.0, 4.0], 5.0)\nassert c is False, 'exactly at the threshold is not clipped'\ng, c = clip_by_global_norm([30.0, 40.0], 5.0)\nassert c is True\nassert abs(sum(x*x for x in g) ** 0.5 - 5.0) < 1e-9, 'norm must equal max_norm'\nassert abs(g[0] / g[1] - 30.0 / 40.0) < 1e-9, 'DIRECTION must be preserved'\ng, c = clip_by_global_norm([0.0, 0.0], 1.0)\nassert c is False and g == [0.0, 0.0], 'zero gradient must not divide by zero'\n",
+      "explanation": "Clipping rescales without changing direction, which is why it distorts the update only when it binds. Set the threshold well above the steady-state norm and it is nearly free insurance; set it near the median and you are silently rescaling every step.",
+      "id": "training-dynamics-04"
+    },
+    {
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A run diverges. You restart from the checkpoint saved just before the loss spike and it diverges again. What is the standard recovery?",
+      "options": [
+        "Roll back several hundred steps BEFORE the spike, skip the offending data range, and lower the learning rate",
+        "Restart from the same checkpoint with a different random seed",
+        "Reset the optimiser state while keeping the weights, then continue",
+        "Increase the gradient clipping threshold so the recovery step is not distorted"
+      ],
+      "answer": 0,
+      "explanation": "The checkpoint immediately before a spike may already be in the damaged region, so restarting there usually reproduces the failure. Note that resetting optimiser state mid-run is itself a large silent perturbation.",
+      "id": "training-dynamics-05"
+    },
+    {
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "What is the single most valuable habit for a large training run, and why can it not be applied retrospectively?",
+      "expected": "A correct answer must name LOGGING THE LEADING INDICATORS FROM STEP 0 \u2014 gradient norm, per-layer update-to-weight ratio, and activation statistics \u2014 and explain that these cost almost nothing to record but are IMPOSSIBLE TO RECOVER after a run has died, since they are properties of the training trajectory rather than of the final checkpoint. A run that crashes at step 80,000 with only a loss curve is one you will have to repeat. A strong answer adds that thresholds should be TRAILING statistics rather than constants (because early training has a large transient), and may mention determinism plus data-order logging so a suspect batch can be replayed to distinguish a bad batch from a bad step.",
+      "explanation": "Everything else in the notebook is diagnosis; this is the one thing that must be decided before the failure happens.",
+      "id": "training-dynamics-06"
+    }
+  ]
+}

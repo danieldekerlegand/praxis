@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "slug": "mixed-precision-numerics",
+  "title": "Mixed-Precision Numerics",
+  "domain": "14-pretraining",
+  "runnable": true,
+  "generated": "2026-08-04T00:03:27+00:00",
+  "generated_by": "hand-authored",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "checks": [
+    {
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "fp16 and bf16 are both 16 bits. Why has bf16 become the default for training wherever hardware supports it?",
+      "options": [
+        "It keeps fp32's full exponent range at the cost of precision, and deep learning tolerates noisy values far better than it tolerates inf and NaN",
+        "It has more mantissa bits, so it represents gradients more accurately",
+        "It is natively supported by more hardware, including pre-Ampere GPUs",
+        "It halves memory relative to fp16 while keeping the same range"
+      ],
+      "answer": 0,
+      "explanation": "Exponent bits buy range, mantissa bits buy precision, and the two formats make opposite choices. For training, range matters far more \u2014 which is also why bf16 needs no loss scaling.",
+      "id": "mixed-precision-numerics-01"
+    },
+    {
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Floating-point is described as a ruler with a finite length and finite marks. Use that picture to explain accumulator stalling \u2014 why summing many small numbers into a low-precision accumulator can stop making progress entirely.",
+      "expected": "A correct answer must explain that floating-point marks are NOT EVENLY SPACED \u2014 they are dense near zero and sparse far from it, so the gap between representable values grows with magnitude. It must then explain that once the accumulator reaches a large enough value, the addend is SMALLER THAN HALF THE GAP between adjacent representable numbers at that magnitude, so the sum rounds straight back to where it started and every subsequent addition has NO EFFECT. The key insight is that this is not gradual drift or accumulated error \u2014 the sum is STUCK. It should draw the practical conclusion that reductions (sums, means, softmax denominators, gradient norms) belong in fp32 even when the compute is 16-bit.",
+      "explanation": "Non-uniform spacing is the fact that makes this a hard stop rather than a slow degradation, and it is why every framework widens the accumulator.",
+      "id": "mixed-precision-numerics-02"
+    },
+    {
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "What does loss scaling do, and why does fp16 need it while bf16 does not?",
+      "options": [
+        "It multiplies the loss by S before the backward pass so gradients land inside fp16's representable range, then divides by S before the update; bf16's exponent range already covers typical gradient magnitudes",
+        "It rescales the learning rate to compensate for reduced precision in the weights",
+        "It normalises the loss across a batch so that fp16 accumulation does not overflow",
+        "It converts gradients to fp32 before the optimiser step, which bf16 does automatically"
+      ],
+      "answer": 0,
+      "explanation": "Small gradients underflow to zero in fp16, and a zeroed gradient is a parameter that silently stops learning. Dynamic loss scaling adjusts S automatically, backing off on any inf or NaN.",
+      "id": "mixed-precision-numerics-03"
+    },
+    {
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write `dynamic_scale_step(scale, overflowed, good_steps, growth_interval=100)` implementing one step of dynamic loss scaling. Return a tuple `(new_scale, new_good_steps)`. On overflow: halve the scale (never below 1.0) and reset the good-step counter to 0. Otherwise: increment the counter, and if it reaches `growth_interval`, double the scale and reset the counter to 0. Standard library only.",
+      "starter": "def dynamic_scale_step(scale, overflowed, good_steps, growth_interval=100):\n    ...\n",
+      "solution": "def dynamic_scale_step(scale, overflowed, good_steps, growth_interval=100):\n    if overflowed:\n        return (max(1.0, scale / 2), 0)\n    good_steps += 1\n    if good_steps >= growth_interval:\n        return (scale * 2, 0)\n    return (scale, good_steps)\n",
+      "test": "assert dynamic_scale_step(65536.0, True, 50) == (32768.0, 0), 'halve and reset'\nassert dynamic_scale_step(1.0, True, 10) == (1.0, 0), 'never below 1.0'\nassert dynamic_scale_step(1024.0, False, 5) == (1024.0, 6), 'just count up'\nassert dynamic_scale_step(1024.0, False, 99) == (2048.0, 0), 'grow at the interval'\nassert dynamic_scale_step(1024.0, False, 3, growth_interval=4) == (2048.0, 0)\ns, g = 2.0, 0\nfor _ in range(5):\n    s, g = dynamic_scale_step(s, True, g)\nassert s == 1.0 and g == 0, 'repeated overflow floors at 1.0'\n",
+      "explanation": "The asymmetry is deliberate: back off immediately on any overflow (and skip that step), but grow only after a sustained run of clean steps. A handful of skipped steps out of hundreds is normal; mostly-skipped means the scale is oscillating and the gradients are the problem.",
+      "id": "mixed-precision-numerics-04"
+    },
+    {
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "Why must optimiser state and master weights be kept in fp32 even when compute is 16-bit?",
+      "options": [
+        "A typical update is ~1e-7 relative to the weight, which rounds away entirely in 16-bit; and Adam's second moment is a SQUARED gradient, which underflows fp16",
+        "Because 16-bit optimiser state cannot be sharded across devices",
+        "Because the optimiser must compute in the same precision as the loss for correctness",
+        "Because fp32 state is required for gradient clipping to work"
+      ],
+      "answer": 0,
+      "explanation": "bf16's machine epsilon is around 8e-3, so an update 1e-7 the size of the weight is invisible. Squared gradients live at the square of the gradient's magnitude, straight into fp16's underflow region.",
+      "id": "mixed-precision-numerics-05"
+    },
+    {
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "You inherit a training run that produces NaN loss at step 40,000. Describe how to diagnose it, and why a green loss curve up to that point does not mean nothing was wrong earlier.",
+      "expected": "A correct answer must say that a NaN is usually the SYMPTOM, and the cause is an earlier INF (overflow) or a 0/0 \u2014 so you should find the FIRST NON-FINITE TENSOR rather than the last, checking the usual overflow sites (attention logits, optimiser second moment). It should mention likely mechanisms: slowly growing activation magnitudes eventually crossing fp16's max, or an inf that becomes NaN via inf-minus-inf in the softmax max-subtraction, which is why the crash surfaces somewhere other than where the problem occurred. On the green curve it must explain that SILENT UNDERFLOW does not spike the loss \u2014 zeroed gradients simply stop training those parameters \u2014 so a run can be quietly degraded for a long time while every visible metric looks healthy. Recommending bf16, fp32 reductions and fp32 master weights as the structural fix is a plus.",
+      "explanation": "None of these failures raise an exception; the difference between a five-minute fix and a lost week is knowing which one you are looking at.",
+      "id": "mixed-precision-numerics-06"
+    }
+  ]
+}

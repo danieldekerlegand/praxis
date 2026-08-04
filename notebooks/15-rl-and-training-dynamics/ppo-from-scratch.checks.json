@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "slug": "ppo-from-scratch",
+  "title": "PPO from Scratch",
+  "domain": "15-rl-and-training-dynamics",
+  "runnable": true,
+  "generated": "2026-08-04T00:03:27+00:00",
+  "generated_by": "hand-authored",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "checks": [
+    {
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "Why is a destructive update in RL far more dangerous than a bad step in supervised learning?",
+      "options": [
+        "The next batch is sampled FROM the damaged policy, so there is no restoring force \u2014 supervised learning still sees the same dataset next step",
+        "RL uses a larger learning rate, so single steps move further",
+        "The policy gradient is biased, so errors accumulate systematically",
+        "RL has no validation set, so the damage cannot be detected"
+      ],
+      "answer": 0,
+      "explanation": "The process is autoregressive: a bad step changes where all subsequent gradients are computed. That asymmetry is what the clip exists to bound.",
+      "id": "ppo-from-scratch-01"
+    },
+    {
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "PPO's clip is described as 'a leash, not a step size'. Explain the asymmetry between how it treats good and bad actions, and why that asymmetry is deliberate.",
+      "expected": "A correct answer must explain that for a GOOD action (advantage > 0) the clip CAPS THE UPSIDE \u2014 once the ratio exceeds 1+eps the objective stops rising, the gradient vanishes, and the policy stops pushing that action's probability up. For a BAD action (advantage < 0) the objective is flat ABOVE the 1\u2212eps boundary but KEEPS IMPROVING as the ratio falls below it, so suppressing a bad action is never cut off. It must state the rationale: the leash is tight on making things MORE likely and loose on making them LESS likely, so recovering from a bad action is always possible. Framing it as 'the clip restrains enthusiasm, not correction' captures it.",
+      "explanation": "The asymmetry is easy to miss from the formula and obvious from plotting the objective against the ratio.",
+      "id": "ppo-from-scratch-02"
+    },
+    {
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "What does the \u03bb parameter in GAE control?",
+      "options": [
+        "The blend between a one-step TD estimate (low variance, exposed to the critic's error) and the full Monte-Carlo return (higher variance, less dependent on the critic)",
+        "The discount applied to future rewards, separately from \u03b3",
+        "How many epochs a rollout batch is reused for",
+        "The strength of the KL penalty against the reference policy"
+      ],
+      "answer": 0,
+      "explanation": "\u03bb=0 leans entirely on the critic at each step; \u03bb=1 uses it only once at the start. Variance rises monotonically with \u03bb, and RMSE against the true advantage is typically minimised in between \u2014 hence the 0.95 default.",
+      "id": "ppo-from-scratch-03"
+    },
+    {
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write `ppo_objective(ratio, advantage, eps=0.2)` returning PPO's clipped surrogate for one sample: min(ratio*advantage, clip(ratio, 1-eps, 1+eps)*advantage). Implement the clip yourself. Standard library only.",
+      "starter": "def ppo_objective(ratio, advantage, eps=0.2):\n    ...\n",
+      "solution": "def ppo_objective(ratio, advantage, eps=0.2):\n    clipped = min(max(ratio, 1 - eps), 1 + eps)\n    return min(ratio * advantage, clipped * advantage)\n",
+      "test": "assert abs(ppo_objective(1.0, 1.0) - 1.0) < 1e-9, 'ratio 1 is unclipped'\nassert abs(ppo_objective(2.0, 1.0) - 1.2) < 1e-9, 'good action capped at 1+eps'\nassert abs(ppo_objective(5.0, 1.0) - 1.2) < 1e-9, 'flat beyond the leash'\nassert abs(ppo_objective(0.5, 1.0) - 0.5) < 1e-9, 'good action, low ratio: unclipped'\nassert abs(ppo_objective(0.5, -1.0) - (-0.8)) < 1e-9, 'bad action capped below 1-eps'\nassert abs(ppo_objective(0.1, -1.0) - (-0.8)) < 1e-9\nassert abs(ppo_objective(3.0, -1.0) - (-3.0)) < 1e-9, 'bad action, high ratio: unclipped'\nassert abs(ppo_objective(1.5, 1.0, eps=0.5) - 1.5) < 1e-9, 'eps must be respected'\n",
+      "explanation": "The last few assertions are the asymmetry made concrete: for a negative advantage the objective is flat below 1-eps but continues to change above it, so suppressing a bad action is never cut off.",
+      "id": "ppo-from-scratch-04"
+    },
+    {
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "Why do PPO implementations almost universally standardise advantages within each batch?",
+      "options": [
+        "Without it, eps means something different at every reward scale and the clip stops being a meaningful leash",
+        "Because the policy gradient theorem requires zero-mean advantages to be unbiased",
+        "Because unnormalised advantages cause the value loss to diverge",
+        "Because it removes the need for a KL penalty in RLHF"
+      ],
+      "answer": 0,
+      "explanation": "PPO is not scale-invariant. A reward whose magnitude drifts during training silently changes the effective learning rate, and the clip threshold no longer corresponds to a fixed amount of policy movement.",
+      "id": "ppo-from-scratch-05"
+    },
+    {
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "PPO has been criticised as a pile of implementation heuristics rather than a principled algorithm. Assess that fairly, and say where PPO's position among LLM post-training methods now stands.",
+      "expected": "A correct answer must acknowledge the criticism is FAIR: clipping, advantage normalisation, entropy bonuses, value-loss clipping and GAE are accumulated practical fixes, and reproductions show the implementation details account for much of PPO's reported advantage over simpler baselines. It should note the counterpoint \u2014 those details ARE the fixes for real failure modes, which is why it works. On position it must say PPO's role has NARROWED: where rewards are VERIFIABLE, critic-free methods such as GRPO/RLVR are now often preferred (no critic to train and none to be wrong), while PPO remains the default where the reward is a LEARNED MODEL and a value function genuinely helps. Mentioning DPO as the no-RL-loop alternative is a plus.",
+      "explanation": "Both halves are true: the criticism is accurate and the algorithm still earns its place in a narrower niche than it once occupied.",
+      "id": "ppo-from-scratch-06"
+    }
+  ]
+}

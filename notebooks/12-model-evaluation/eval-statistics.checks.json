@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "slug": "eval-statistics",
+  "title": "The Statistics of Evals",
+  "domain": "12-model-evaluation",
+  "runnable": true,
+  "generated": "2026-08-03T23:59:22+00:00",
+  "generated_by": "hand-authored",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "checks": [
+    {
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "Before comparing two models on a benchmark, what single measurement most cheaply tells you which comparisons are worth making at all?",
+      "options": [
+        "Run the SAME model twice and look at the difference \u2014 that is your noise floor",
+        "Compute the benchmark's inter-item correlation",
+        "Measure how long the evaluation takes, to budget for repeats",
+        "Check that both models were evaluated on the same items"
+      ],
+      "answer": 0,
+      "explanation": "Any model comparison smaller than the difference between two runs of one model is not evidence of anything. It costs one extra eval run and is skipped almost universally.",
+      "id": "eval-statistics-01"
+    },
+    {
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Evals are framed as polling in this notebook. Explain what the 1/sqrt(n) rule implies for benchmark size, and why the polling analogy breaks down in a way that is favourable to evals.",
+      "expected": "A correct answer must explain that the margin of error shrinks as 1/sqrt(n), so HALVING the error bar requires FOUR TIMES the items \u2014 which is why a small benchmark cannot resolve small differences no matter how carefully it is built. It must then identify the favourable break in the analogy: a pollster cannot re-interview the same person under identical conditions, but you CAN re-run a model, which gives a direct measurement of generation/run-to-run noise that pollsters cannot obtain. Noting that this measurement is exactly the noise floor, and is rarely taken, is a plus.",
+      "explanation": "Quadratic cost in precision is the fact that governs benchmark design; free re-measurement is the advantage evals have over polls and mostly waste.",
+      "id": "eval-statistics-02"
+    },
+    {
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Why is McNemar's test the right significance test for comparing two models on a benchmark?",
+      "options": [
+        "Both models answer the same items, so the comparison is paired, and McNemar's test uses only the items where they disagree",
+        "It is the only test that works for binary outcomes",
+        "It corrects for the multiple comparisons introduced by testing many benchmarks",
+        "It does not assume the items are independent, unlike the two-proportion z-test"
+      ],
+      "answer": 0,
+      "explanation": "Items both models got right, or both got wrong, carry no information about which is better but do inflate the variance of an unpaired estimate. Conditioning on the disagreements is what buys the extra power.",
+      "id": "eval-statistics-03"
+    },
+    {
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write `wilson_interval(k, n, z=1.96)` returning a (low, high) tuple for the Wilson score confidence interval of a proportion k/n. Return (0.0, 1.0) when n is 0, and clamp the result into [0, 1]. Standard library only.",
+      "starter": "import math\n\ndef wilson_interval(k, n, z=1.96):\n    ...\n",
+      "solution": "import math\n\ndef wilson_interval(k, n, z=1.96):\n    if n == 0:\n        return (0.0, 1.0)\n    p = k / n\n    denom = 1 + z * z / n\n    centre = (p + z * z / (2 * n)) / denom\n    half = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denom\n    return (max(0.0, centre - half), min(1.0, centre + half))\n",
+      "test": "lo, hi = wilson_interval(0, 50)\nassert lo == 0.0 and hi > 0.0, 'k=0 must still have positive width'\nlo, hi = wilson_interval(20, 20)\nassert hi == 1.0 and lo < 1.0, 'k=n must still have positive width'\nlo, hi = wilson_interval(75, 100)\nassert lo < 0.75 < hi, 'interval must contain the point estimate'\nw_small = wilson_interval(150, 200)\nw_big = wilson_interval(1500, 2000)\nassert (w_big[1]-w_big[0]) < (w_small[1]-w_small[0]), 'more data -> tighter'\nfor k, n in [(1, 30), (29, 30), (0, 10), (10, 10)]:\n    lo, hi = wilson_interval(k, n)\n    assert 0.0 <= lo <= hi <= 1.0, (k, n, lo, hi)\nassert wilson_interval(5, 0) == (0.0, 1.0)\n",
+      "explanation": "The normal-approximation ('Wald') interval runs past 100% at extreme proportions and collapses to zero width at k=0 or k=n. Wilson stays valid, and it is four lines.",
+      "id": "eval-statistics-04"
+    },
+    {
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "You evaluate a new training recipe on 20 benchmarks and two show significant improvement at p < 0.05. What is the problem?",
+      "options": [
+        "With 20 independent tests at the 5% level you expect about one false positive even if nothing changed \u2014 correct for the number of tests, or pre-register a primary metric",
+        "Two out of twenty is too few to establish an effect; you need a majority to improve",
+        "p < 0.05 is too lenient a threshold for machine learning experiments generally",
+        "The benchmarks are not independent, so the p-values cannot be combined"
+      ],
+      "answer": 0,
+      "explanation": "The notebook's simulation finds at least one 'significant' result in most sweeps where nothing was different. Holm-Bonferroni or a pre-registered primary metric are the fixes.",
+      "id": "eval-statistics-05"
+    },
+    {
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Your benchmark groups twenty questions per reading passage. Explain why naive confidence intervals will be too narrow, and what to do instead.",
+      "expected": "A correct answer must explain that items sharing a passage are NOT INDEPENDENT \u2014 their outcomes are correlated, because a model that understands (or misreads) the passage tends to get the whole group right or wrong together \u2014 so the effective sample size is closer to the number of PASSAGES than the number of questions. A standard binomial or Wilson interval assumes independence and therefore understates the uncertainty. It must recommend accounting for the clustering: a CLUSTER BOOTSTRAP that resamples whole passages rather than individual questions (or an equivalent clustered standard error).",
+      "explanation": "Twenty questions about one passage are far closer to one observation than to twenty, and the interval must reflect that.",
+      "id": "eval-statistics-06"
+    }
+  ]
+}
