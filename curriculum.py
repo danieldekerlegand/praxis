@@ -120,6 +120,8 @@ DOMAINS: list[Domain] = [
             T("dvc", "DVC (Data Version Control)", recommended=True),
             T("optuna", "Optuna (hyperparameter optimization)", recommended=True),
             T("gradio", "Gradio", recommended=True),
+            T("diffusers", "Diffusers (Stable Diffusion & image generation)",
+              recommended=True, note="model download for the gated example"),
         ),
     ),
     Domain(
@@ -155,6 +157,13 @@ DOMAINS: list[Domain] = [
             T("llamaindex", "LlamaIndex", recommended=True),
             T("rerankers", "Rerankers (cross-encoders)", recommended=True),
             T("vector-db-comparison", "Vector DBs: Weaviate / Qdrant / Milvus / pgvector", recommended=True),
+            # Model compression. `quantization-gptq-awq` above is the fourth axis;
+            # these five complete the set and cross-link to each other.
+            T("knowledge-distillation", "Knowledge Distillation", recommended=True),
+            T("pruning", "Pruning: magnitude, structured & 2:4 sparsity", recommended=True),
+            T("sparsity-induction", "Sparsity Induction", recommended=True),
+            T("low-rank-factorization", "Low-Rank Approximation (SVD factorization)", recommended=True),
+            T("model-ensembling", "Model Compression via Ensembling", recommended=True),
         ),
     ),
     Domain(
@@ -252,6 +261,7 @@ DOMAINS: list[Domain] = [
             T("flow-matching", "Flow Matching", recommended=True),
             T("normalizing-flows", "Normalizing Flows", recommended=True),
             T("autoencoders", "Autoencoders (vanilla/denoising)", recommended=True),
+            T("video-diffusion", "Video Diffusion Models", recommended=True),
         ),
     ),
     Domain(

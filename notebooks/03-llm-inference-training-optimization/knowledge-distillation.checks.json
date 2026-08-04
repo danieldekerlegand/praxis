@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "slug": "knowledge-distillation",
+  "title": "Knowledge Distillation",
+  "domain": "03-llm-inference-training-optimization",
+  "runnable": true,
+  "generated": "2026-08-03T22:28:47+00:00",
+  "generated_by": "hand-authored",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "checks": [
+    {
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "You have 4000 unlabelled in-domain examples, 60 labelled ones, and an accurate teacher model you can run. What is the most effective way to use distillation here?",
+      "options": [
+        "Run the teacher over all 4060 examples and train the student on its soft targets, using the 60 labels for the hard-label term",
+        "Train the student on the 60 labelled examples only, since soft targets for unlabelled data have no ground truth to anchor them",
+        "Label the 4000 examples by hand first, because distillation needs true labels for every example in the transfer set",
+        "Use the teacher's predictions only where they agree with the 60 known labels, discarding the rest as unverified"
+      ],
+      "answer": 0,
+      "explanation": "The transfer set does not need labels \u2014 that is distillation's quiet superpower. The teacher supplies a target for every unlabelled example, so the transfer set can be far larger than the labelled set. The hard-label term still uses the 60 real labels to keep the student anchored to ground truth where it exists.",
+      "id": "knowledge-distillation-01"
+    },
+    {
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A colleague says: 'Raising the temperature just makes the teacher less confident, so we are training the student on a worse signal.' Explain why this reasoning is wrong.",
+      "expected": "A correct answer must say that the information distillation exploits is the RELATIVE probabilities among the classes the teacher rejected (dark knowledge), and that at T=1 a confident teacher crushes those ratios to near zero so they produce almost no gradient. Raising T spreads the probability mass so those ratios become large enough to learn from. It should be clear that the temperature is a training-time device for reading the teacher's uncertainty, not a degradation of the teacher \u2014 the teacher's ranking is unchanged, only the scale on which it is read.",
+      "explanation": "Temperature does not make the teacher worse; it makes the part of the teacher's output that carries the similarity structure legible as gradient. The ranking over classes is untouched.",
+      "id": "knowledge-distillation-02"
+    },
+    {
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Why is the distillation loss multiplied by T\u00b2 rather than being used as a plain KL divergence?",
+      "options": [
+        "Gradients of the softened KL scale as 1/T\u00b2, so the factor restores them to a magnitude comparable with the hard-label term",
+        "It normalises the loss so it stays in the same numeric range as the cross-entropy term, which matters for logging and early stopping",
+        "It compensates for the fact that softmax outputs shrink as T grows, keeping the predicted probabilities summing to one",
+        "It converts the KL divergence into a proper distance metric, which is required for gradient descent to converge"
+      ],
+      "answer": 0,
+      "explanation": "The gradient of the softened KL with respect to the student's logits is (1/T)(q_T \u2212 p_T), so the loss carries a 1/T\u00b2 scale. Without the correction, raising T silently turns the distillation term off and the blend weight \u03b1 stops meaning what you think it means. Softmax outputs always sum to one at any temperature, so option 3 is simply false.",
+      "id": "knowledge-distillation-03"
+    },
+    {
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write `softmax_T(logits, T)` returning the temperature-softened softmax of a list of logits as a list of floats. It must be numerically stable (subtract the max before exponentiating) and must work for any T > 0. Use only the standard library.",
+      "starter": "import math\n\ndef softmax_T(logits, T):\n    ...\n",
+      "solution": "import math\n\ndef softmax_T(logits, T):\n    z = [v / T for v in logits]\n    m = max(z)\n    e = [math.exp(v - m) for v in z]\n    s = sum(e)\n    return [v / s for v in e]\n",
+      "test": "p1 = softmax_T([8.0, 5.0, 3.0], 1.0)\np4 = softmax_T([8.0, 5.0, 3.0], 4.0)\nassert abs(sum(p1) - 1.0) < 1e-9, 'must be a distribution'\nassert abs(sum(p4) - 1.0) < 1e-9, 'must be a distribution at any T'\nassert p1[0] > p4[0], 'higher T must flatten the peak'\nassert p4[2] > p1[2], 'higher T must lift the tail'\nassert abs(softmax_T([0.0, 0.0, 0.0], 1.0)[0] - 1.0 / 3) < 1e-9\nbig = softmax_T([1000.0, 999.0], 1.0)\nassert abs(sum(big) - 1.0) < 1e-9, 'must not overflow'\n",
+      "explanation": "Dividing by T before the softmax is the whole mechanism. The max-subtraction is what keeps exp() from overflowing on large logits \u2014 the result is mathematically identical because softmax is shift-invariant.",
+      "id": "knowledge-distillation-04"
+    },
+    {
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "You raise the temperature from 2 to 16, keeping the learning rate and everything else fixed, and the student's accuracy collapses. What is the most likely explanation?",
+      "options": [
+        "The T\u00b2 factor inflated the distillation gradient, so at a fixed step size the optimiser is now taking steps that are far too large",
+        "The soft targets have become uniform, so they carry no information about the classes at all",
+        "The teacher has become underconfident and is now producing incorrect rankings over the classes",
+        "The student has run out of capacity to represent the flattened distribution"
+      ],
+      "answer": 0,
+      "explanation": "This is the notebook's Example 3 result. Scaling the learning rate by 1/T\u00b2 makes the collapse disappear entirely \u2014 T=20 recovers to roughly the same accuracy as T=2 \u2014 which proves the failure was step size, not signal loss. Temperature and learning rate are not independent hyperparameters.",
+      "id": "knowledge-distillation-05"
+    },
+    {
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Your model is too slow. You could quantize it or distil it. Give the practical ordering you would follow and justify it, then name the one capability distillation has that no other compression technique here offers.",
+      "expected": "A correct answer must recommend trying quantization FIRST, on the grounds that it is far cheaper (hours, often no retraining at all) and composes with everything else, whereas distillation costs a full training run plus running the teacher over the transfer set. It must then identify distillation's unique capability: it can change the ARCHITECTURE \u2014 the student need not resemble the teacher at all, so capability can be transferred across different model families, which weight-surgery methods (pruning, quantization, factorization) cannot do because they only ever modify the existing weights. Mentioning that the two stack (distil, then quantize the student) is a plus.",
+      "explanation": "Quantization first is the standard ordering because of its cost/benefit ratio. Distillation's distinguishing property is architectural freedom.",
+      "id": "knowledge-distillation-06"
+    }
+  ]
+}

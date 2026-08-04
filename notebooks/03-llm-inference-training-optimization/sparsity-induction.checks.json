@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "slug": "sparsity-induction",
+  "title": "Sparsity Induction",
+  "domain": "03-llm-inference-training-optimization",
+  "runnable": true,
+  "generated": "2026-08-03T22:28:47+00:00",
+  "generated_by": "hand-authored",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "checks": [
+    {
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "What is the hard prerequisite that decides whether sparsity induction is available to you at all, as opposed to post-hoc pruning?",
+      "options": [
+        "You must own and be able to re-run the training loop, because the sparsity comes from the training objective",
+        "You must have hardware with sparse tensor core support, or the induced zeros give no benefit",
+        "You must have a labelled validation set large enough to tune the penalty strength",
+        "You must be able to run the model in full precision, since penalties cannot be applied to quantized weights"
+      ],
+      "answer": 0,
+      "explanation": "Sparsity induction changes the loss, so it can only be applied while training. You cannot induce sparsity into someone else's finished checkpoint \u2014 that is precisely the situation pruning exists for.",
+      "id": "sparsity-induction-01"
+    },
+    {
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Using the geometric picture of the penalty's constraint region, explain why L1 regularisation produces coefficients that are exactly zero while L2 produces only small ones.",
+      "expected": "A correct answer must describe the L1 constraint region as a diamond (cross-polytope) whose CORNERS lie on the coordinate axes, and the L2 region as a smooth sphere/ball with no corners. It must explain that a corner on an axis is a point where one or more coordinates are exactly zero, and that the loss contours expanding until they touch the constraint region preferentially make contact at those corners \u2014 so L1 SELECTS variables. Because the L2 ball is smooth everywhere, the contact point almost never lies exactly on an axis, so every coordinate ends up small but non-zero \u2014 L2 SHRINKS. Noting that group lasso extends the same idea with corners along whole subspaces is a plus.",
+      "explanation": "Corners on the axes is the entire reason lasso does feature selection and ridge does not.",
+      "id": "sparsity-induction-02"
+    },
+    {
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "You add an L1 penalty by including `lam * sign(w)` in the gradient and train to convergence. Almost no weight is exactly zero. What is wrong?",
+      "options": [
+        "Subgradient descent oscillates across the kink at zero and essentially never lands on it \u2014 you need a proximal (soft-thresholding) step",
+        "The penalty strength is too low; L1 always produces exact zeros once lam is large enough",
+        "sign(0) is undefined, so the optimiser skips any weight that reaches zero and it drifts away again",
+        "L1 penalties only produce exact zeros in convex problems, and neural networks are non-convex"
+      ],
+      "answer": 0,
+      "explanation": "This is the notebook's Example 1 middle row: L1 by subgradient descent produces 0 exact zeros while proximal gradient (ISTA) on identical data produces 54. The penalty was right; the optimiser could not represent the answer. Raising lam does not fix it.",
+      "id": "sparsity-induction-03"
+    },
+    {
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write `soft_threshold(weights, t)` \u2014 the proximal operator of the L1 norm. For each weight w it returns sign(w) * max(|w| - t, 0), so any weight with |w| <= t becomes exactly 0.0. Return a new list; standard library only.",
+      "starter": "def soft_threshold(weights, t):\n    ...\n",
+      "solution": "def soft_threshold(weights, t):\n    out = []\n    for w in weights:\n        if w > t:\n            out.append(w - t)\n        elif w < -t:\n            out.append(w + t)\n        else:\n            out.append(0.0)\n    return out\n",
+      "test": "r = soft_threshold([2.0, -2.0, 0.3, -0.3, 0.0], 0.5)\nassert r == [1.5, -1.5, 0.0, 0.0, 0.0], r\nassert soft_threshold([0.5], 0.5) == [0.0], 'boundary must go to zero'\nassert soft_threshold([-0.5], 0.5) == [0.0], 'boundary is symmetric'\nassert soft_threshold([10.0], 0.0) == [10.0], 't=0 must be a no-op'\nbig = soft_threshold([3.0, -4.0], 1.0)\nassert big == [2.0, -3.0], big\nassert all(v == 0.0 for v in soft_threshold([0.4, -0.2], 0.5))\n",
+      "explanation": "Note that this shrinks the surviving weights toward zero as well as zeroing the small ones \u2014 that shrinkage is L1's bias, and it is why refitting on the selected support (debiasing) is sometimes worthwhile.",
+      "id": "sparsity-induction-04"
+    },
+    {
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "You set a large `weight_decay` in AdamW hoping to induce sparsity. The model ends up uniformly small and entirely dense. Why?",
+      "options": [
+        "AdamW's weight_decay is decoupled L2, not L1 \u2014 L2 shrinks every weight but drives none to exactly zero",
+        "AdamW applies weight decay only to the momentum buffers, so the weights themselves are unaffected",
+        "The decay was applied after the gradient step rather than before, which cancels its sparsifying effect",
+        "Adaptive optimisers normalise per-parameter gradients, which exactly undoes any L1 penalty"
+      ],
+      "answer": 0,
+      "explanation": "There is no L1 option in the standard optimisers; `weight_decay` is L2 throughout. If you want L1 you add it yourself, and you need a proximal step to actually get zeros.",
+      "id": "sparsity-induction-05"
+    },
+    {
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "You want a genuine latency improvement, you own the training loop, and you are choosing between element-wise L1 and group lasso. Which do you pick and why? Reference what the two produce at matched sparsity.",
+      "expected": "A correct answer must pick GROUP LASSO, and justify it by the distinction between sparsity and shape: element-wise L1 scatters its surviving weights across nearly every group, so no row/channel can be physically removed and a dense matmul sees no speedup, whereas group lasso zeroes whole groups (rows, channels, heads) together so the weight matrix genuinely shrinks. It should note that at matched non-zero counts group lasso empties substantially more whole channels (in the notebook, 7 of 12 versus 3 of 12 at ~20 non-zeros). Noting that at extreme sparsity the two nearly converge, because L1 concentrates on its own when squeezed hard enough, is a plus.",
+      "explanation": "Sparsity is not the goal; a smaller shape is. Group lasso is the penalty whose zeros are shaped like something you can delete.",
+      "id": "sparsity-induction-06"
+    }
+  ]
+}

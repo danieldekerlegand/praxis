@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "slug": "diffusers",
+  "title": "Diffusers (Stable Diffusion & image generation)",
+  "domain": "02-ai-ml-tooling",
+  "runnable": true,
+  "generated": "2026-08-03T22:30:27+00:00",
+  "generated_by": "hand-authored",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "checks": [
+    {
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "Why does `diffusers` exist, rather than everyone assembling a diffusion pipeline from its parts?",
+      "options": [
+        "A pipeline wires together four separate models each with its own conventions for noise parameterisation, timestep spacing and latent scaling, and getting any of them subtly wrong produces plausible garbage rather than an error",
+        "The model weights are only distributed through the library, so there is no supported way to load them otherwise",
+        "Diffusion sampling requires custom CUDA kernels that cannot be expressed in plain PyTorch",
+        "The library is the only implementation that supports classifier-free guidance, which every modern model requires"
+      ],
+      "answer": 0,
+      "explanation": "The failure mode is what makes it worth a library: a mis-wired pipeline does not crash, it silently produces bad images. Weights are ordinary safetensors files, sampling is plain PyTorch, and CFG is a few lines of arithmetic.",
+      "id": "diffusers-01"
+    },
+    {
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Name the four collaborators in a Stable Diffusion pipeline and what each does. Then explain the practical consequence of the fact that one of them has no learned parameters.",
+      "expected": "A correct answer must name: the VAE (translates between pixel space and the compressed latent space the diffusion actually runs in); the U-Net or DiT (the learned denoiser that predicts the noise to remove, where the parameters are); the text encoder such as CLIP or T5 (turns the prompt into vectors consulted via cross-attention); and the SCHEDULER (the discretised reverse process \u2014 how many steps and how to turn a predicted noise into the next latent). It must identify the scheduler as the parameter-free component and draw the consequence: because it is pure mathematics it can be SWAPPED after training, so the same weights give different results and different speeds under DDIM, Euler or DPM-Solver++. Therefore 'this model needs 50 steps' is usually really 'the default scheduler needs 50 steps', and swapping it is a one-line quality/speed win.",
+      "explanation": "The scheduler being a free choice rather than a property of the model is the highest-leverage practical fact in the whole library.",
+      "id": "diffusers-02"
+    },
+    {
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "What does the negative prompt actually do in a classifier-free guidance pipeline?",
+      "options": [
+        "It replaces the text used for the unconditional branch, so it defines the direction the sampler moves AWAY from",
+        "It filters the generated image after sampling, rejecting outputs containing the listed concepts",
+        "It masks the listed tokens out of the positive prompt before encoding",
+        "It lowers the attention weights on any token that also appears in the positive prompt"
+      ],
+      "answer": 0,
+      "explanation": "CFG computes uncond + s\u00b7(cond \u2212 uncond), and the negative prompt is what produces `uncond`. It is a steer-away-from, not a filter \u2014 which is why at high guidance, putting a concept in the negative prompt can occasionally make it more prominent rather than less.",
+      "id": "diffusers-03"
+    },
+    {
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write `cfg(uncond, cond, scale)` implementing classifier-free guidance over two equal-length lists of floats: elementwise uncond + scale*(cond - uncond). Return a new list; standard library only.",
+      "starter": "def cfg(uncond, cond, scale):\n    ...\n",
+      "solution": "def cfg(uncond, cond, scale):\n    return [u + scale * (c - u) for u, c in zip(uncond, cond)]\n",
+      "test": "u = [0.2, -0.1, 0.05]\nc = [0.4, 0.1, 0.05]\nassert cfg(u, c, 0.0) == u, 'scale 0 must ignore the prompt entirely'\nassert cfg(u, c, 1.0) == c, 'scale 1 must be exactly the conditional'\nr = cfg(u, c, 3.0)\nassert abs(r[0] - 0.8) < 1e-9 and abs(r[1] - 0.5) < 1e-9, r\nassert abs(r[2] - 0.05) < 1e-9, 'unchanged components stay unchanged'\ndef norm(v):\n    return sum(x * x for x in v) ** 0.5\nassert norm(cfg(u, c, 15.0)) > norm(cfg(u, c, 7.5)) > norm(cfg(u, c, 1.0))\n",
+      "explanation": "The last assertion is the point: above scale 1 you are EXTRAPOLATING past the conditional prediction and the norm grows without bound. That is exactly why high guidance produces blown-out, over-saturated images.",
+      "id": "diffusers-04"
+    },
+    {
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "You call the same SDXL pipeline twice with `torch.manual_seed(42)` set before each call, and get two different images. Why?",
+      "options": [
+        "Pipeline reproducibility requires passing an explicit torch.Generator with the correct device, not setting the global seed",
+        "SDXL uses a non-deterministic scheduler, so identical seeds cannot produce identical output",
+        "The safety checker injects randomness into the latents on every call",
+        "fp16 rounding is non-deterministic, so identical inputs diverge after the first denoising step"
+      ],
+      "answer": 0,
+      "explanation": "Pass `generator=torch.Generator(device=...).manual_seed(42)`. Note also that results differ between CPU and GPU for the same seed \u2014 device-independent reproducibility is not on offer.",
+      "id": "diffusers-05"
+    },
+    {
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "When would you reach for `diffusers` rather than ComfyUI or Automatic1111, and why is framing them as competitors misleading?",
+      "expected": "A correct answer must say that `diffusers` is the right choice when generation is a STEP INSIDE A PROGRAM \u2014 a batch job, a service, a training loop, an evaluation harness \u2014 where you need it callable, scriptable and reproducible, while the GUI tools are better for interactive visual exploration and rapid node-graph experimentation. It must explain why the competitor framing is misleading: the GUI tools are built ON TOP of `diffusers`/`transformers`, and they load the same safetensors weights, so the choice is about interface rather than capability or model support.",
+      "explanation": "Different interfaces onto the same weights and largely the same underlying code, suited to different jobs.",
+      "id": "diffusers-06"
+    }
+  ]
+}

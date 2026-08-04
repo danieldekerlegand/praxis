@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "slug": "low-rank-factorization",
+  "title": "Low-Rank Approximation (SVD factorization)",
+  "domain": "03-llm-inference-training-optimization",
+  "runnable": true,
+  "generated": "2026-08-03T22:28:47+00:00",
+  "generated_by": "hand-authored",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "checks": [
+    {
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "The Eckart-Young theorem guarantees the truncated SVD is the optimal rank-r approximation to a matrix. Why does that guarantee matter less in practice than it sounds?",
+      "options": [
+        "It is optimal for reconstructing the WEIGHTS, but what affects the model is the layer's OUTPUT, and those are different objectives",
+        "It only holds for square matrices, and most weight matrices in a transformer are rectangular",
+        "It holds in the Frobenius norm only, and neural networks are trained under cross-entropy rather than a Frobenius loss",
+        "It assumes the singular values decay, which is rarely true of trained weight matrices"
+      ],
+      "answer": 0,
+      "explanation": "The theorem is genuinely a proof of optimality, but for the wrong objective. Weighting the factorization by the actual input distribution (activation-aware SVD) beats plain SVD substantially on output error at identical rank and parameter count \u2014 in the notebook, 0.02 versus 0.33 at rank 128. Eckart-Young holds in both Frobenius and spectral norms, and for rectangular matrices too.",
+      "id": "low-rank-factorization-01"
+    },
+    {
+      "section": "Mental Model",
+      "kind": "choice",
+      "prompt": "In the JPEG analogy for truncated SVD, what plays the role of 'how much each component contributes', and what is the analogy's limitation?",
+      "options": [
+        "The singular values; the limitation is that JPEG is tuned for the human eye, which consumes the output, while plain SVD is tuned for weight error, which nobody consumes",
+        "The rank; the limitation is that images are 2-D while weight tensors in convolutions are 4-D",
+        "The compression ratio; the limitation is that JPEG is lossy while SVD truncation is lossless below the effective rank",
+        "The frequency bands; the limitation is that JPEG discards high frequencies whereas SVD discards low ones"
+      ],
+      "answer": 0,
+      "explanation": "The singular values are exactly the 'how much does this direction matter' numbers. The gap in the analogy is the point of the activation-aware fix: JPEG optimises for the actual consumer of the output, and plain SVD does not.",
+      "id": "low-rank-factorization-02"
+    },
+    {
+      "section": "Key Concepts",
+      "kind": "short",
+      "prompt": "Distinguish low-rank factorization from LoRA. Cover what each does to the weight matrix, what happens to the parameter count at deployment, and what each is actually for.",
+      "expected": "A correct answer must state that factorization REPLACES W with a product U@V of rank r, so the deployed matrix is genuinely low rank and the parameter count DROPS (r(m+n) instead of mn) \u2014 its purpose is compression. LoRA ADDS a low-rank update to a frozen full-rank W (W + BA), so the effective matrix remains FULL RANK and the parameter count at deployment is the same or slightly larger \u2014 its purpose is cheap fine-tuning/adaptation, not compression. The key insight is that they use the same linear algebra for opposite ends, and that LoRA does not make a model smaller.",
+      "explanation": "Same maths, opposite purpose. If someone says they 'used low-rank methods to compress the model', it is worth asking which one they mean.",
+      "id": "low-rank-factorization-03"
+    },
+    {
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write `break_even_rank(m, n)` returning the largest integer r for which factorizing an m\u00d7n matrix into (m\u00d7r)\u00b7(r\u00d7n) uses strictly fewer parameters than the original m\u00b7n. Standard library only, and it must be exact for large values rather than relying on floating point.",
+      "starter": "def break_even_rank(m, n):\n    ...\n",
+      "solution": "def break_even_rank(m, n):\n    return (m * n - 1) // (m + n)\n",
+      "test": "assert break_even_rank(256, 256) == 127, break_even_rank(256, 256)\nassert break_even_rank(1024, 1024) == 511\nfor m, n in [(256, 256), (1024, 1024), (32000, 512), (768, 3072)]:\n    r = break_even_rank(m, n)\n    assert r * (m + n) < m * n, (m, n, r, 'must save parameters')\n    assert (r + 1) * (m + n) >= m * n, (m, n, r, 'must be the largest such r')\nassert break_even_rank(32000, 512) == 503, break_even_rank(32000, 512)\n",
+      "explanation": "For a square matrix this lands just under n/2, which is why factorizing a square layer at rank 0.75n ADDS 50% more parameters while also losing accuracy. Tall matrices like embedding tables are far friendlier.",
+      "id": "low-rank-factorization-04"
+    },
+    {
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "You factorize a 1024\u00d71024 layer at rank 256, cutting the FLOPs in half, and measure no wall-clock improvement at all. What is the most likely reason?",
+      "options": [
+        "You now run two matmuls instead of one and materialise an intermediate tensor, and that overhead cancels a 2\u00d7 FLOP saving",
+        "The SVD factors are stored in a different memory layout, so the matmul falls back to an unoptimised code path",
+        "Rank 256 is above the break-even rank, so the factorized form has more parameters than the original",
+        "The measurement is wrong; halving the FLOPs must halve the time on any hardware"
+      ],
+      "answer": 0,
+      "explanation": "The notebook measures exactly this: at rank 256 the FLOP ratio is 0.50\u00d7 and the wall-clock speedup is 0.98\u00d7. Two kernel launches plus an extra intermediate eat the saving. At low rank (16) the saving is large enough to still win handsomely. Break-even for 1024\u00d71024 is 511, so rank 256 does genuinely save parameters.",
+      "id": "low-rank-factorization-05"
+    },
+    {
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Which layers in a transformer are the best candidates for low-rank factorization and why? Explain the one-line diagnostic you should run first, and be honest about why this technique is the least used of the four compression axes for language models.",
+      "expected": "A correct answer must identify large, strongly NON-SQUARE matrices \u2014 embedding tables and the output/LM head especially, and to a lesser extent the MLP up/down projections \u2014 because the break-even rank is mn/(m+n), which is very forgiving when one dimension is far larger. It must name the diagnostic: compute the SVD and look at the singular value spectrum / effective rank (the rank needed to retain say 95% of the energy); fast decay means the technique applies, a flat spectrum means there is nothing to truncate. It must acknowledge the honest limitation: the weight matrices of well-trained transformers often have stubbornly flat spectra, so effective rank is high and little can be removed.",
+      "explanation": "One SVD tells you whether the technique applies at all \u2014 run it before investing any effort.",
+      "id": "low-rank-factorization-06"
+    }
+  ]
+}

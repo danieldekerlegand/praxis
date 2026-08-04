@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "slug": "video-diffusion",
+  "title": "Video Diffusion Models",
+  "domain": "08-architectures",
+  "runnable": true,
+  "generated": "2026-08-03T22:30:27+00:00",
+  "generated_by": "hand-authored",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "checks": [
+    {
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "Why is generating each frame independently with an image model and then stitching them together not a viable approach to video?",
+      "options": [
+        "Each frame is a valid sample from the image distribution but consecutive samples are unrelated, so the result flickers violently",
+        "Image models cannot produce enough frames per second to make a usable video",
+        "The VAE used by image models cannot decode more than one frame at a time",
+        "Frame-by-frame generation costs more compute than generating the whole clip at once"
+      ],
+      "answer": 0,
+      "explanation": "Validity per frame is not the problem \u2014 coherence between frames is. Even conditioning each frame on the previous one accumulates drift until the subject has quietly become a different subject, which is why models denoise a whole clip at once.",
+      "id": "video-diffusion-01"
+    },
+    {
+      "section": "Mental Model",
+      "kind": "choice",
+      "prompt": "In the flip-book analogy, what are the two kinds of 'conversation' happening inside a video model's layers, and which one supplies coherence?",
+      "options": [
+        "Spatial attention (pixels within one frame) makes each frame look right; temporal attention (the same position across frames) makes the frames agree",
+        "Cross-attention to the text prompt supplies coherence; self-attention supplies per-frame quality",
+        "Encoder attention supplies coherence; decoder attention supplies detail",
+        "Both are spatial; coherence comes from the scheduler rather than from attention"
+      ],
+      "answer": 0,
+      "explanation": "Nearly every video architecture is a scheme for interleaving these two cheaply, because letting every pixel attend to every pixel in every frame is unaffordable at useful resolutions.",
+      "id": "video-diffusion-02"
+    },
+    {
+      "section": "Key Concepts",
+      "kind": "short",
+      "prompt": "Explain what a temporal VAE does and why it has an outsized effect on what is computationally feasible. Include the quadratic argument.",
+      "expected": "A correct answer must say that a temporal VAE compresses across TIME as well as space \u2014 for example turning 4 input frames into 1 latent frame \u2014 in addition to the usual spatial downsampling. It must connect this to cost: attention is QUADRATIC in the total token count (frames \u00d7 height \u00d7 width), so a 4\u00d7 reduction in the number of latent frames cuts the token count 4\u00d7 and the full-attention cost by roughly 16\u00d7. It should note the trade-off or risk: compressing across time can introduce temporal blur or lose fast motion, and the VAE decode is typically the memory spike.",
+      "explanation": "Because the cost is quadratic, compression in the latent space pays off quadratically \u2014 which is why every practical video model runs in a heavily compressed latent space.",
+      "id": "video-diffusion-03"
+    },
+    {
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write `attention_costs(frames, tokens_per_frame)` returning a tuple `(full_3d, factorised)` of relative attention costs, where full 3-D attention is (frames*tokens_per_frame)**2 and factorised attention is frames*tokens_per_frame**2 + tokens_per_frame*frames**2. Standard library only.",
+      "starter": "def attention_costs(frames, tokens_per_frame):\n    ...\n",
+      "solution": "def attention_costs(frames, tokens_per_frame):\n    total = frames * tokens_per_frame\n    full = total ** 2\n    fact = frames * tokens_per_frame ** 2 + tokens_per_frame * frames ** 2\n    return full, fact\n",
+      "test": "full8, fact8 = attention_costs(8, 1024)\nassert full8 == (8 * 1024) ** 2\nfull64, fact64 = attention_costs(64, 1024)\nassert full64 / full8 == 64.0, '8x the frames is 64x full-3D attention'\nassert fact64 < full64, 'factorising must be cheaper'\nassert full64 / fact64 > full8 / fact8, 'the gap widens with frame count'\nfull16, _ = attention_costs(16, 1024)\nassert full16 / full8 == 4.0, 'doubling duration quadruples the cost'\nassert attention_costs(1, 64)[0] == 4096\n",
+      "explanation": "The assertion that matters is `full16 / full8 == 4.0`: duration is not linear in cost. That single fact forces latent-space diffusion, temporal compression, short clips and factorised attention.",
+      "id": "video-diffusion-04"
+    },
+    {
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "Your video model runs the denoising loop fine but then runs out of GPU memory. Where is the spike, and what is the standard first fix?",
+      "options": [
+        "The VAE decode, which materialises all frames at full resolution at once \u2014 reduce `decode_chunk_size` and enable VAE tiling",
+        "The text encoder, which must process the prompt once per frame \u2014 cache the prompt embeddings",
+        "The scheduler, which retains every intermediate latent for the whole trajectory \u2014 switch to a first-order sampler",
+        "The attention layers, which cannot be chunked \u2014 reduce the number of inference steps"
+      ],
+      "answer": 0,
+      "explanation": "Decoding every latent frame to full resolution simultaneously routinely out-of-memories a card that handled the diffusion comfortably. `decode_chunk_size` and VAE tiling exist precisely for this.",
+      "id": "video-diffusion-05"
+    },
+    {
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "You need a short clip of a specific character in a specific style. Explain why image-to-video is usually the better route than text-to-video, and give one case where classical frame interpolation beats both.",
+      "expected": "A correct answer must explain that image-to-video is far more CONTROLLABLE: you fix the subject, composition and style in a still image first \u2014 where the whole image-model toolkit (LoRAs, ControlNet, inpainting, many cheap retries) is available \u2014 so the video model only has to supply MOTION, which is a much narrower and more reliable job than inventing subject, style and motion simultaneously from text. It must give a case for classical interpolation (RIFE, optical flow): smoothing or slow-motion between EXISTING real frames, where no new content is needed \u2014 far cheaper and more faithful than a generative model, which would hallucinate detail. Noting that text-to-video failure rates remain high and demo reels are heavily cherry-picked is a plus.",
+      "explanation": "Narrow the model's job wherever you can. Generative capacity spent on something a still image or a flow algorithm could have fixed is wasted.",
+      "id": "video-diffusion-06"
+    }
+  ]
+}

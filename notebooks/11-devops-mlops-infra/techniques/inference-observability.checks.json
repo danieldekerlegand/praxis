@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "slug": "inference-observability",
+  "title": "Inference Observability",
+  "domain": "11-devops-mlops-infra",
+  "runnable": true,
+  "generated": "2026-08-03T22:30:27+00:00",
+  "generated_by": "hand-authored",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "checks": [
+    {
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "Your inference endpoint's p99 latency has doubled. Which single exported metric would most quickly tell you whether to add replicas or to optimise the model?",
+      "options": [
+        "Queue time \u2014 it separates 'requests are waiting' from 'compute got slower', and those have opposite fixes",
+        "End-to-end request duration, since it captures every contribution in one number",
+        "GPU utilisation, which reports directly whether the device is the bottleneck",
+        "Request rate, since latency problems are always caused by increased traffic"
+      ],
+      "answer": 0,
+      "explanation": "Latency is a composition \u2014 queue + prefill + decode \u2014 and only the decomposition is actionable. In the notebook's simulation, going from comfortable to near-capacity grows queue time by an order of magnitude while prefill and TPOT grow about 1.1\u00d7. End-to-end duration shows a modest rise and no explanation.",
+      "id": "inference-observability-01"
+    },
+    {
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Using the kitchen analogy, explain the difference between utilisation and saturation for an inference server, and say which one you should alert on.",
+      "expected": "A correct answer must map utilisation onto the chef working continuously \u2014 100% utilisation is FINE and is exactly what you are paying for \u2014 and saturation onto the order rail getting longer, i.e. work arriving faster than it can be served. It must conclude that you alert on SATURATION signals: queue depth/queue time and KV-cache utilisation, not on GPU utilisation. A strong answer notes that GPU utilisation reports only whether a kernel was resident, not whether useful work was done, so it can read 100% while the device is memory-bandwidth-starved.",
+      "explanation": "A busy chef is a healthy kitchen. A growing rail is a failing one. Alert on the rail.",
+      "id": "inference-observability-02"
+    },
+    {
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Why should a replicated inference service export latency as a Prometheus Histogram rather than a Summary?",
+      "options": [
+        "Histograms bucket server-side so buckets can be summed across instances and the true fleet quantile computed; Summaries compute quantiles per-instance and cannot be aggregated",
+        "Histograms are cheaper to compute, since Summaries require sorting every observation",
+        "Summaries lose precision over time because their quantile estimates decay, while histogram buckets are exact",
+        "Histograms support labels while Summaries do not, so per-model breakdowns are impossible with Summaries"
+      ],
+      "answer": 0,
+      "explanation": "This is the structural fix for the averaging-percentiles problem. `histogram_quantile(0.99, sum(rate(..._bucket[5m])) by (le))` sums the buckets first and takes the quantile second. With a Summary there is no valid way to combine per-instance quantiles at all.",
+      "id": "inference-observability-03"
+    },
+    {
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write `histogram_quantile(counts, bounds, q)` reproducing Prometheus' linear interpolation. `bounds` are the upper bounds of each bucket and `counts` holds one count per bucket plus a final overflow bucket, so len(counts) == len(bounds) + 1. Walk the cumulative count to the bucket containing q*total, then interpolate linearly between that bucket's lower and upper bound. Standard library only.",
+      "starter": "def histogram_quantile(counts, bounds, q):\n    ...\n",
+      "solution": "def histogram_quantile(counts, bounds, q):\n    total = sum(counts)\n    if total == 0:\n        return 0.0\n    target = q * total\n    cum = 0\n    for i, c in enumerate(counts):\n        if cum + c >= target:\n            lo = bounds[i - 1] if i > 0 else 0.0\n            hi = bounds[i] if i < len(bounds) else bounds[-1]\n            frac = (target - cum) / c if c else 0.0\n            return lo + (hi - lo) * frac\n        cum += c\n    return bounds[-1]\n",
+      "test": "counts, bounds = [10, 10, 10, 0], [1.0, 2.0, 3.0]\nassert abs(histogram_quantile(counts, bounds, 0.5) - 1.5) < 1e-9, \\\n    histogram_quantile(counts, bounds, 0.5)\nassert abs(histogram_quantile(counts, bounds, 0.0) - 0.0) < 1e-9\nprev = -1.0\nfor q in (0.1, 0.25, 0.5, 0.75, 0.9, 0.99):\n    v = histogram_quantile(counts, bounds, q)\n    assert v >= prev, 'quantiles must be monotonic in q'\n    prev = v\nassert histogram_quantile([0, 0, 0, 0], bounds, 0.5) == 0.0\none = histogram_quantile([100, 0, 0, 0], bounds, 0.99)\nassert 0.0 <= one <= 1.0, one\n",
+      "explanation": "Interpolating within the bucket is why bucket boundaries ARE your precision: if the p99 lands in a bucket spanning 250ms-500ms, the answer is accurate to about \u00b1125ms no matter how many observations you have.",
+      "id": "inference-observability-04"
+    },
+    {
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "Which label would you refuse to attach to an inference latency metric, and why?",
+      "options": [
+        "request_id \u2014 every distinct value creates its own time series, so an unbounded label will overwhelm Prometheus",
+        "model \u2014 it varies per request and so makes the metric impossible to aggregate across models",
+        "status \u2014 boolean-ish labels double the number of series for no analytic benefit",
+        "le \u2014 it is reserved by Prometheus and will be silently dropped"
+      ],
+      "answer": 0,
+      "explanation": "Cardinality is the number of distinct label combinations, and each one is a separate time series. request_id, user_id, raw prompt text and raw paths are unbounded and will take down your monitoring. `model` and `status` are exactly the sort of bounded, low-cardinality labels you want; `le` is the histogram bucket label and is required.",
+      "id": "inference-observability-05"
+    },
+    {
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Metrics, traces and logs each answer a different question. State which question each one answers, and name the category of inference problem that none of the three will catch.",
+      "expected": "A correct answer must assign: METRICS answer 'is the fleet healthy, is it getting worse' \u2014 cheap, aggregated, alertable; TRACES answer 'why was THIS SPECIFIC request slow' \u2014 the per-request causal breakdown metrics cannot give; LOGS answer 'what exactly happened at this moment' \u2014 expensive at volume, so sample them. It must then identify the blind spot: OUTPUT QUALITY / model correctness. A model that has silently started returning worse answers looks perfectly healthy on every latency, error and saturation metric, because latency and correctness are independent axes. That needs drift detection, evaluation harnesses or human review. Noting that trying to make metrics answer the per-request question is what causes cardinality explosions is a plus.",
+      "explanation": "Keeping the boundary clear is what stops you putting request_id in a metric label \u2014 and remembering the fourth category is what stops you declaring a degraded model healthy.",
+      "id": "inference-observability-06"
+    }
+  ]
+}

@@ -147,6 +147,7 @@ High-value neighbors worth a refresher. They're already scaffolded and tagged `r
 - **DVC (Data Version Control)**
 - **Optuna (hyperparameter optimization)**
 - **Gradio**
+- **Diffusers (Stable Diffusion & image generation)** — model download for the gated example
 
 ### LLM Inference, Training & Optimization
 
@@ -163,6 +164,11 @@ High-value neighbors worth a refresher. They're already scaffolded and tagged `r
 - **LlamaIndex**
 - **Rerankers (cross-encoders)**
 - **Vector DBs: Weaviate / Qdrant / Milvus / pgvector**
+- **Knowledge Distillation**
+- **Pruning: magnitude, structured & 2:4 sparsity**
+- **Sparsity Induction**
+- **Low-Rank Approximation (SVD factorization)**
+- **Model Compression via Ensembling**
 
 ### Agentic AI
 
@@ -201,6 +207,7 @@ High-value neighbors worth a refresher. They're already scaffolded and tagged `r
 - **Flow Matching**
 - **Normalizing Flows**
 - **Autoencoders (vanilla/denoising)**
+- **Video Diffusion Models**
 
 ### Procedural Generation
 

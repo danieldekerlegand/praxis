@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "slug": "model-ensembling",
+  "title": "Model Compression via Ensembling",
+  "domain": "03-llm-inference-training-optimization",
+  "runnable": true,
+  "generated": "2026-08-03T22:28:47+00:00",
+  "generated_by": "hand-authored",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "checks": [
+    {
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "Members of your ensemble have pairwise error correlation \u03c1 = 0.9. You increase the ensemble from 4 members to 32. What happens to the error variance?",
+      "options": [
+        "It barely moves \u2014 correlation sets a floor of \u03c1 that no ensemble size can break through, so 32 members buy roughly a 10% reduction",
+        "It falls by a factor of 8, in proportion to the increase in members",
+        "It falls to 1/32 of a single model's variance, as the classic result predicts",
+        "It increases, because correlated members reinforce each other's errors"
+      ],
+      "answer": 0,
+      "explanation": "Var(ensemble) = \u03c3\u00b2\u00b7[\u03c1 + (1\u2212\u03c1)/N]. As N grows this tends to \u03c1\u03c3\u00b2, not to zero. At \u03c1 = 0.9 an infinite ensemble buys 10%. This is why ensembling five checkpoints from one training run usually 'barely helps' \u2014 they are highly correlated by construction.",
+      "id": "model-ensembling-01"
+    },
+    {
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Explain the 'panel of specialists' analogy and how the same-basin versus different-basin distinction determines which ensembling technique is available to you.",
+      "expected": "A correct answer must convey that a panel is only worth more than one expert if the members were trained differently and therefore make DIFFERENT mistakes \u2014 five graduates of the same programme confidently make the same error, so you paid five fees for one opinion (this is what error correlation \u03c1 measures). It must then link this to loss basins: independently-trained models land in DIFFERENT basins, so their weights cannot be averaged (the midpoint is the ridge between basins and the network is broken) and you must ensemble their OUTPUTS at N\u00d7 inference cost. Fine-tunes from a shared checkpoint stay in the SAME basin, so their weights can be averaged directly \u2014 a model soup \u2014 giving a single model at 1\u00d7 inference cost.",
+      "explanation": "Same basin or not is the single fact that tells you whether weight averaging is on the table.",
+      "id": "model-ensembling-02"
+    },
+    {
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Three members predict class 0, class 0 and class 1, with the dissenter far more confident than the other two. How do probability-averaging and logit-averaging differ here?",
+      "options": [
+        "Probability averaging acts like a vote and picks class 0; logit averaging is closer to a geometric mean and the confident dissenter can flip the result to class 1",
+        "They always agree on the argmax; they differ only in the confidence assigned to it",
+        "Logit averaging acts like a vote; probability averaging lets the most confident member dominate",
+        "Probability averaging is undefined when members disagree, which is why logit averaging is standard"
+      ],
+      "answer": 0,
+      "explanation": "Averaging probabilities is an arithmetic mean, averaging logits is (up to normalisation) a geometric mean. They disagree exactly when the members disagree \u2014 the case you built the ensemble for. Neither is 'correct': probability averaging is more robust to an overconfident member, logit averaging propagates confidence and suits well-calibrated members.",
+      "id": "model-ensembling-03"
+    },
+    {
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write `ensemble_variance_ratio(rho, n)` returning the ensemble's error variance as a fraction of a single member's, for n members with pairwise error correlation rho: \u03c1 + (1\u2212\u03c1)/n. Standard library only.",
+      "starter": "def ensemble_variance_ratio(rho, n):\n    ...\n",
+      "solution": "def ensemble_variance_ratio(rho, n):\n    return rho + (1.0 - rho) / n\n",
+      "test": "assert abs(ensemble_variance_ratio(0.0, 4) - 0.25) < 1e-12\nassert abs(ensemble_variance_ratio(0.0, 32) - 1.0 / 32) < 1e-12\nassert abs(ensemble_variance_ratio(0.5, 1) - 1.0) < 1e-12, 'N=1 is a no-op'\nassert abs(ensemble_variance_ratio(0.9, 1) - 1.0) < 1e-12\nassert abs(ensemble_variance_ratio(0.9, 10**9) - 0.9) < 1e-6, 'floor is rho'\nassert ensemble_variance_ratio(0.3, 8) < ensemble_variance_ratio(0.3, 2)\nfor n in (2, 4, 8):\n    assert ensemble_variance_ratio(0.9, n) > ensemble_variance_ratio(0.1, n)\n",
+      "explanation": "The N=1 cases are the sanity check: with one member the ratio must be exactly 1.0 for any \u03c1. The 10**9 case shows the floor \u2014 the limit is \u03c1, not zero, and that is the whole practical lesson.",
+      "id": "model-ensembling-04"
+    },
+    {
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "You average the weights of two models fine-tuned from DIFFERENT pretrained checkpoints. What should you expect?",
+      "options": [
+        "A broken model \u2014 the midpoint between two loss basins is the ridge between them, and performance is far worse than either member",
+        "A model roughly as good as the average of the two members' performance",
+        "A model slightly better than either member, which is the usual model-soup result",
+        "An error at load time, because the weight tensors will have incompatible shapes"
+      ],
+      "answer": 0,
+      "explanation": "Model soups require linear mode connectivity, which holds for fine-tunes of a SHARED checkpoint and not across independent pretraining runs. The notebook measures a soup loss of 3.66 against member losses of 0.02 and 0.15. Averaging their outputs instead would have been perfectly fine.",
+      "id": "model-ensembling-05"
+    },
+    {
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Your actual goal is a model that is cheaper to serve. Ensembling makes inference more expensive. Explain the two ways ensembling still earns a place in a compression pipeline.",
+      "expected": "A correct answer must identify (1) ENSEMBLE-THEN-DISTIL: an ensemble is the cheapest way to build a teacher better than any single model you can train, and distillation then converts it into one student at 1\u00d7 inference cost \u2014 this is how most of the value gets realised in production; and (2) MODEL SOUPS: averaging the weights of same-basin fine-tunes (for example the good runs of a hyperparameter sweep from one checkpoint) yields a single model at unchanged inference cost, for essentially one line of code plus a forward pass to recompute normalisation statistics. It should be clear that taken literally \u2014 deploy N models and average outputs \u2014 ensembling is the weakest compression technique and strictly increases cost.",
+      "explanation": "Ensembling is the weakest compression technique and the strongest accuracy technique; its place in a compression pipeline is as a teacher, or as a soup.",
+      "id": "model-ensembling-06"
+    }
+  ]
+}
