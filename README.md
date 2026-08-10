@@ -8,7 +8,7 @@ understanding rather than by scrolling.
 
 Praxis started life as `ai-tutor`, a static study-notebook library for refreshing a broad
 span of technologies. That library is not thrown away — it is the machinery Praxis is
-built on, plus 221 real notebooks that ship as the seed library and as worked examples of
+built on, plus 245 real notebooks that ship as the seed library and as worked examples of
 what a finished tutorial looks like.
 
 ## Install
@@ -63,7 +63,7 @@ replace it.
 | [`tests/test_notebooks.py`](tests/test_notebooks.py) | **The gate (authoritative side)** — a tutorial is complete only when this passes for it. |
 | [`praxis/llm.py`](praxis/llm.py) | **The BYO-key LLM client** every construction step calls through (see below). |
 | [`launcher/`](launcher/) | The FastAPI browse/launch/render UI. The desktop shell wraps this. |
-| [`notebooks/`](notebooks/) | **221 seed notebooks across 10 domains** (+ the legacy DevOps/MLOps library). |
+| [`notebooks/`](notebooks/) | **245 seed notebooks across 14 domains** (including the legacy DevOps/MLOps library). |
 | [`CURRICULUM.md`](CURRICULUM.md) | Generated human index with live status badges. |
 | [`ralph/`](ralph/README.md) | Tasklists that drive agents to fill notebooks autonomously. |
 | [`src-tauri/`](src-tauri/) + [`ui/`](ui/) | The desktop/web shell — Rust backend, TS/React frontend. |
@@ -313,7 +313,7 @@ questions at all**, and answering one you have not reached is refused **423** wi
 being graded. A disabled button is not the gate. `answer`, `solution`, `test` and
 `expected` never cross to a client, and `explanation` only after you have answered.
 
-A topic with no `<slug>.checks.json` gates nothing — which is what keeps the 221 seed
+A topic with no `<slug>.checks.json` gates nothing — which is what keeps the 245 seed
 notebooks freely browsable. Gating appears exactly where the constructor wrote questions.
 
 Your progress is one JSON file per learner under `<root>/progress/`, holding the whole

@@ -118,7 +118,7 @@ records it — and it never stores an unlock. Both are re-derived from the recor
 outcomes on every request, so there is no flag anyone can set, and a check the learner
 later fails genuinely re-locks what it had opened.
 
-A topic with no `<slug>.checks.json` gates nothing. That is what keeps the 221 seed
+A topic with no `<slug>.checks.json` gates nothing. That is what keeps the 245 seed
 notebooks browsable, and it means gating appears exactly where the constructor wrote
 questions.
 
