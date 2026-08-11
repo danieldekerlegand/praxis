@@ -1,0 +1,38 @@
+{
+  "name": null,
+  "project": "praxis",
+  "branchName": "chief/70-signed-notarized-builds",
+  "baseBranch": "main",
+  "description": "Praxis bundles ship unsigned today: on macOS a user must right-click -> Open past Gatekeeper (docs/packaging.md). This tasklist wires a code-signing identity + notarization into the bundle path so a release is Gatekeeper-clean when signing credentials are present, and degrades to the current unsigned bundle when they are absent — never hardcoding or committing a credential. It also closes the version-drift gap: the app version must stay in step across tauri.conf.json, pyproject.toml and ui/package.json, so a release cannot ship mismatched versions. Bundling is built from the repo root (`npm --prefix ui exec -- tauri build`, per CLAUDE.md \"Bundling\") and `tauri build` runs `beforeBuildCommand` itself. Scope: docs/packaging.md, tauri.conf.json bundle/signing config, .github/workflows/ci.yml (release job + a version-parity check), and a test asserting version parity. Anti-fabrication: signing credentials come from the environment/CI secrets only, never the repo.",
+  "parked": false,
+  "dependsOn": [],
+  "touches": ["src-tauri/", "ui/", "tests/"],
+  "iters": 6,
+  "warmup": [
+    "echo 'Signing creds come from env/CI secrets, never the repo; bundle from the repo root; keep version in step across tauri.conf.json / pyproject.toml / ui/package.json — see docs/packaging.md and CLAUDE.md \"Bundling\".'",
+    "sed -n '1,80p' docs/packaging.md",
+    "grep -n '\"version\"\\|identifier' tauri.conf.json ui/package.json 2>/dev/null; grep -n '^version' pyproject.toml"
+  ],
+  "userStories": [
+    {
+      "id": "US-1",
+      "title": "Signing + notarization wired into the bundle, credentials from the environment",
+      "acceptanceCriteria": [
+        "The bundle path reads a signing identity and notarization credentials from the environment / CI secrets (e.g. `APPLE_SIGNING_IDENTITY` + notarization creds that `tauri build` already consumes), producing a signed + notarized macOS `.app`/`.dmg` when they are present and falling back to today's unsigned bundle when they are absent — no credential is hardcoded or committed, and docs/packaging.md documents both paths.",
+        "docs/packaging.md's Gatekeeper right-click -> Open note is updated to describe the signed path and what the user sees with and without credentials, and the release build is still produced from the repo root the way CLAUDE.md \"Bundling\" requires (never from inside ui/).",
+        "Gate green: `npm run build` in ui/ and `cargo build` in src-tauri/ both pass, and `python3 -m pytest -q tests/` passes."
+      ],
+      "passes": false
+    },
+    {
+      "id": "US-2",
+      "title": "Version stays in step across the three manifests",
+      "acceptanceCriteria": [
+        "A single check asserts the app version matches across tauri.conf.json, pyproject.toml and ui/package.json, so a release cannot ship mismatched versions — implemented as a `tests/` test (the same way `storage.APP_ID` == tauri.conf.json's `identifier` is pinned) and wired into .github/workflows/ci.yml, which stays the same three path-scoped checks as `.chief/verify.sh`.",
+        "The release/CI job fails on a version mismatch with an actionable message naming the files that disagree, and docs/packaging.md records the version-in-step rule as part of the release procedure.",
+        "Gate green: `python3 -m pytest -q tests/` passes (including the new parity test), `npm run build` in ui/ and `cargo build` in src-tauri/ both pass."
+      ],
+      "passes": false
+    }
+  ]
+}
