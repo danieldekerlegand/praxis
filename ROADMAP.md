@@ -30,8 +30,8 @@ it by hand:
    — not the answer key, not even the question.
 
 It grew out of `ai-tutor`, a static study-notebook library, whose machinery (rubric ·
-scaffolder · construction loop · completion gate · launcher) and **221 seed notebooks** are
-reused as the foundation and as worked examples of a finished tutorial.
+scaffolder · construction loop · completion gate · launcher) and **245 seed notebooks across
+14 domains** are reused as the foundation and as worked examples of a finished tutorial.
 
 **Product shape:** a **standalone** Tauri desktop/web app over a Python construction core. The
 Python core (`praxis/`, `curriculum.py`, `launcher/`, `scaffold_notebooks.py`) is the product;
@@ -68,53 +68,63 @@ desktop/web packaging, the seed library.
 
 ## Milestones
 
-The 6-tasklist Chief program (`10`→`60`) maps one-to-one onto the product milestones. Bands 20,
-30, 40 are the generation/learning spine; 50 ran in parallel off the shell.
+One list, everything: shipped and planned. The `10`→`60` block is the executed Chief program
+(mapped to its bands); **Planned / product hardening** is the modest, mined-but-unbuilt next
+work; **Loose wishlist** is steady-state and smaller open threads. This is a **standalone
+product** — the planned work is polish and depth, deliberately not a large program. Status
+legend: **✅ shipped/merged · 🚧 partial / in-progress · ⬜ planned**. The Tasklist column is the
+Chief tasklist that delivered a row (✅ merged) or the *(proposed)* one that would (bands `70`+;
+`10`–`60` are used).
 
-| Phase | Milestone | Chief tasklist | Status |
-|---|---|---|---|
-| 10 — Foundation | Rebrand `ai-tutor` → Praxis (preserving the reusable core) + a building Tauri desktop/web shell that browses the existing library | `chief/10-rebrand-and-tauri-shell` | ✅ merged `ef8c81d` |
-| 20 — Define | Any user-defined subject → AI-generated curriculum → rubric-shaped scaffolded notebooks; the shared BYO-key LLM client (agora optional) | `chief/20-user-defined-subjects` | ✅ merged `b6cce13` |
-| 30 — Construct | AI agents fill each scaffold to the rubric — the headline "AI builds the tutorial" capability; in-app flow with live status, batched across a curriculum | `chief/30-agentic-construction` | ✅ merged `a7c23cb` |
-| 40 — Gate | AI-generated per-section knowledge checks + gated progression in the app (derived unlocks, locked sections serve nothing) | `chief/40-gated-progression` | ✅ merged `509601f` |
-| 50 — Storage | Persist subjects, tutorials, and progress across three interchangeable backends (app / drive / cloud), selectable in-app | `chief/50-storage-integrations` | ✅ merged `707cc24` |
-| 60 — Ship | Tauri desktop bundles + optional web build, CI gate on every PR, and end-user docs carrying a clean first-run through the whole loop | `chief/60-package-and-distribute` | ✅ merged `6ca7bef` |
+### The 10→60 build program — ✅ shipped
 
-Dependency spine: `10 → 20 → 30 → 40 → 60`, with `50` branching off `10` and rejoining at `60`.
+The 6-tasklist Chief program maps one-to-one onto the product milestones. Bands 20, 30, 40 are
+the generation/learning spine; 50 ran in parallel off the shell. Dependency spine:
+`10 → 20 → 30 → 40 → 60`, with `50` branching off `10` and rejoining at `60`.
 
----
+| Status | Milestone | Tasklist |
+|---|---|---|
+| ✅ | **Foundation** — rebrand `ai-tutor` → Praxis (preserving the reusable core) + a building Tauri desktop/web shell that browses the existing library | `10-rebrand-and-tauri-shell` |
+| ✅ | **Define** — any user-defined subject → AI-generated curriculum → rubric-shaped scaffolded notebooks; the shared BYO-key LLM client (agora optional) | `20-user-defined-subjects` |
+| ✅ | **Construct** — AI agents fill each scaffold to the rubric (the headline "AI builds the tutorial"); in-app flow with live status, batched across a curriculum | `30-agentic-construction` |
+| ✅ | **Gate** — AI-generated per-section knowledge checks + gated progression (derived unlocks, locked sections serve nothing) | `40-gated-progression` |
+| ✅ | **Storage** — subjects, tutorials, and progress across three interchangeable backends (app / drive / cloud), selectable in-app | `50-storage-integrations` |
+| ✅ | **Ship** — Tauri desktop bundles + optional web build, CI gate on every PR, end-user docs carrying a clean first-run through the whole loop | `60-package-and-distribute` |
 
-## Remaining / Next
+### Planned / product hardening — ⬜ planned
 
-The 10→60 program is complete; what remains is polish, hardening, and optional depth — none of it
-blocking.
+The 10→60 program is complete; what remains is polish and optional depth for the standalone
+product — none of it blocking, none of it a new program. Proposals only (no `tasks/chief/*.json`
+authored yet).
 
-**Ongoing (steady-state, not a phase):**
-1. **Seed-library upkeep** 🚧 — the 221 seed notebooks and their gap-analysis coverage stay
-   current as tooling evolves; recommended additions in [`docs/gap-analysis.md`](docs/gap-analysis.md)
-   are a running backlog, not a milestone.
-2. **Rubric / anti-fabrication tightening** 🚧 — `construction_failures` and `checkset_failures`
-   are meant to grow each time a new model fabrication is found; keep the grader's sentences
-   specific (they are also the UI's error text).
+| Status | Milestone | Tasklist |
+|---|---|---|
+| ⬜ | **Signed / notarized release builds** — bundles ship unsigned today (macOS Gatekeeper needs a right-click → Open; [`docs/packaging.md`](docs/packaging.md)); wire a signing identity + notarization when a distribution channel is chosen, keeping `version` in step across `tauri.conf.json` / `pyproject.toml` / `ui/package.json` · S/M | `chief/70-signed-notarized-builds` *(proposed)* |
+| ⬜ | **Embed the Python interpreter** — a shipped `.app` currently needs the checkout + launch-extra venv beside it (the shell discovers the core at runtime; nothing is embedded, `src-tauri/src/library.rs`); embedding an interpreter makes a truly standalone bundle · M | `chief/71-embed-python-interpreter` *(proposed)* |
+| ⬜ | **Deeper opt-in agora integration** — richer provider-router use behind `AGORA_BASE_URL`, beyond the BYO-key + optional routing that ships, without ever becoming a hard dependency · S/M | `chief/72-deeper-agora-integration` *(proposed)* |
+| ⬜ | **Additional storage backends** — the resolver design (`_RESOLVERS` + `_AVAILABLE` in `praxis/storage.py`) makes a new backend a resolver + availability check with no change to any caller; add on demand · S | `chief/73-additional-storage-backends` *(proposed)* |
 
-**One-off / candidate (not yet scheduled):**
-3. **Signed release builds** ⬜ — bundles are currently unsigned (macOS Gatekeeper needs a
-   right-click → Open); wire a signing identity + notarization when a distribution channel is
-   chosen. Keep `version` in step across `tauri.conf.json` / `pyproject.toml` / `ui/package.json`.
-4. **Bundle the Python core** ⬜ — today a shipped `.app` needs the checkout + launch-extra venv
-   beside it (the shell discovers the core at runtime; no interpreter is embedded). Embedding an
-   interpreter would make a truly standalone bundle.
-5. **Deeper agora integration** ⬜ — optional, opt-in only: richer provider-router use behind
-   `AGORA_BASE_URL` without ever becoming a hard dependency.
-6. **Additional storage backends** ⬜ — the resolver design (`storage.register_backend`) makes a
-   new backend a resolver + availability check with no change to any caller; add on demand.
+### Loose wishlist — ⬜ / 🚧 ongoing
+
+Steady-state upkeep and smaller open threads, not big enough to anchor a tasklist.
+
+| Status | Milestone | Tasklist |
+|---|---|---|
+| 🚧 | **Seed-library upkeep** — the 245 seed notebooks (14 domains) and their coverage stay current as tooling evolves; the recommended additions in [`docs/gap-analysis.md`](docs/gap-analysis.md) (§2, across every domain) are a running backlog, not a milestone | — |
+| 🚧 | **Rubric / anti-fabrication tightening** — `construction_failures` and `checkset_failures` grow each time a new model fabrication is found; keep the grader's sentences specific (they are also the UI's error text) | — |
 
 ---
 
 ## Chief Tasklist Status
 
 - **6/6 tasklists merged** (`10`–`60`); **0 pending**. Records in
-  [`tasks/chief/completed/`](tasks/chief/completed/), each carrying its `mergedToMain` commit.
+  [`tasks/chief/completed/`](tasks/chief/completed/), each carrying its `mergedToMain` commit:
+  `10-rebrand-and-tauri-shell` → `ef8c81d` · `20-user-defined-subjects` → `b6cce13` ·
+  `30-agentic-construction` → `a7c23cb` · `40-gated-progression` → `509601f` ·
+  `50-storage-integrations` → `707cc24` · `60-package-and-distribute` → `6ca7bef`.
+- **4 proposed tasklists** (`chief/70`–`chief/73`) back the **Planned / product hardening** group
+  above — **none authored yet** (no `tasks/chief/*.json`); they are roadmap stubs, and the loose
+  wishlist rows carry no tasklist at all.
 - No open autonomous work remains in this repo. (Earlier offline notebook-filling runs used
   Ralph/ralphy — `ralph/`, `.ralphy/` — and are historical, superseded by the in-app
   construction agent from band 30.)
