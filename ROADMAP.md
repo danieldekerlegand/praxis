@@ -113,6 +113,67 @@ Steady-state upkeep and smaller open threads, not big enough to anchor a tasklis
 | 🚧 | **Seed-library upkeep** — the 245 seed notebooks (14 domains) and their coverage stay current as tooling evolves; the recommended additions in [`docs/gap-analysis.md`](docs/gap-analysis.md) (§2, across every domain) are a running backlog, not a milestone | — |
 | 🚧 | **Rubric / anti-fabrication tightening** — `construction_failures` and `checkset_failures` grow each time a new model fabrication is found; keep the grader's sentences specific (they are also the UI's error text) | — |
 
+### JD-driven tutorial suggestion — ⬜ proposed
+
+A net-new growth surface, **not present in the code today**: import a job description, extract
+what the job actually demands, and suggest tutorials that close the learner's gap — routed into
+the *existing* define → scaffold → construct → gate pipeline rather than a parallel one. The hard
+part is not generation but **restraint**: the 245-notebook library (14 domains) plus the
+`recommended`-tagged neighbours already scaffolded in `curriculum.py` and catalogued in
+[`docs/gap-analysis.md`](docs/gap-analysis.md) must be held in mind so a suggestion is a genuine
+gap, never a redundant re-tutorial of a topic that already ships. The accepted suggestions become
+subjects the shipped `curriculum_gen.py` / `scaffold_notebooks.py` build exactly as a hand-typed
+subject would — this phase adds the front of the funnel, not a second constructor.
+
+*Depends on:* the shipped **Define** (`20`) + **Construct** (`30`) spine (suggestions feed the
+existing scaffolder); [`docs/gap-analysis.md`](docs/gap-analysis.md) + `curriculum.py`'s
+`recommended` tags as the dedup corpus.
+
+| Status | Milestone | Tasklist |
+|---|---|---|
+| ⬜ | **JD ingest** — import a job description by **copy-paste or file upload** (parse `.txt`/`.md`/`.pdf`/`.docx` to plain text), normalize to one canonical JD document; a BYO-key-optional read path (plain text needs no model) | `chief/74-jd-ingest` *(proposed)* |
+| ⬜ | **Requirement & skill extraction** — model-backed pass turning a JD into a structured list of required skills / tools / competencies, normalized leniently and graded strictly in the `curriculum_gen.py` house style (ask JSON, normalize, validate before use) | `chief/75-jd-requirement-extraction` *(proposed)* |
+| ⬜ | **Gap analysis vs the library** — match extracted requirements against the existing 245 notebooks (14 domains) + the `recommended` neighbours, classifying each requirement as *covered* / *partially covered* / *missing*, reusing the `docs/gap-analysis.md` coverage model | `chief/76-jd-library-gap-analysis` *(proposed)* |
+| ⬜ | **Suggestion + dedup engine** — turn *missing* / *partial* requirements into proposed subjects, deduplicated against existing topics and domains so no suggestion re-tutorials shipped material; each suggestion carries its source requirement and its gap rationale | `chief/77-jd-suggestion-dedup-engine` *(proposed)* |
+| ⬜ | **Review / accept surface** — an in-app view to review, edit, drop, or accept suggestions; an accepted one becomes a subject handed to the shipped `POST /api/subjects` → scaffold → construct flow (no new constructor, just a new entry point) | `chief/78-jd-suggestion-review-surface` *(proposed)* |
+
+### Gating backfill program — ⬜ proposed
+
+Today the gate is real but sparse: **only 24 of the 245 seed notebooks carry a `<slug>.checks.json`**,
+so 221 notebooks are browsable-but-ungated (a topic with no checkset gates nothing, by design —
+`praxis/progress.py`). This program drives the remaining ~221 to gated by **reusing the shipped
+check machinery unchanged** — `praxis/checks.py` (`checks_from_reply` → `checkset_failures` →
+write) over `GATED_SECTIONS`, and the derived-unlock gate in `progress.py` — run in per-domain
+batches rather than one sweep, with the anti-fabrication verification (`verify_code=True`, the
+reference `solution` run against its own `test`) held as the quality bar it already enforces.
+
+*Depends on:* the shipped **Gate** (`40`) machinery (`praxis/checks.py`, `progress.py`,
+`GATED_SECTIONS`) — this phase runs it at scale, it invents no new gating primitive.
+
+| Status | Milestone | Tasklist |
+|---|---|---|
+| ⬜ | **Batched gating program (by domain)** — drive the ~221 ungated notebooks to gated in per-domain batches across the 14 domains, reusing `construct_topic(..., checks=True)` / `checks.py` with no rewrite of an already-✅ notebook (same idempotence as construction) | `chief/79-gating-backfill-by-domain` *(proposed)* |
+| ⬜ | **Coverage tracker (X/245 gated)** — a report of gated coverage overall and per domain (start line: **24/245**), surfaced in-app off the same `_gated()` view-model data, so a batch's progress is visible and resumable | `chief/80-gating-coverage-tracker` *(proposed)* |
+| ⬜ | **Gate-quality / anti-fabrication pass** — audit generated checksets for fabricated or trivial questions, tightening `checkset_failures` (keeping `verify_code=True` the load-bearing check) so backfilled gates hold the same bar as hand-built ones | `chief/81-gate-quality-anti-fabrication` *(proposed)* |
+
+### Chief-powered tutorial construction — ⬜ proposed
+
+A lighter integration that lets the two phases above run **at scale and cheaply**: notebook
+construction and gating are driven as Chief tasklists on OpenCode + self-hosted / local inference,
+rather than one interactive in-app run per notebook. Praxis already has the batch loop
+(`construct_each` / `construct_domain` / `construct_subject`) and the resumable, idempotent
+skip-if-✅ contract that makes an unattended run safe; this wires that loop to Chief's headless
+driver so a whole domain's gating backfill, or a JD-suggested subject, is one tasklist.
+
+*Depends on:* **chief's proposed "Embeddable engine" capability** — headless invocation,
+local-inference presets, roadmap→tasklist generation, and a status stream — referenced here as a
+cross-repo dependency (`chief:embeddable-engine`, *proposed / not yet authored in chief*); and the
+**Gating backfill** + **JD-driven** phases it accelerates.
+
+| Status | Milestone | Tasklist |
+|---|---|---|
+| ⬜ | **Chief-driven construction + gating** — run `construct_each` / `checks.py` batches as Chief tasklists on OpenCode + local inference (headless, resumable via the existing skip-if-✅ contract), so gating backfill and JD-suggested subjects build unattended and cheaply · depends on `chief:embeddable-engine` | `chief/82-chief-powered-construction` *(proposed)* |
+
 ---
 
 ## Chief Tasklist Status
@@ -122,7 +183,7 @@ Steady-state upkeep and smaller open threads, not big enough to anchor a tasklis
   `10-rebrand-and-tauri-shell` → `ef8c81d` · `20-user-defined-subjects` → `b6cce13` ·
   `30-agentic-construction` → `a7c23cb` · `40-gated-progression` → `509601f` ·
   `50-storage-integrations` → `707cc24` · `60-package-and-distribute` → `6ca7bef`.
-- **4 proposed tasklists** (`chief/70`–`chief/73`) back the **Planned / product hardening** group
+- **13 proposed tasklists** (`chief/70`–`chief/82`) back the **Planned / product-hardening**, JD-suggestion, gating-backfill, and Chief-construction phases
   above — **none authored yet** (no `tasks/chief/*.json`); they are roadmap stubs, and the loose
   wishlist rows carry no tasklist at all.
 - No open autonomous work remains in this repo. (Earlier offline notebook-filling runs used
