@@ -94,8 +94,8 @@ the generation/learning spine; 50 ran in parallel off the shell. Dependency spin
 ### Planned / product hardening — ⬜ planned
 
 The 10→60 program is complete; what remains is polish and optional depth for the standalone
-product — none of it blocking, none of it a new program. Proposals only (no `tasks/chief/*.json`
-authored yet).
+product — none of it blocking, none of it a new program. All rows below are now authored
+(`tasks/chief/*.json`, `passes:false`, unrun).
 
 | Status | Milestone | Tasklist |
 |---|---|---|
@@ -167,7 +167,7 @@ driver so a whole domain's gating backfill, or a JD-suggested subject, is one ta
 
 *Depends on:* **chief's proposed "Embeddable engine" capability** — headless invocation,
 local-inference presets, roadmap→tasklist generation, and a status stream — referenced here as a
-cross-repo dependency (`chief:embeddable-engine`, *proposed / not yet authored in chief*); and the
+cross-repo dependency (`chief:80-headless-programmatic-invocation`, bands `80`–`84`, *now authored in chief*); and the
 **Gating backfill** + **JD-driven** phases it accelerates.
 
 | Status | Milestone | Tasklist |
@@ -184,7 +184,7 @@ cross-repo dependency (`chief:embeddable-engine`, *proposed / not yet authored i
   `30-agentic-construction` → `a7c23cb` · `40-gated-progression` → `509601f` ·
   `50-storage-integrations` → `707cc24` · `60-package-and-distribute` → `6ca7bef`.
 - **13 proposed tasklists** (`chief/70`–`chief/82`) back the **Planned / product-hardening**, JD-suggestion, gating-backfill, and Chief-construction phases
-  above — **none authored yet** (no `tasks/chief/*.json`); they are roadmap stubs, and the loose
+  above — **all now authored** (`tasks/chief/70`–`82`, `passes:false`, unrun); the loose
   wishlist rows carry no tasklist at all.
 - No open autonomous work remains in this repo. (Earlier offline notebook-filling runs used
   Ralph/ralphy — `ralph/`, `.ralphy/` — and are historical, superseded by the in-app
