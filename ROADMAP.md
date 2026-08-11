@@ -62,7 +62,7 @@ desktop/web packaging, the seed library.
 - **Packaged & CI-gated** — `tauri build` desktop bundles (verified `Praxis_0.1.0_aarch64.dmg`)
   plus an optional web build; CI runs the frontend build, the Rust build, and `pytest tests/`
   path-scoped on every PR. See [`docs/packaging.md`](docs/packaging.md).
-- **Chief program:** all 6 tasklists (`10`–`60`) merged; **nothing pending**.
+- **Chief program:** 6/6 built-program tasklists (`10`–`60`) merged; **13 proposed forward tasklists authored** (`tasks/chief/*.json`, `passes:false`, unrun) — pending a run, not merged.
 
 ---
 
@@ -178,7 +178,7 @@ cross-repo dependency (`chief:80-headless-programmatic-invocation`, bands `80`�
 
 ## Chief Tasklist Status
 
-- **6/6 tasklists merged** (`10`–`60`); **0 pending**. Records in
+- **6/6 built-program tasklists merged** (`10`–`60`); **13 proposed forward tasklists authored** (`tasks/chief/*.json`, `passes:false`, unrun) — pending a run, not merged. Records in
   [`tasks/chief/completed/`](tasks/chief/completed/), each carrying its `mergedToMain` commit:
   `10-rebrand-and-tauri-shell` → `ef8c81d` · `20-user-defined-subjects` → `b6cce13` ·
   `30-agentic-construction` → `a7c23cb` · `40-gated-progression` → `509601f` ·
@@ -186,7 +186,8 @@ cross-repo dependency (`chief:80-headless-programmatic-invocation`, bands `80`�
 - **13 proposed tasklists** (`chief/70`–`chief/82`) back the **Planned / product-hardening**, JD-suggestion, gating-backfill, and Chief-construction phases
   above — **all now authored** (`tasks/chief/70`–`82`, `passes:false`, unrun); the loose
   wishlist rows carry no tasklist at all.
-- No open autonomous work remains in this repo. (Earlier offline notebook-filling runs used
+- The 6-tasklist built program is complete; the 13 proposed forward tasklists above are authored
+  but unrun (open work once scheduled). (Earlier offline notebook-filling runs used
   Ralph/ralphy — `ralph/`, `.ralphy/` — and are historical, superseded by the in-app
   construction agent from band 30.)
 
