@@ -7,6 +7,7 @@
   "parked": false,
   "dependsOn": [
     "chief:80-headless-programmatic-invocation",
+    "chief:82-local-inference-cost-avoidance-preset",
     "78-jd-suggestion-review-surface",
     "79-gating-backfill-by-domain"
   ],

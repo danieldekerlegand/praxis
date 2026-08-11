@@ -39,6 +39,16 @@
         "Gate green: python3 -m pytest -q tests/ covers the tightened rules — asserting a fabricated/trivial set is rejected with an actionable message and that the existing hand-built seed checksets still pass (no regression to the 24 already gated)."
       ],
       "passes": false
+    },
+    {
+      "id": "US-3",
+      "title": "Re-audit checksets written before the tightened bar, and regenerate only by policy",
+      "acceptanceCriteria": [
+        "A re-audit pass runs the tightened checkset_failures over every checkset already on disk that was written BEFORE the tightening landed (79 batches may run before this band merges), reporting each set that no longer meets the bar with the grader's specific sentence — measuring with the same tightened write-path grader, never a parallel one.",
+        "The gate rules are respected: an already-gated notebook's checkset is skipped, not rewritten — a pre-tightening set that now fails is FLAGGED for regeneration, and regeneration is an explicit per-notebook pass through the shipped checks.py write path (grade-then-write, verify_code=True), so a regenerated set that fails the tightened bar is never written and the existing set stays in place rather than leaving the notebook ungated.",
+        "Gate green: python3 -m pytest -q tests/ passes, including a test that the re-audit flags a fixture checkset failing only the NEW rules while leaving it on disk untouched, and that an explicit regeneration replaces it only with a set passing the tightened bar."
+      ],
+      "passes": false
     }
   ]
 }

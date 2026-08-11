@@ -5,7 +5,7 @@
 > learner's progression through them. North star: *demonstrated understanding, not scrolling —
 > a self-hostable tutorial constructor for any topic.*
 
-**Status:** Feature-complete (the 10→60 Chief program has shipped) — in polish + growth mode · **Last updated:** 2026-08-10
+**Status:** Feature-complete (the 10→60 Chief program has shipped) — in polish + growth mode · **Last updated:** 2026-08-11
 
 This is the single canonical roadmap. Praxis had no prior ROADMAP; this consolidates the
 README, `CLAUDE.md`, the reference docs under [`docs/`](docs/), and the completed 6-tasklist
@@ -62,7 +62,7 @@ desktop/web packaging, the seed library.
 - **Packaged & CI-gated** — `tauri build` desktop bundles (verified `Praxis_0.1.0_aarch64.dmg`)
   plus an optional web build; CI runs the frontend build, the Rust build, and `pytest tests/`
   path-scoped on every PR. See [`docs/packaging.md`](docs/packaging.md).
-- **Chief program:** 6/6 built-program tasklists (`10`–`60`) merged; **13 proposed forward tasklists authored** (`tasks/chief/*.json`, `passes:false`, unrun) — pending a run, not merged.
+- **Chief program:** 6/6 built-program tasklists (`10`–`60`) merged; **14 proposed forward tasklists authored** (`tasks/chief/*.json`, `passes:false`, unrun) — pending a run, not merged.
 
 ---
 
@@ -103,6 +103,7 @@ product — none of it blocking, none of it a new program. All rows below are no
 | ⬜ | **Embed the Python interpreter** — a shipped `.app` currently needs the checkout + launch-extra venv beside it (the shell discovers the core at runtime; nothing is embedded, `src-tauri/src/library.rs`); embedding an interpreter makes a truly standalone bundle · M | `chief/71-embed-python-interpreter` *(proposed)* |
 | ⬜ | **Deeper opt-in agora integration** — richer provider-router use behind `AGORA_BASE_URL`, beyond the BYO-key + optional routing that ships, without ever becoming a hard dependency · S/M | `chief/72-deeper-agora-integration` *(proposed)* |
 | ⬜ | **Additional storage backends** — the resolver design (`_RESOLVERS` + `_AVAILABLE` in `praxis/storage.py`) makes a new backend a resolver + availability check with no change to any caller; add on demand · S | `chief/73-additional-storage-backends` *(proposed)* |
+| ⬜ | **Seed-library refresh** — steady-state ownership of the 245-seed corpus: a rot audit (URL liveness + `compile()` re-check, report-only), a refresh policy (flagged-for-human by default; force-regenerate only explicitly, through the shipped grader — a ✅ seed is never silently rewritten), a promotion path for the [`docs/gap-analysis.md`](docs/gap-analysis.md) §2 additions, and a domain-addition policy (numbering appends 16+; the `06` hole is never reused) · M | `chief/83-seed-library-refresh` *(proposed)* |
 
 ### Loose wishlist — ⬜ / 🚧 ongoing
 
@@ -110,7 +111,7 @@ Steady-state upkeep and smaller open threads, not big enough to anchor a tasklis
 
 | Status | Milestone | Tasklist |
 |---|---|---|
-| 🚧 | **Seed-library upkeep** — the 245 seed notebooks (14 domains) and their coverage stay current as tooling evolves; the recommended additions in [`docs/gap-analysis.md`](docs/gap-analysis.md) (§2, across every domain) are a running backlog, not a milestone | — |
+| 🚧 | **Seed-library upkeep** — the 245 seed notebooks (14 domains) and their coverage stay current as tooling evolves; the recommended additions in [`docs/gap-analysis.md`](docs/gap-analysis.md) (§2, across every domain) are a running backlog. Now owned: the rot audit, refresh policy, §2 promotion path and domain-addition policy are `chief/83` | `chief/83-seed-library-refresh` *(proposed)* |
 | 🚧 | **Rubric / anti-fabrication tightening** — `construction_failures` and `checkset_failures` grow each time a new model fabrication is found; keep the grader's sentences specific (they are also the UI's error text) | — |
 
 ### JD-driven tutorial suggestion — ⬜ proposed
@@ -178,15 +179,16 @@ cross-repo dependency (`chief:80-headless-programmatic-invocation`, bands `80`�
 
 ## Chief Tasklist Status
 
-- **6/6 built-program tasklists merged** (`10`–`60`); **13 proposed forward tasklists authored** (`tasks/chief/*.json`, `passes:false`, unrun) — pending a run, not merged. Records in
+- **6/6 built-program tasklists merged** (`10`–`60`); **14 proposed forward tasklists authored** (`tasks/chief/*.json`, `passes:false`, unrun) — pending a run, not merged. Records in
   [`tasks/chief/completed/`](tasks/chief/completed/), each carrying its `mergedToMain` commit:
   `10-rebrand-and-tauri-shell` → `ef8c81d` · `20-user-defined-subjects` → `b6cce13` ·
   `30-agentic-construction` → `a7c23cb` · `40-gated-progression` → `509601f` ·
   `50-storage-integrations` → `707cc24` · `60-package-and-distribute` → `6ca7bef`.
-- **13 proposed tasklists** (`chief/70`–`chief/82`) back the **Planned / product-hardening**, JD-suggestion, gating-backfill, and Chief-construction phases
-  above — **all now authored** (`tasks/chief/70`–`82`, `passes:false`, unrun); the loose
-  wishlist rows carry no tasklist at all.
-- The 6-tasklist built program is complete; the 13 proposed forward tasklists above are authored
+- **14 proposed tasklists** (`chief/70`–`chief/83`) back the **Planned / product-hardening**, JD-suggestion, gating-backfill, Chief-construction, and seed-library-refresh phases
+  above — **all now authored** (`tasks/chief/70`–`83`, `passes:false`, unrun); of the loose
+  wishlist rows, seed-library upkeep is now owned by `chief/83` and only the
+  rubric-tightening thread carries no tasklist (its next concrete step is `chief/81`).
+- The 6-tasklist built program is complete; the 14 proposed forward tasklists above are authored
   but unrun (open work once scheduled). (Earlier offline notebook-filling runs used
   Ralph/ralphy — `ralph/`, `.ralphy/` — and are historical, superseded by the in-app
   construction agent from band 30.)
