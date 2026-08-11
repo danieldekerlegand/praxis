@@ -1,0 +1,48 @@
+{
+  "name": null,
+  "project": "praxis",
+  "branchName": "chief/74-jd-ingest",
+  "baseBranch": "main",
+  "description": "JD-driven tutorial suggestion, front of the funnel (74-band). Add the ingest step of a net-new growth surface that does NOT exist in the code today: import a job description and normalize it to one canonical plain-text JD document that the later extraction/gap/suggestion bands read. Import is by copy-paste OR file upload, parsing .txt/.md/.pdf/.docx down to plain text; the read path is BYO-key-OPTIONAL because plain text needs no model. This band adds only ingest — no extraction, no suggestion — and lands a new Python module in the construction core (praxis/) plus an in-app entry point, following the storage discipline that all user data (the imported JD) lives under the active backend root via praxis/storage.py, never in the repo. Depends on the shipped Define (20) + Construct (30) spine, whose scaffolder/subjects flow the accepted suggestions eventually feed. Anti-fabrication: a JD is 'ingested' only when a real uploaded/pasted document lands as normalized plain text on the active storage backend and round-trips back out — never a stubbed string.",
+  "parked": false,
+  "dependsOn": [
+    "20-user-defined-subjects",
+    "30-agentic-construction"
+  ],
+  "touches": [
+    "praxis/",
+    "launcher/",
+    "src-tauri/",
+    "ui/",
+    "tests/"
+  ],
+  "iters": 7,
+  "warmup": [
+    "sed -n '1,60p' praxis/curriculum_gen.py",
+    "echo '--- storage is the only path resolver ---'; grep -n 'def subjects_dir\\|def progress_dir\\|def app_dir\\|_RESOLVERS' praxis/storage.py curriculum.py progress.py 2>/dev/null | head",
+    "echo '--- how the app already accepts free text -> a persisted artifact ---'; sed -n '425,477p' launcher/app.py"
+  ],
+  "userStories": [
+    {
+      "id": "US-1",
+      "title": "Parse and normalize a JD to one canonical plain-text document",
+      "acceptanceCriteria": [
+        "A new module in the Python construction core (e.g. praxis/jd.py) ingests a job description from raw pasted text OR an uploaded file, parsing .txt / .md / .pdf / .docx down to plain text and normalizing whitespace/encoding into one canonical JD document with a stable shape (source, mime/kind, normalized text, timestamp).",
+        "The plain-text and .md paths need NO API key (BYO-key-optional read path); only formats that require a parser pull in that parser, and an unsupported/undecodable upload fails with a clear actionable error rather than persisting garbage.",
+        "The canonical JD is written under the active storage backend root via praxis/storage.py delegates (never a hand-computed path, never inside the repo), so it follows app / drive / cloud exactly as subjects and progress do.",
+        "Gate green: python3 -m pytest -q tests/ passes, including a test that ingests each supported format (with a fixture file per type) and asserts the normalized text round-trips back off the storage backend in a second read."
+      ],
+      "passes": false
+    },
+    {
+      "id": "US-2",
+      "title": "In-app JD import by paste or upload",
+      "acceptanceCriteria": [
+        "The launcher exposes an ingest endpoint (e.g. POST /api/jd taking pasted text or an uploaded file) that calls the US-1 core and returns the persisted canonical JD's id/handle; it honors the writable() 503 middleware exactly like every other non-GET write, so an unplugged drive refuses cleanly.",
+        "A UI surface lets the user paste JD text or pick a file to upload and shows the ingested JD back for confirmation; it reuses the shell's existing cross-origin fetch path (SHELL_ORIGIN_RE) with no widening to '*'.",
+        "Gate green: npm run build in ui/ and cargo build in src-tauri/ both pass, and python3 -m pytest -q tests/ covers the endpoint (paste + upload) with the launch extra; document the end-to-end paste->persisted->reloaded round trip in the progress log."
+      ],
+      "passes": false
+    }
+  ]
+}

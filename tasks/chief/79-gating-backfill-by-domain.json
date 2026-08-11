@@ -1,0 +1,45 @@
+{
+  "name": null,
+  "project": "praxis",
+  "branchName": "chief/79-gating-backfill-by-domain",
+  "baseBranch": "main",
+  "description": "Gating backfill program (79-band). Today the gate is real but sparse: only 24 of the 245 seed notebooks carry a <slug>.checks.json, so 221 notebooks are browsable-but-ungated (a topic with no checkset gates nothing, by design — praxis/progress.py). This band drives the remaining ~221 to gated by REUSING THE SHIPPED CHECK MACHINERY UNCHANGED — praxis/checks.py (checks_from_reply -> checkset_failures -> write) over GATED_SECTIONS, and the derived-unlock gate in progress.py — run in per-domain batches across the 14 domains rather than one sweep, with the anti-fabrication verification (verify_code=True, the reference `solution` run against its own `test` in a subprocess) held as the quality bar it already enforces. It invents no new gating primitive; it runs the shipped one at scale. Depends on the shipped Gate (40) machinery. Anti-fabrication: a set that fails checkset_failures is never written (same rule as the constructor), and an already-gated notebook is skipped not rewritten — so a batch is resumable and idempotent exactly like construction; the coverage number only moves for notebooks that gained a real, verify_code-passing checkset.",
+  "parked": false,
+  "dependsOn": [
+    "40-gated-progression"
+  ],
+  "touches": [
+    "praxis/",
+    "notebooks/",
+    "tests/"
+  ],
+  "iters": 8,
+  "warmup": [
+    "echo '--- the machinery to reuse, unchanged ---'; grep -n 'def checks_from_reply\\|def checkset_failures\\|def needs_checks\\|GATED_SECTIONS\\|verify_code' praxis/checks.py | head",
+    "echo '--- the one batch loop ---'; sed -n '443,500p' praxis/construct.py",
+    "echo '--- reality: 24 gated of 245 ---'; echo \"gated: $(find notebooks -name '*.checks.json' | wc -l)  total: $(find notebooks -name '*.ipynb' | wc -l)\""
+  ],
+  "userStories": [
+    {
+      "id": "US-1",
+      "title": "Gate one domain's notebooks by reusing the shipped check machinery",
+      "acceptanceCriteria": [
+        "A per-domain backfill drives every ungated ✅ notebook in one domain to gated by calling the shipped path — construct_topic(..., checks=True) / checks.py (checks_from_reply -> checkset_failures -> write) over GATED_SECTIONS — with NO rewrite of the gating primitive and no new checkset format.",
+        "It is idempotent: a notebook that already has a <slug>.checks.json is skipped not rewritten (the needs_checks() contract), and a notebook that is not yet ✅ is left for construction rather than force-gated, so the batch is resumable exactly like construct_each.",
+        "The anti-fabrication bar is held: a checkset is written only when checkset_failures passes with verify_code=True (the reference solution actually run against its own test in a subprocess); a set that fails is not written and the notebook stays ungated.",
+        "Gate green: python3 -m pytest -q tests/ passes, including a test that backfilling a domain fixture writes a valid verify_code-passing checkset for an ungated topic and skips an already-gated one."
+      ],
+      "passes": false
+    },
+    {
+      "id": "US-2",
+      "title": "Batch the backfill across the 14 domains, resumably",
+      "acceptanceCriteria": [
+        "A batch entry point runs the per-domain backfill across all 14 domains (a one-liner over the shipped construct_each, the way construct_domain / construct_subject already are), so the whole ~221-notebook backlog can be driven in domain-sized batches rather than one sweep.",
+        "The run is resumable and safe to re-invoke: re-running skips domains/notebooks already gated and never clobbers a passing checkset, so an interrupted batch resumes without redoing work (the skip-if-gated contract is what makes an unattended run safe — the property band 82 relies on).",
+        "Gate green: python3 -m pytest -q tests/ covers a two-domain batch asserting only ungated topics gain checksets and a re-run is a no-op; the progress log records the starting and ending gated/245 count for the domains touched."
+      ],
+      "passes": false
+    }
+  ]
+}

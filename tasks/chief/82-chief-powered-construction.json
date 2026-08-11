@@ -1,0 +1,48 @@
+{
+  "name": null,
+  "project": "praxis",
+  "branchName": "chief/82-chief-powered-construction",
+  "baseBranch": "main",
+  "description": "Chief-powered tutorial construction (82-band). A lighter integration that lets the two phases above run AT SCALE AND CHEAPLY: notebook construction and gating are driven as Chief tasklists on OpenCode + self-hosted / local inference, rather than one interactive in-app run per notebook. Praxis already has the batch loop (construct_each / construct_domain / construct_subject, and the 79 gating backfill over it) and the resumable, idempotent skip-if-✅ contract that makes an unattended run safe; this band wires that loop to Chief's HEADLESS driver so a whole domain's gating backfill, or a JD-suggested subject, is one tasklist. Cross-repo dependency: it consumes chief's headless/programmatic invocation entry point (chief:80-headless-programmatic-invocation — the run-id-out + machine-readable-outcome contract) as the way to start a run and read its result, and references chief:82-local-inference-cost-avoidance-preset as the way to route those runs through local inference at zero API cost. It also accelerates the Gating-backfill (79) and JD-driven (78) phases, so it depends on them existing. Anti-fabrication: 'unattended construction/gating' is real only when a Chief-driven run produces the same on-disk artifacts (✅ notebooks + verify_code-passing checksets) an interactive run would — the skip-if-✅ / skip-if-gated contract is what keeps a headless retry from clobbering good work; a test proves a generated praxis tasklist is valid and that the wiring invokes the headless contract, without running real inference.",
+  "parked": false,
+  "dependsOn": [
+    "chief:80-headless-programmatic-invocation",
+    "78-jd-suggestion-review-surface",
+    "79-gating-backfill-by-domain"
+  ],
+  "touches": [
+    "praxis/",
+    ".chief/",
+    "docs/",
+    "tests/"
+  ],
+  "iters": 7,
+  "warmup": [
+    "echo '--- the batch loops to drive headlessly (already resumable/idempotent) ---'; sed -n '443,500p' praxis/construct.py",
+    "echo '--- the cross-repo contract this consumes ---'; sed -n '1,20p' ../chief/tasks/chief/80-headless-programmatic-invocation.json 2>/dev/null; echo '--- and the local-inference preset it references ---'; sed -n '1,10p' ../chief/tasks/chief/82-local-inference-cost-avoidance-preset.json 2>/dev/null",
+    "echo '--- praxis is already chief-wired ---'; ls .chief/ 2>/dev/null; sed -n '1,40p' .chief/verify.sh 2>/dev/null"
+  ],
+  "userStories": [
+    {
+      "id": "US-1",
+      "title": "Generate a Chief tasklist for a domain backfill or a JD-suggested subject",
+      "acceptanceCriteria": [
+        "A generator turns a unit of praxis batch work — one domain's gating backfill (from 79) or one JD-suggested/accepted subject (from 78) — into a valid Chief tasklist that drives the existing construct_each / checks.py loop, emitting well-formed tasks/chief/*.json (valid jq -e ., branchName == chief/<name>, passes:false, no mergedToMain) so praxis's own harness can run it.",
+        "The generated tasklist relies on the shipped skip-if-✅ (construction) and skip-if-gated (checks) contracts for resumability, so an unattended or retried run never clobbers a good notebook or a passing checkset.",
+        "Gate green: python3 -m pytest -q tests/ passes, including a test that a generated tasklist is valid JSON with the required fields and targets real domain/subject work."
+      ],
+      "passes": false
+    },
+    {
+      "id": "US-2",
+      "title": "Drive the run headlessly through chief's programmatic entry point, cheaply",
+      "acceptanceCriteria": [
+        "The wiring starts a Chief run through the chief:80-headless-programmatic-invocation contract (a non-interactive entry point that emits a parseable run-id and a machine-readable outcome) and reads that outcome back — it does not scrape interactive stdout — so a whole domain's backfill or a JD subject builds as one unattended tasklist.",
+        "The run is configured to use OpenCode + local / self-hosted inference for zero marginal API cost, referencing chief:82-local-inference-cost-avoidance-preset as the routing switch; the honest tradeoff (lower coding quality for zero cost, chosen deliberately for high-volume construction/gating) is documented.",
+        "docs/ documents the Chief-powered construction/gating mode: what it drives, the cross-repo dependency on chief's headless invocation, the local-inference preset, and how resumability falls out of the skip-if-✅ contract.",
+        "Gate green: python3 -m pytest -q tests/ covers the invocation wiring against a scripted/fake headless driver (no real inference, no network), asserting the run-id/outcome contract is consumed rather than stdout scraped."
+      ],
+      "passes": false
+    }
+  ]
+}

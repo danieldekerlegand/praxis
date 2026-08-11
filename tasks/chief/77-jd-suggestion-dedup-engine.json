@@ -1,0 +1,43 @@
+{
+  "name": null,
+  "project": "praxis",
+  "branchName": "chief/77-jd-suggestion-dedup-engine",
+  "baseBranch": "main",
+  "description": "JD-driven tutorial suggestion, suggestion + dedup (77-band). Turn the missing / partially-covered requirements classified in 76 into proposed SUBJECTS the shipped curriculum_gen.py / scaffold_notebooks.py can build — and, the hard part, deduplicate them against the existing library so no suggestion re-tutorials shipped material. The roadmap is explicit that the hard part of this whole feature is not generation but RESTRAINT: the 245-notebook library (14 domains) plus the `recommended`-tagged neighbours must be held in mind so a suggestion is a genuine gap, never a redundant re-tutorial of a topic that already ships. Each surviving suggestion carries its source requirement and its gap rationale (the evidence 76 attached). This band produces the deduplicated suggestion set only; the review/accept surface that hands an accepted one to the scaffolder is band 78. Depends on 76. Anti-fabrication: dedup is checked against the live curriculum index from 76 (not a snapshot), so a suggestion that collides with a shipped or recommended topic is dropped, and a test proves a requirement already covered yields NO suggestion.",
+  "parked": false,
+  "dependsOn": [
+    "76-jd-library-gap-analysis"
+  ],
+  "touches": [
+    "praxis/",
+    "tests/"
+  ],
+  "iters": 7,
+  "warmup": [
+    "echo '--- the restraint mandate ---'; sed -n '116,138p' ROADMAP.md",
+    "echo '--- suggestions become subjects the shipped generator builds ---'; sed -n '125,161p' praxis/curriculum_gen.py",
+    "echo '--- the live corpus dedup must consult (from band 76) ---'; grep -rn 'recommended\\|DOMAINS' curriculum.py | head"
+  ],
+  "userStories": [
+    {
+      "id": "US-1",
+      "title": "Missing / partial requirements become proposed subjects",
+      "acceptanceCriteria": [
+        "A suggestion engine turns each missing or partially-covered requirement from 76 into a proposed subject shaped exactly like a hand-typed subject goal (free-text goal string the shipped curriculum_gen.generate_curriculum can consume), so an accepted suggestion feeds the existing define -> scaffold -> construct pipeline with no new constructor.",
+        "Each proposed subject carries its source requirement and its gap rationale (why the library does not already cover it — the evidence from 76), so the eventual review surface can show the learner why it was suggested.",
+        "Gate green: python3 -m pytest -q tests/ passes, including a test that a set of missing/partial requirements yields proposed subjects each with a goal string, a source requirement, and a rationale."
+      ],
+      "passes": false
+    },
+    {
+      "id": "US-2",
+      "title": "Dedup against the shipped library so nothing is re-tutorialed",
+      "acceptanceCriteria": [
+        "Before a suggestion survives, it is deduplicated against the live library index from 76 — the 245 shipped notebooks (14 domains) plus the `recommended`-tagged neighbours — so a proposal that matches an existing topic or domain is dropped, and near-duplicate suggestions within one JD are collapsed.",
+        "A requirement classified `covered` in 76 produces NO suggestion at all, and a `partial` produces a suggestion scoped to the uncovered part rather than a re-tutorial of the adjacent topic.",
+        "Gate green: python3 -m pytest -q tests/ covers the dedup path — asserting a requirement matching a shipped topic yields zero suggestions, a requirement matching a `recommended` neighbour yields zero suggestions, and a genuinely missing one survives."
+      ],
+      "passes": false
+    }
+  ]
+}
