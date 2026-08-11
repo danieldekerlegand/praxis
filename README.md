@@ -9,7 +9,10 @@ understanding rather than by scrolling.
 Praxis started life as `ai-tutor`, a static study-notebook library for refreshing a broad
 span of technologies. That library is not thrown away — it is the machinery Praxis is
 built on, plus 245 real notebooks that ship as the seed library and as worked examples of
-what a finished tutorial looks like.
+what a finished tutorial looks like. Note that most seeds do not gate yet: 24 of the 245
+carry knowledge checks today, and driving the remaining 221 to gated is a planned backfill
+program (`chief/79`–`81` — see [ROADMAP.md](ROADMAP.md)), so a seed notebook browses
+freely rather than gating progression.
 
 ## Install
 
@@ -444,14 +447,24 @@ A tutorial is "complete" only when `nbstatus.py` reports ✅ **and**
 `tests/test_notebooks.py` passes for it. Never flip a status on an unfilled notebook, and
 never use placeholder URLs in Resources — they must be real links.
 
+## Roadmap
+
+The shipped product above is the `10`→`60` build program. Four forward programs are
+authored as Chief tasklists but not yet run: **JD-driven tutorial suggestion**
+(`chief/74`–`78` — ingest a job description, gap-analyze it against the library, suggest
+only what's genuinely missing), the **gating backfill** (`chief/79`–`81` — drive the 221
+ungated seed notebooks to gated, holding `verify_code=True` as the anti-fabrication bar),
+**chief-powered construction** (`chief/82` — batch construction/gating as headless Chief
+tasklists on local inference), and **hardening + seed-library upkeep** (`chief/70`–`73`,
+`83` — signed/notarized bundles, an embedded interpreter, storage depth, library
+refresh). The full reality-checked picture is **[ROADMAP.md](ROADMAP.md)**.
+
 ## Renaming note
 
-The in-repo rebrand (package name, console scripts, notebook metadata key, docs) is done.
-Two renames remain and are **manual owner steps, deliberately outside this repo's
-automation**:
-
-- renaming the GitHub repository `ai-tutor` → `praxis`, and
-- renaming the local checkout directory.
+The rebrand from `ai-tutor` is complete, in-repo and out: the package name, console
+scripts, notebook metadata key and docs use `praxis`, and the GitHub repository itself
+now lives at **`github.com/danieldekerlegand/praxis`** (the `origin` remote points
+there), with the local checkout directory renamed to `praxis` to match.
 
 Notebooks authored before the rebrand used a `metadata.ai_tutor` block; the seed library
 has been migrated to `metadata.praxis`, and `nbstatus.py` still reads the old key as a
