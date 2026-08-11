@@ -62,7 +62,10 @@ desktop/web packaging, the seed library.
 - **Packaged & CI-gated** — `tauri build` desktop bundles (verified `Praxis_0.1.0_aarch64.dmg`)
   plus an optional web build; CI runs the frontend build, the Rust build, and `pytest tests/`
   path-scoped on every PR. See [`docs/packaging.md`](docs/packaging.md).
-- **Chief program:** 6/6 built-program tasklists (`10`–`60`) merged; **14 proposed forward tasklists authored** (`tasks/chief/*.json`, `passes:false`, unrun) — pending a run, not merged.
+- **Gating is the differentiator and it is largely unshipped: 24 of 245 seed notebooks are gated.**
+  The machinery is real and proven; the coverage is not. The backfill (`chief/79`–`81`, retargeted
+  onto the nbgrader schema) is what makes the claim true, and it is prioritized breadth-first.
+- **Chief program:** 6/6 built-program tasklists (`10`–`60`) merged; **16 proposed forward tasklists authored** (`tasks/chief/*.json`, `passes:false`, unrun) — pending a run, not merged.
 
 ---
 
@@ -138,24 +141,68 @@ existing scaffolder); [`docs/gap-analysis.md`](docs/gap-analysis.md) + `curricul
 | ⬜ | **Suggestion + dedup engine** — turn *missing* / *partial* requirements into proposed subjects, deduplicated against existing topics and domains so no suggestion re-tutorials shipped material; each suggestion carries its source requirement and its gap rationale | `chief/77-jd-suggestion-dedup-engine` *(proposed)* |
 | ⬜ | **Review / accept surface** — an in-app view to review, edit, drop, or accept suggestions; an accepted one becomes a subject handed to the shipped `POST /api/subjects` → scaffold → construct flow (no new constructor, just a new entry point) | `chief/78-jd-suggestion-review-surface` *(proposed)* |
 
-### Gating backfill program — ⬜ proposed
+### Adopt the Jupyter grading ecosystem — ⬜ proposed, **runs before the gating backfill**
 
-Today the gate is real but sparse: **only 24 of the 245 seed notebooks carry a `<slug>.checks.json`**,
-so 221 notebooks are browsable-but-ungated (a topic with no checkset gates nothing, by design —
-`praxis/progress.py`). This program drives the remaining ~221 to gated by **reusing the shipped
-check machinery unchanged** — `praxis/checks.py` (`checks_from_reply` → `checkset_failures` →
-write) over `GATED_SECTIONS`, and the derived-unlock gate in `progress.py` — run in per-domain
-batches rather than one sweep, with the anti-fabrication verification (`verify_code=True`, the
-reference `solution` run against its own `test`) held as the quality bar it already enforces.
+Added 2026-08-11 by **decision D10** in [`../ADOPT-DECIDE-REGISTER.md`](../ADOPT-DECIDE-REGISTER.md).
+Two adoptions, both permissively licensed and both replacing something praxis invented in parallel.
 
-*Depends on:* the shipped **Gate** (`40`) machinery (`praxis/checks.py`, `progress.py`,
-`GATED_SECTIONS`) — this phase runs it at scale, it invents no new gating primitive.
+**[nbgrader](https://github.com/jupyter/nbgrader)** (1,369★, BSD-3-Clause, pushed 2026-07-31) already
+ships the mature **hidden-test abstraction** — `### BEGIN HIDDEN TESTS` / `### END HIDDEN TESTS` and
+solution-region stripping — that `tests/test_notebooks.py` and `praxis/checks.py` reimplement, plus a
+**cell-level metadata schema for graded regions** (`metadata.nbgrader`) that is a de-facto standard.
+Praxis's `metadata.praxis` + `<slug>.checks.json` sidecar is a parallel invention of the same thing.
+Adopting the schema buys interop with the whole Jupyter grading ecosystem, and **`nbgrader validate`
+becomes the authoritative gate** in place of bespoke pytest.
+
+**What praxis keeps is the genuinely novel half: construction** — subject → curriculum →
+rubric-shaped scaffold → AI-filled tutorial → auto-authored checks. nbgrader has **zero content
+generation** and no OSS competitor exists for that pipeline. Praxis becomes an nbgrader-schema
+*producer*. Two honest gaps are carried explicitly rather than hidden: nbgrader is code-centric and
+has no equivalent of praxis's `choice`/`short` checks (kept as a namespaced, documented extension),
+and the server-side boundary — `learner_check()`, a locked section serving *nothing*, `423` on an
+unreached section — must survive a format whose release artifact keeps everything in one file.
+
+**[JupyterLite](https://github.com/jupyterlite/jupyterlite)** (4,868★, BSD-3, pushed 2026-08-10)
+deletes praxis's single worst friction. The README today requires a Python install, the launch extra,
+a kernel registration, and **`praxis-lab` + `praxis-launch` in two terminals** before a learner sees a
+tutorial. A Tauri app bundling JupyterLite needs **no local Python at all** for the learner path.
+The architectural tension is stated in the tasklist and must be settled there, not ducked: JupyterLite
+has no server, so the gate's authority stays in the Tauri backend (or `chief/71`'s embedded
+interpreter) and only what `learner_check()` permits crosses into the browser. Construction still
+needs the Python core and a key, and the docs draw that line.
 
 | Status | Milestone | Tasklist |
 |---|---|---|
-| ⬜ | **Batched gating program (by domain)** — drive the ~221 ungated notebooks to gated in per-domain batches across the 14 domains, reusing `construct_topic(..., checks=True)` / `checks.py` with no rewrite of an already-✅ notebook (same idempotence as construction) | `chief/79-gating-backfill-by-domain` *(proposed)* |
-| ⬜ | **Coverage tracker (X/245 gated)** — a report of gated coverage overall and per domain (start line: **24/245**), surfaced in-app off the same `_gated()` view-model data, so a batch's progress is visible and resumable | `chief/80-gating-coverage-tracker` *(proposed)* |
-| ⬜ | **Gate-quality / anti-fabrication pass** — audit generated checksets for fabricated or trivial questions, tightening `checkset_failures` (keeping `verify_code=True` the load-bearing check) so backfilled gates hold the same bar as hand-built ones | `chief/81-gate-quality-anti-fabrication` *(proposed)* |
+| ⬜ | **nbgrader cell schema + hidden-test mechanics** — emit `metadata.nbgrader` graded cells with stable `grade_id`s, adopt nbgrader's solution/hidden-test delimiters and release mechanics (deleting the reimplementation), carry `choice`/`short` as a namespaced extension, and make `nbgrader validate` the authoritative gate; the 24 already-gated seeds migrate by an idempotent pass · M/L | `chief/84-nbgrader-cell-schema-adoption` *(proposed)* |
+| ⬜ | **JupyterLite delivery** — bundle a pinned JupyterLite site in the Tauri app so a learner reaches a running tutorial with zero terminals, zero `pip install` and zero kernel registration; serve only *released* (stripped) notebooks; keep the gate's authority out of the browser; report honestly when a tutorial's deps are not Pyodide-resolvable · M/L | `chief/85-jupyterlite-delivery` *(proposed)* |
+
+### Gating backfill program — ⬜ proposed
+
+> **Flag the reality first: only 24 of the 245 seed notebooks are gated today.** Gating is praxis's
+> headline differentiator and it is **largely unshipped** until this backfill lands — 221 notebooks
+> are browsable-but-ungated (a topic with no checks gates nothing, by design — `praxis/progress.py`).
+> That is why the backfill is prioritized **breadth-first and shallow**: a real, modest gate on every
+> one of the 14 domains moves the product further than an exhaustive gate on three, and the
+> per-domain fraction — not the overall one — is the number `chief/80` puts in front.
+
+This program drives the remaining ~221 to gated by **reusing the shipped check machinery unchanged**
+— `praxis/checks.py` over `GATED_SECTIONS`, and the derived-unlock gate in `progress.py` — run in
+per-domain batches rather than one sweep, with the anti-fabrication verification (the reference
+`solution` run against its own `test` in a subprocess) held as the quality bar it already enforces.
+
+**Retargeted 2026-08-11 by D10:** the format this band writes at scale is now the **nbgrader schema**
+adopted in `chief/84`, not the parallel `<slug>.checks.json` sidecar it was originally written
+against — backfilling 221 notebooks into a format about to be retired would be the most expensive
+possible way to discover the adoption. All three rows therefore gain a hard dependency on `84`.
+
+*Depends on:* `chief/84` (the schema and the `nbgrader validate` gate) plus the shipped **Gate**
+(`40`) machinery — this phase runs it at scale, it invents no new gating primitive.
+
+| Status | Milestone | Tasklist |
+|---|---|---|
+| ⬜ | **Batched gating program (by domain)** — drive the ~221 ungated notebooks to gated in **breadth-first** per-domain batches across the 14 domains, writing `84`'s nbgrader schema, with no rewrite of an already-✅ notebook (same idempotence as construction) · depends on `84` | `chief/79-gating-backfill-by-domain` *(proposed)* |
+| ⬜ | **Coverage tracker (X/245 gated)** — a report of gated coverage overall and **per domain as the primary figure** (start line: **24/245**), surfaced in-app off the same `_gated()` view-model data, so a batch's progress is visible and resumable · depends on `84` | `chief/80-gating-coverage-tracker` *(proposed)* |
+| ⬜ | **Gate-quality / anti-fabrication pass** — audit generated gates for fabricated or trivial questions and tighten the write-path grader so backfilled gates hold the same bar as hand-built ones, owning **exactly the residue `nbgrader validate` cannot judge** (triviality, an answer given away, a test that asserts nothing) rather than re-implementing it · depends on `79` + `84` | `chief/81-gate-quality-anti-fabrication` *(proposed)* |
 
 ### Chief-powered tutorial construction — ⬜ proposed
 
@@ -179,16 +226,20 @@ cross-repo dependency (`chief:80-headless-programmatic-invocation`, bands `80`�
 
 ## Chief Tasklist Status
 
-- **6/6 built-program tasklists merged** (`10`–`60`); **14 proposed forward tasklists authored** (`tasks/chief/*.json`, `passes:false`, unrun) — pending a run, not merged. Records in
+- **6/6 built-program tasklists merged** (`10`–`60`); **16 proposed forward tasklists authored** (`tasks/chief/*.json`, `passes:false`, unrun) — pending a run, not merged. Records in
   [`tasks/chief/completed/`](tasks/chief/completed/), each carrying its `mergedToMain` commit:
   `10-rebrand-and-tauri-shell` → `ef8c81d` · `20-user-defined-subjects` → `b6cce13` ·
   `30-agentic-construction` → `a7c23cb` · `40-gated-progression` → `509601f` ·
   `50-storage-integrations` → `707cc24` · `60-package-and-distribute` → `6ca7bef`.
-- **14 proposed tasklists** (`chief/70`–`chief/83`) back the **Planned / product-hardening**, JD-suggestion, gating-backfill, Chief-construction, and seed-library-refresh phases
-  above — **all now authored** (`tasks/chief/70`–`83`, `passes:false`, unrun); of the loose
+- **16 proposed tasklists** (`chief/70`–`chief/85`) back the **Planned / product-hardening**, JD-suggestion, **Jupyter-ecosystem adoption**, gating-backfill, Chief-construction, and seed-library-refresh phases
+  above — **all now authored** (`tasks/chief/70`–`85`, `passes:false`, unrun); of the loose
   wishlist rows, seed-library upkeep is now owned by `chief/83` and only the
   rubric-tightening thread carries no tasklist (its next concrete step is `chief/81`).
-- The 6-tasklist built program is complete; the 14 proposed forward tasklists above are authored
+- **Scheduling note:** task numbers are stable identifiers, not execution order — `dependsOn` is
+  authoritative. `chief/84` (nbgrader schema) must run **before** `chief/79`–`81` despite its higher
+  number, because those three now write the schema it adopts; `chief/85` (JupyterLite) depends on
+  `84` because it is `84`'s *released* notebooks that are safe to hand to an untrusted browser.
+- The 6-tasklist built program is complete; the 16 proposed forward tasklists above are authored
   but unrun (open work once scheduled). (Earlier offline notebook-filling runs used
   Ralph/ralphy — `ralph/`, `.ralphy/` — and are historical, superseded by the in-app
   construction agent from band 30.)

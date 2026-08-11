@@ -1,0 +1,62 @@
+{
+  "name": null,
+  "project": "praxis",
+  "branchName": "chief/85-jupyterlite-delivery",
+  "baseBranch": "main",
+  "description": "ADOPT JupyterLite as the tutorial DELIVERY surface, deleting praxis's single worst friction. Decision D10 in ../ADOPT-DECIDE-REGISTER.md. THE PROBLEM, measured from the shipped README: before a learner sees a single tutorial they must install Python, install the launch extra, register a kernel, and run `praxis-lab` AND `praxis-launch` IN TWO TERMINALS. That is the whole first-run cost of a product whose north star is 'demonstrated understanding, not scrolling'. THE ADOPTION: JupyterLite (github.com/jupyterlite/jupyterlite, 4,868 stars, BSD-3-Clause, pushed 2026-08-10) runs a full JupyterLab in the browser on a Pyodide kernel — no server, no local Python, no kernel registration. A Tauri app bundling a JupyterLite site needs NO local Python at all to browse, read, run and answer a tutorial. THE HONEST TENSION THIS TASKLIST MUST SETTLE, NOT DUCK: praxis's gate is deliberately SERVER-SIDE — `learner_check()` is the only way a check reaches a client, a locked section serves NOTHING (not the answer key, not even the question), and `POST /api/study/<rel>` answers 423 for an unreached section. That boundary exists precisely because 'a disabled button is not the gate'. JupyterLite has no server, so shipping the gate into the browser would hand every learner the answer key. The resolution is architectural and must be stated explicitly: JupyterLite is the RUNTIME for notebook content, while the gate's authority stays in a process the learner does not control — the Tauri backend (Rust, `src-tauri/`, always present in a bundle) or the embedded interpreter from `chief/71`. What crosses into the browser is what `learner_check()` already permits and nothing more. Scope: `src-tauri/` (serving the JupyterLite site + holding the gate authority), `ui/`, `launcher/app.py` (the gate API the browser calls), `docs/packaging.md`, `README.md`, `tests/`. INTERACTION WITH 84: the notebooks JupyterLite serves are nbgrader-schema notebooks in their RELEASED (stripped) form, so 84's release mechanics are what makes it safe to hand a notebook to an untrusted browser at all — hence the dependency. See ../ADOPT-DECIDE-REGISTER.md D10.",
+  "parked": false,
+  "dependsOn": [
+    "84-nbgrader-cell-schema-adoption",
+    "60-package-and-distribute"
+  ],
+  "touches": [
+    "src-tauri/",
+    "ui/",
+    "launcher/",
+    "tests/"
+  ],
+  "iters": 8,
+  "warmup": [
+    "echo '--- the friction being deleted: count the first-run steps the README demands ---'; grep -n 'praxis-lab\\|praxis-launch\\|kernel\\|uv pip install\\|terminal' README.md | head -30",
+    "echo '--- what the shell starts today, and on what port ---'; grep -n 'Launcher\\|port\\|python\\|PRAXIS_PYTHON' src-tauri/src/library.rs | head -20",
+    "echo '--- the boundary that must not move into the browser ---'; grep -n 'def learner_check\\|423\\|locked' praxis/checks.py launcher/app.py | head -20",
+    "echo '--- packaging contract ---'; sed -n '1,60p' docs/packaging.md"
+  ],
+  "userStories": [
+    {
+      "id": "US-1",
+      "title": "A JupyterLite site that runs a released tutorial with no local Python",
+      "acceptanceCriteria": [
+        "A JupyterLite site is built as part of the repo's build (a documented, reproducible command wired into the same place `ui/` is built), pinned to a specific JupyterLite release, and it opens and RUNS a released praxis tutorial notebook end to end — code cells execute on the in-browser kernel — with no Python installed on the machine and no kernel registered.",
+        "The notebooks the site serves are the RELEASED (solution- and hidden-test-stripped) nbgrader-schema notebooks produced by `chief/84`, never the authored source, and a test asserts by content inspection that what is served carries no reference `solution`, no hidden tests and no answer key.",
+        "The dependency set each tutorial needs is declared and resolved for the Pyodide kernel, and a tutorial whose dependencies Pyodide CANNOT provide is reported HONESTLY as unavailable-in-browser rather than served and left to fail at the first import — the same not-measured-rather-than-silently-zero discipline the rest of the repo uses. The count of seed notebooks in each category is recorded in `progress.txt`.",
+        "Gate green: `npm run build` in `ui/` and `cargo build` in `src-tauri/` pass, `python3 -m pytest -q tests/` passes, and a test asserts the built site contains a released notebook and its expected assets."
+      ],
+      "passes": false
+    },
+    {
+      "id": "US-2",
+      "title": "Bundle it so first run is one launch, not two terminals",
+      "acceptanceCriteria": [
+        "The Tauri bundle ships the JupyterLite site inside it and serves it to the webview, so a learner who opens the `.app` and picks a tutorial reaches a running notebook with ZERO terminals, zero `pip install`, and zero kernel registration.",
+        "`README.md`'s first-run walkthrough is rewritten to that reality and the obsolete two-terminal `praxis-lab` + `praxis-launch` instructions are REMOVED from the learner path (they may remain documented as the contributor/authoring path, labelled as such) — the README's step count for a learner reaching a first tutorial is recorded before and after in `progress.txt`.",
+        "CONSTRUCTION still needs what it needs and says so: authoring a new tutorial is a model-backed write and continues to require the Python core and a key. The docs draw the line explicitly — reading and answering need nothing; constructing does — so the friction is deleted for learners without pretending it is deleted for authors.",
+        "The bundle degrades honestly when the Python core is absent (the existing `LauncherStatus::failed` discipline): the browsing/learning path still works, and the construction UI reports why it cannot run rather than failing silently.",
+        "Gate green: `cargo build` and `npm run build` pass, `python3 -m pytest -q tests/` passes, and `make`/`tauri build` produces a bundle whose learner path is demonstrated on a machine with no praxis venv (recorded in `progress.txt`)."
+      ],
+      "passes": false
+    },
+    {
+      "id": "US-3",
+      "title": "Keep the gate's authority out of the browser",
+      "acceptanceCriteria": [
+        "The gate's authority lives in a process the learner does not control — the Tauri backend or the embedded interpreter — and the browser holds NO unlock logic: unlocks stay DERIVED from recorded outcomes on every request (never stored, never a client flag), a locked section is served no checks at all, and an answer submitted for an unreached section is refused with 423 exactly as today.",
+        "Which process holds the answer key is stated in one place in `docs/` and enforced by a test: the JupyterLite site is treated as UNTRUSTED, and every artifact crossing to it passes through the `learner_check()` filter (no `answer`, `solution`, `test`, `expected`; `explanation` only after grading).",
+        "Auto-graded `code` checks are handled explicitly: if grading runs in the browser kernel, the authoritative outcome is still recorded and re-derived server-side and the hidden tests are NOT shipped to the client — whichever mechanism is chosen (re-verification in the trusted process, or grading entirely in it) is documented, and a test proves a learner cannot obtain a passing outcome by manipulating the browser.",
+        "Model-graded `short` answers keep their single key-requiring path (503 without a key) and are graded in the trusted process, never in the browser.",
+        "Gate green: `python3 -m pytest -q tests/` passes, including a test that a forged client-side pass does not produce a recorded passing outcome and does not unlock a later section, and that a locked section's response contains no question text."
+      ],
+      "passes": false
+    }
+  ]
+}
