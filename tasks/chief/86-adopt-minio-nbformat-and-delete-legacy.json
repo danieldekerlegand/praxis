@@ -1,0 +1,57 @@
+{
+  "project": "praxis",
+  "branchName": "chief/86-adopt-minio-nbformat-and-delete-legacy",
+  "description": "Three independent cleanups, none of which touches the construction pipeline that is praxis's uncontested differentiator. **(1) `praxis/s3.py` + `tests/mocks3.py` (508) hand-roll an AWS SigV4 signing chain and an XML `ListObjectsV2` scanner** for list/get/put/delete \u2014 four operations `minio-py` covers 1:1. **(2) 896 lines of DEAD legacy generators** (`generate_notebooks.py` 691 + `enhance_notebooks.py` 205, **6.6% of the repo**), superseded by `praxis/construct.py` and unreachable \u2014 `enhance_notebooks.py` is a `str.format()` engine over a literal `.ipynb` JSON string template with `{{`/`}}` escaping. **(3) `nbformat` is a DECLARED HARD DEPENDENCY that no production writer imports** \u2014 `construct.py:269-303` and `scaffold_notebooks.py:131-136` hand-build cell dicts instead. That is the bridge-is-not-an-adoption pattern, and fixing it also unblocks D10's nbgrader metadata work, since nbgrader reads and writes through nbformat.",
+  "parked": false,
+  "dependsOn": [],
+  "touches": [
+    "praxis/",
+    "tests/"
+  ],
+  "iters": 6,
+  "warmup": [
+    "praxis/s3.py",
+    "praxis/construct.py",
+    "praxis/llm.py"
+  ],
+  "userStories": [
+    {
+      "id": "US-1",
+      "title": "Use the nbformat that is already a dependency",
+      "description": "Hand-built cell dicts become library calls \u2014 the swap that also unblocks nbgrader.",
+      "acceptanceCriteria": [
+        "`{\"cell_type\": kind, \"id\": _cid(), \"metadata\": {}, \"source\": [source]}` becomes `nbformat.v4.new_markdown_cell` / `new_code_cell`, and `json.dumps(nb, indent=1)` becomes `nbformat.write`.",
+        "Produced notebooks are byte-compared against the current output where the format allows, and any difference is explained rather than accepted silently.",
+        "The path is now open for nbgrader's cell metadata (D10) without a second notebook writer.",
+        "`nbformat` moves from declared-and-unused to declared-and-used \u2014 assert it is imported by the production writer."
+      ],
+      "passes": false,
+      "notes": "Smallest change here, largest downstream unlock. Do it first."
+    },
+    {
+      "id": "US-2",
+      "title": "Replace the hand-rolled S3 client and delete the dead generators",
+      "description": "One adoption, one deletion.",
+      "acceptanceCriteria": [
+        "`praxis/s3.py` is replaced by **minio-py** (1,071\u2605 Apache-2.0) \u2014 `Minio(...).{list_objects,get_object,put_object,remove_object}` covers the whole surface; `tests/mocks3.py` retires in favour of the vendor's test double or moto. **obstore** (794\u2605 MIT) is the alternative if a Rust-backed client is preferred; state the choice.",
+        "`generate_notebooks.py` and `enhance_notebooks.py` are DELETED after confirming zero reachability from `construct.py` or any CLI entry point.",
+        "The stdlib-only posture is corrected in the docs: it was costing 508 lines including a signing chain, in an app that already ships FastAPI/uvicorn/jupyterlab in its `launch` extra.",
+        "The removed line count is reported."
+      ],
+      "passes": false,
+      "notes": "896 dead lines is 6.6% of the repo. Confirm unreachability, then delete rather than deprecating."
+    },
+    {
+      "id": "US-3",
+      "title": "Give the LLM transport real retry semantics",
+      "description": "This is a correctness bug, not a preference.",
+      "acceptanceCriteria": [
+        "`praxis/llm.py`'s `_urlopen` moves to **httpx** and `complete()` is wrapped in **tenacity** with exponential backoff and jitter, retrying on 429 and 5xx.",
+        "Today `DEFAULT_ATTEMPTS = 3` with **no sleep, no backoff, no jitter**, and an `LLMError` consumes an attempt immediately \u2014 assert the new behaviour actually waits and actually distinguishes retryable failures.",
+        "The 4-way provider router and the `AGORA_BASE_URL` hook are PRESERVED \u2014 those are the product; only the transport changes."
+      ],
+      "passes": false,
+      "notes": "A 429 currently burns all three attempts in milliseconds and fails the construction run."
+    }
+  ]
+}
