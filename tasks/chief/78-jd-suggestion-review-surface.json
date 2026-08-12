@@ -1,9 +1,10 @@
 {
   "name": null,
   "project": "praxis",
+  "category": "feature",
   "branchName": "chief/78-jd-suggestion-review-surface",
   "baseBranch": "main",
-  "description": "JD-driven tutorial suggestion, review / accept surface (78-band). The last band of the funnel: an in-app view to review, edit, drop, or accept the deduplicated suggestions from 77 — and, on accept, hand the suggestion to the SHIPPED subject flow (POST /api/subjects -> scaffold -> construct) as just a new entry point, adding the front of the funnel, not a second constructor. This is the join back into the existing pipeline: an accepted suggestion becomes a subject goal that curriculum_gen builds exactly as a hand-typed goal would. It spans the launcher API (serve/accept suggestions) and the UI (the review surface), reusing the construction job machinery (useConstruction, GET/POST /api/construct) unchanged. Depends on 77 (there must be a deduplicated suggestion set to review). Anti-fabrication: 'accept' is real only when it reaches the existing POST /api/subjects and yields a persisted curriculum on the storage backend — never a suggestion marked accepted with nothing scaffolded; a smoke test proves an accepted suggestion produces real notebooks on disk.",
+  "description": "JD-driven tutorial suggestion, review / accept surface (78-band). The last band of the funnel: an in-app view to review, edit, drop, or accept the deduplicated suggestions from 77 \u2014 and, on accept, hand the suggestion to the SHIPPED subject flow (POST /api/subjects -> scaffold -> construct) as just a new entry point, adding the front of the funnel, not a second constructor. This is the join back into the existing pipeline: an accepted suggestion becomes a subject goal that curriculum_gen builds exactly as a hand-typed goal would. It spans the launcher API (serve/accept suggestions) and the UI (the review surface), reusing the construction job machinery (useConstruction, GET/POST /api/construct) unchanged. Depends on 77 (there must be a deduplicated suggestion set to review). Anti-fabrication: 'accept' is real only when it reaches the existing POST /api/subjects and yields a persisted curriculum on the storage backend \u2014 never a suggestion marked accepted with nothing scaffolded; a smoke test proves an accepted suggestion produces real notebooks on disk.",
   "parked": false,
   "dependsOn": [
     "77-jd-suggestion-dedup-engine"
@@ -37,7 +38,7 @@
       "title": "In-app review / edit / drop / accept view",
       "acceptanceCriteria": [
         "A UI surface renders the suggestions with their rationale, lets the user edit the goal text, drop unwanted ones, and accept the rest; accepting routes into the existing define -> scaffold -> construct experience (the single useConstruction poller held at the top of App.tsx), so a run started here is the run the rest of the app shows.",
-        "The surface holds no suggestion or unlock logic of its own — it renders whatever the launcher describes and calls back, mirroring how KnowledgeChecks.tsx renders whatever the gate says.",
+        "The surface holds no suggestion or unlock logic of its own \u2014 it renders whatever the launcher describes and calls back, mirroring how KnowledgeChecks.tsx renders whatever the gate says.",
         "Gate green: npm run build in ui/ and cargo build in src-tauri/ pass, python3 -m pytest -q tests/ covers the accept->subject path, and the progress log documents an end-to-end JD -> suggestion -> accept -> scaffolded notebooks run."
       ],
       "passes": false

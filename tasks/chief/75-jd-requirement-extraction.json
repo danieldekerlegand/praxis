@@ -1,9 +1,10 @@
 {
   "name": null,
   "project": "praxis",
+  "category": "feature",
   "branchName": "chief/75-jd-requirement-extraction",
   "baseBranch": "main",
-  "description": "JD-driven tutorial suggestion, extraction (75-band). Turn the canonical JD document ingested in 74 into a structured list of required skills / tools / competencies via a model-backed pass, built in the curriculum_gen.py HOUSE STYLE: ask for JSON, extract it forgivingly (extract_json), then validate strictly before anything downstream trusts it (subject_from_dict is the model to follow — lenient about what the model omits, strict about what would break the consumer). This is the one model-backed step of the JD funnel; it reuses the BYO-key LLM client (praxis/llm.py, agora optional) that band 20 introduced. Depends on 74 (there must be a canonical JD to extract from). Anti-fabrication: a requirement list is only produced when the model's JSON validates against the strict schema; a payload that omits required fields or invents an unusable shape is rejected and repaired with the grader's own sentences, never silently coerced into a downstream call.",
+  "description": "JD-driven tutorial suggestion, extraction (75-band). Turn the canonical JD document ingested in 74 into a structured list of required skills / tools / competencies via a model-backed pass, built in the curriculum_gen.py HOUSE STYLE: ask for JSON, extract it forgivingly (extract_json), then validate strictly before anything downstream trusts it (subject_from_dict is the model to follow \u2014 lenient about what the model omits, strict about what would break the consumer). This is the one model-backed step of the JD funnel; it reuses the BYO-key LLM client (praxis/llm.py, agora optional) that band 20 introduced. Depends on 74 (there must be a canonical JD to extract from). Anti-fabrication: a requirement list is only produced when the model's JSON validates against the strict schema; a payload that omits required fields or invents an unusable shape is rejected and repaired with the grader's own sentences, never silently coerced into a downstream call.",
   "parked": false,
   "dependsOn": [
     "74-jd-ingest"
@@ -24,7 +25,7 @@
       "title": "Model-backed extraction of a JD into structured requirements",
       "acceptanceCriteria": [
         "A new extraction module in the construction core (e.g. praxis/jd_extract.py) takes the canonical JD from 74 and, via the band-20 LLM client, asks the model for a JSON list of required skills / tools / competencies, each item carrying at least a normalized name and a kind (skill / tool / competency) plus the JD span or phrase it came from.",
-        "It reuses the curriculum_gen.py house style exactly: a build_prompt-style prompt that pins the JSON shape verbatim, an extract_json-style forgiving parse (fenced or bare JSON), then a strict normalize+validate step modeled on subject_from_dict — lenient about omitted optional fields, strict about anything a downstream band would choke on.",
+        "It reuses the curriculum_gen.py house style exactly: a build_prompt-style prompt that pins the JSON shape verbatim, an extract_json-style forgiving parse (fenced or bare JSON), then a strict normalize+validate step modeled on subject_from_dict \u2014 lenient about omitted optional fields, strict about anything a downstream band would choke on.",
         "The extraction runs only on the model-backed path (needs a key / 503 when none, like construct's short-answer grading); no requirement is invented locally.",
         "Gate green: python3 -m pytest -q tests/ passes, including a test that runs extraction against a mocked LLM reply (fenced + bare JSON variants) and asserts a well-formed, normalized requirement list."
       ],
@@ -35,7 +36,7 @@
       "title": "Strict validation rejects and repairs an unusable payload",
       "acceptanceCriteria": [
         "The validator rejects a model payload that omits a required field or returns a shape the gap-analysis band (76) could not consume, raising a specific, actionable error (the sentences double as the eventual UI error text, per the construct.py _repair_prompt pattern).",
-        "A rejected payload is fed back to the model with the validator's own sentences for one repair attempt rather than retried blind, and a still-invalid result is surfaced as a failure — never coerced into a partial list.",
+        "A rejected payload is fed back to the model with the validator's own sentences for one repair attempt rather than retried blind, and a still-invalid result is surfaced as a failure \u2014 never coerced into a partial list.",
         "Gate green: python3 -m pytest -q tests/ covers at least one malformed-payload case (missing field / wrong type) asserting it is rejected with the actionable message, and one repair case asserting the second attempt is accepted."
       ],
       "passes": false

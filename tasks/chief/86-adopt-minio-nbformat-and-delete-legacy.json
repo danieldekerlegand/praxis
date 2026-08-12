@@ -1,5 +1,6 @@
 {
   "project": "praxis",
+  "category": "replace",
   "branchName": "chief/86-adopt-minio-nbformat-and-delete-legacy",
   "description": "Three independent cleanups, none of which touches the construction pipeline that is praxis's uncontested differentiator. **(1) `praxis/s3.py` + `tests/mocks3.py` (508) hand-roll an AWS SigV4 signing chain and an XML `ListObjectsV2` scanner** for list/get/put/delete \u2014 four operations `minio-py` covers 1:1. **(2) 896 lines of DEAD legacy generators** (`generate_notebooks.py` 691 + `enhance_notebooks.py` 205, **6.6% of the repo**), superseded by `praxis/construct.py` and unreachable \u2014 `enhance_notebooks.py` is a `str.format()` engine over a literal `.ipynb` JSON string template with `{{`/`}}` escaping. **(3) `nbformat` is a DECLARED HARD DEPENDENCY that no production writer imports** \u2014 `construct.py:269-303` and `scaffold_notebooks.py:131-136` hand-build cell dicts instead. That is the bridge-is-not-an-adoption pattern, and fixing it also unblocks D10's nbgrader metadata work, since nbgrader reads and writes through nbformat.",
   "parked": false,

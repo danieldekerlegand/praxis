@@ -1,9 +1,10 @@
 {
   "name": null,
   "project": "praxis",
+  "category": "fix",
   "branchName": "chief/80-gating-coverage-tracker",
   "baseBranch": "main",
-  "description": "Gating backfill program (80-band). A report of gated coverage — overall and per domain — so a backfill batch's progress is visible and resumable. The start line is the real one, and it is the honest headline of this whole program: 24 of 245 notebooks gated today, meaning praxis's differentiating gate is LARGELY UNSHIPPED until the backfill lands. The tracker is computed off the SAME _gated() view-model data the launcher already folds into /api/library's topic rows (gated/locked/passed/checks, from module_gates()), not a second scan, so the number the report shows and the number the app enforces cannot drift. It is surfaced in-app off that same data. This band adds the tracker only; it drives no notebooks (that is 79). It deliberately does NOT depend on 79: the tracker is what makes 79's batches visible, so it precedes or parallels them — and with the breadth-first ordering 79 adopts, the per-domain fractions are the number that matters, not the overall one. REVISED 2026-08-11 by decision D10 (../ADOPT-DECIDE-REGISTER.md): 'gated' is now defined by 84's adopted nbgrader schema — a notebook carrying validate-passing nbgrader graded cells — not by the presence of a parallel `<slug>.checks.json` sidecar, hence the dependency on 84. Anti-fabrication: the count is derived from the real, on-disk gate signal (the same one the runtime gate uses), never a stored or asserted number, so it always reflects reality; a test pins the X/245 arithmetic against a fixture with a known gated subset.",
+  "description": "Gating backfill program (80-band). A report of gated coverage \u2014 overall and per domain \u2014 so a backfill batch's progress is visible and resumable. The start line is the real one, and it is the honest headline of this whole program: 24 of 245 notebooks gated today, meaning praxis's differentiating gate is LARGELY UNSHIPPED until the backfill lands. The tracker is computed off the SAME _gated() view-model data the launcher already folds into /api/library's topic rows (gated/locked/passed/checks, from module_gates()), not a second scan, so the number the report shows and the number the app enforces cannot drift. It is surfaced in-app off that same data. This band adds the tracker only; it drives no notebooks (that is 79). It deliberately does NOT depend on 79: the tracker is what makes 79's batches visible, so it precedes or parallels them \u2014 and with the breadth-first ordering 79 adopts, the per-domain fractions are the number that matters, not the overall one. REVISED 2026-08-11 by decision D10 (../ADOPT-DECIDE-REGISTER.md): 'gated' is now defined by 84's adopted nbgrader schema \u2014 a notebook carrying validate-passing nbgrader graded cells \u2014 not by the presence of a parallel `<slug>.checks.json` sidecar, hence the dependency on 84. Anti-fabrication: the count is derived from the real, on-disk gate signal (the same one the runtime gate uses), never a stored or asserted number, so it always reflects reality; a test pins the X/245 arithmetic against a fixture with a known gated subset.",
   "parked": false,
   "dependsOn": [
     "40-gated-progression",
@@ -27,7 +28,7 @@
       "id": "US-1",
       "title": "Compute gated coverage overall and per domain",
       "acceptanceCriteria": [
-        "A coverage report computes gated coverage overall (X/245) and per domain (X/N per domain) off the same _gated()/module_gates() view-model signal the gate already uses — the on-disk presence of 84's validate-passing nbgrader graded cells on a notebook — never a stored or hand-maintained number.",
+        "A coverage report computes gated coverage overall (X/245) and per domain (X/N per domain) off the same _gated()/module_gates() view-model signal the gate already uses \u2014 the on-disk presence of 84's validate-passing nbgrader graded cells on a notebook \u2014 never a stored or hand-maintained number.",
         "The report reproduces the real starting line (24/245 overall) when run against the shipped library today, so the assertion is grounded in reality rather than a placeholder; the per-domain breakdown is presented as the PRIMARY figure, because breadth across the 14 domains is what 79 optimizes for and an overall fraction hides eleven empty domains behind three full ones.",
         "Gate green: python3 -m pytest -q tests/ passes, including a test that pins the X/245 arithmetic against a fixture library with a known gated subset (asserting both the overall and a per-domain fraction)."
       ],
@@ -39,7 +40,7 @@
       "acceptanceCriteria": [
         "The coverage report is surfaced in-app off the existing /api/library view-model data (a launcher endpoint or fields folded onto the library response), so backfill progress is visible and a resumed batch's new gates show up without a separate scan.",
         "The UI renders whatever the launcher reports (overall + per-domain fractions) and holds no coverage logic of its own, mirroring how the library badges and KnowledgeChecks render server-supplied state.",
-        "Gate green: npm run build in ui/ and cargo build in src-tauri/ pass, python3 -m pytest -q tests/ covers the coverage endpoint, and the progress log shows the coverage number before and after gating one fixture topic (no dependency on the 79 batch having run — the tracker ships first so those batches are visible)."
+        "Gate green: npm run build in ui/ and cargo build in src-tauri/ pass, python3 -m pytest -q tests/ covers the coverage endpoint, and the progress log shows the coverage number before and after gating one fixture topic (no dependency on the 79 batch having run \u2014 the tracker ships first so those batches are visible)."
       ],
       "passes": false
     }
