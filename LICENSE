@@ -1,0 +1,35 @@
+Copyright (c) 2026 Daniel DeKerlegand. All rights reserved.
+
+PROPRIETARY — ALL RIGHTS RESERVED
+
+This software and its source code are proprietary and confidential. No permission
+is granted to any person to use, copy, modify, merge, publish, distribute,
+sublicense, or sell copies of this software, in whole or in part, by any means.
+
+No license is granted by implication, estoppel, or otherwise.
+
+A standalone product. Model access is bring-your-own-key; routing through agora
+is optional and never required.
+
+---
+
+WHY THIS FILE EXISTS
+
+Until 2026-08-11 this repository carried no LICENSE at all. An absent license is
+already all-rights-reserved by default, so this file changes nothing about what is
+granted — it makes the existing posture LEGIBLE. Without it, no recipient,
+contributor, or downstream consumer could tell what they were permitted to do.
+
+THIS IS NOT AN OPEN-SOURCE DECISION
+
+Stating the current posture deliberately does not prejudge whether any part of this
+work is opened later. That question is tracked separately:
+
+  Openness is a decision for when this ships. The construction pipeline —
+  subject → curriculum → rubric-shaped scaffold → AI-filled tutorial →
+  auto-authored checks — has no OSS competitor of substance, so the choice has
+  real commercial consequences and is better made against a shipped product.
+
+The asymmetry is the reason for this order: declaring proprietary terms is
+reversible — you can always open later — whereas publishing under an open license
+cannot be undone.
