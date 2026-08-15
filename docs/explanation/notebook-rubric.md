@@ -4,7 +4,7 @@
 
 Every study notebook is a **self-contained refresher** for one topic. This rubric is the
 definition of "complete" and is embedded into every Ralph task. The automated gate is
-[`tests/test_notebooks.py`](../tests/test_notebooks.py).
+[`tests/test_notebooks.py`](../../tests/test_notebooks.py).
 
 ## Required structure
 

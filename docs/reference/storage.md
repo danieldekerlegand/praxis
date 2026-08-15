@@ -9,7 +9,7 @@ plus their knowledge checks), and each learner's progress. The seed library unde
 so nothing described here touches it.
 
 All four live under **one root**, and one module knows where that root is:
-[`praxis/storage.py`](../praxis/storage.py).
+[`praxis/storage.py`](../../praxis/storage.py).
 
 ## The layout
 
