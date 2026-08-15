@@ -1,5 +1,7 @@
 # Packaging Praxis
 
+> **Status:** Current · **Updated:** 2026-08-14 · **Owner:** praxis
+
 Two distributable shapes come out of this repo, and both wrap the same Python core:
 
 | Target | What it is | Built with |

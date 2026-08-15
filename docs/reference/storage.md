@@ -1,5 +1,7 @@
 # Storage — where your work is kept
 
+> **Status:** Current · **Updated:** 2026-08-14 · **Owner:** praxis
+
 Praxis writes four kinds of thing, and all four belong to **you**: the subjects you
 define, the curricula generated for them, the tutorials constructed into them (notebooks
 plus their knowledge checks), and each learner's progress. The seed library under

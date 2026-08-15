@@ -1,5 +1,7 @@
 # Notebook Completion Rubric
 
+> **Status:** Current · **Updated:** 2026-08-14 · **Owner:** praxis
+
 Every study notebook is a **self-contained refresher** for one topic. This rubric is the
 definition of "complete" and is embedded into every Ralph task. The automated gate is
 [`tests/test_notebooks.py`](../tests/test_notebooks.py).
