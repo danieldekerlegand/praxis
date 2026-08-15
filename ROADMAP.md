@@ -143,7 +143,7 @@ existing scaffolder); [`docs/gap-analysis.md`](docs/gap-analysis.md) + `curricul
 
 ### Adopt the Jupyter grading ecosystem — ⬜ proposed, **runs before the gating backfill**
 
-Added 2026-08-11 by **decision D10** in [`../ADOPT-DECIDE-REGISTER.md`](../ADOPT-DECIDE-REGISTER.md).
+Added 2026-08-11 by **decision D10** in `rosetta/strategy/DECISIONS.md` (private).
 Two adoptions, both permissively licensed and both replacing something praxis invented in parallel.
 
 **[nbgrader](https://github.com/jupyter/nbgrader)** (1,369★, BSD-3-Clause, pushed 2026-07-31) already
