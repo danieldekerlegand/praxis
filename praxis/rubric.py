@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """One definition of "complete" — the rubric, as code.
 
-`docs/notebook-rubric.md` is the prose; this is the machine-checkable half of it, and
+`docs/explanation/notebook-rubric.md` is the prose; this is the machine-checkable half of it, and
 the *only* place the thresholds live. Two callers, deliberately sharing one definition:
 
   - tests/test_notebooks.py grades a finished notebook with `gate_failures()`.
@@ -42,7 +42,7 @@ PLACEHOLDER_MARKERS = (
     "study notebook — scaffold",
 )
 
-# The eight sections of docs/notebook-rubric.md, matched case-insensitively as substrings
+# The eight sections of docs/explanation/notebook-rubric.md, matched case-insensitively as substrings
 # so "## 1. What & Why" and "## What & Why" both count.
 RUBRIC_SECTIONS = (
     "What & Why",

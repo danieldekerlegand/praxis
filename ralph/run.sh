@@ -2,7 +2,7 @@
 # Fill the Praxis seed tutorial notebooks with ralphy (michaelshimeles/ralphy).
 #
 # Each tasklist is a ralphy JSON file (tasks.json) with one task per notebook that
-# isn't complete yet. ralphy fills the notebook to docs/notebook-rubric.md and the
+# isn't complete yet. ralphy fills the notebook to docs/explanation/notebook-rubric.md and the
 # gate in tests/test_notebooks.py, auto-committing per task. Domains are independent
 # (every notebook stands alone), so any order — or --parallel — is fine.
 #

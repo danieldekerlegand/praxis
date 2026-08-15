@@ -22,7 +22,7 @@ it by hand:
 1. **You define any subject** — free text in, an AI-generated curriculum out (modules → topics,
    one notebook per topic).
 2. **AI agents construct each tutorial to a rubric** — the 8-section
-   [notebook rubric](docs/notebook-rubric.md) is the definition of "complete"; a constructed
+   [notebook rubric](docs/explanation/notebook-rubric.md) is the definition of "complete"; a constructed
    notebook is graded against it and only written when it passes.
 3. **Knowledge checks gate progression** — each section carries AI-built checks; a later section
    unlocks only when every check in every earlier section has a passing outcome. The unlock is
@@ -58,10 +58,10 @@ desktop/web packaging, the seed library.
   only the two model-backed writes (define, construct) and grading a `short` answer do.
 - **Three storage backends** — `app` (default, per-OS app dir), `drive` (a picked folder,
   verbatim), `cloud` (a local mirror + S3-compatible sync, no boto3) — all writing one root
-  layout, selectable in-app. See [`docs/storage.md`](docs/storage.md).
+  layout, selectable in-app. See [`docs/reference/storage.md`](docs/reference/storage.md).
 - **Packaged & CI-gated** — `tauri build` desktop bundles (verified `Praxis_0.1.0_aarch64.dmg`)
   plus an optional web build; CI runs the frontend build, the Rust build, and `pytest tests/`
-  path-scoped on every PR. See [`docs/packaging.md`](docs/packaging.md).
+  path-scoped on every PR. See [`docs/reference/packaging.md`](docs/reference/packaging.md).
 - **Gating is the differentiator and it is largely unshipped: 24 of 245 seed notebooks are gated.**
   The machinery is real and proven; the coverage is not. The backfill (`chief/79`–`81`, retargeted
   onto the nbgrader schema) is what makes the claim true, and it is prioritized breadth-first.
@@ -102,11 +102,11 @@ product — none of it blocking, none of it a new program. All rows below are no
 
 | Status | Milestone | Tasklist |
 |---|---|---|
-| ⬜ | **Signed / notarized release builds** — bundles ship unsigned today (macOS Gatekeeper needs a right-click → Open; [`docs/packaging.md`](docs/packaging.md)); wire a signing identity + notarization when a distribution channel is chosen, keeping `version` in step across `tauri.conf.json` / `pyproject.toml` / `ui/package.json` · S/M | `chief/70-signed-notarized-builds` *(proposed)* |
+| ⬜ | **Signed / notarized release builds** — bundles ship unsigned today (macOS Gatekeeper needs a right-click → Open; [`docs/reference/packaging.md`](docs/reference/packaging.md)); wire a signing identity + notarization when a distribution channel is chosen, keeping `version` in step across `tauri.conf.json` / `pyproject.toml` / `ui/package.json` · S/M | `chief/70-signed-notarized-builds` *(proposed)* |
 | ⬜ | **Embed the Python interpreter** — a shipped `.app` currently needs the checkout + launch-extra venv beside it (the shell discovers the core at runtime; nothing is embedded, `src-tauri/src/library.rs`); embedding an interpreter makes a truly standalone bundle · M | `chief/71-embed-python-interpreter` *(proposed)* |
 | ⬜ | **Deeper opt-in agora integration** — richer provider-router use behind `AGORA_BASE_URL`, beyond the BYO-key + optional routing that ships, without ever becoming a hard dependency · S/M | `chief/72-deeper-agora-integration` *(proposed)* |
 | ⬜ | **Additional storage backends** — the resolver design (`_RESOLVERS` + `_AVAILABLE` in `praxis/storage.py`) makes a new backend a resolver + availability check with no change to any caller; add on demand · S | `chief/73-additional-storage-backends` *(proposed)* |
-| ⬜ | **Seed-library refresh** — steady-state ownership of the 245-seed corpus: a rot audit (URL liveness + `compile()` re-check, report-only), a refresh policy (flagged-for-human by default; force-regenerate only explicitly, through the shipped grader — a ✅ seed is never silently rewritten), a promotion path for the [`docs/gap-analysis.md`](docs/gap-analysis.md) §2 additions, and a domain-addition policy (numbering appends 16+; the `06` hole is never reused) · M | `chief/83-seed-library-refresh` *(proposed)* |
+| ⬜ | **Seed-library refresh** — steady-state ownership of the 245-seed corpus: a rot audit (URL liveness + `compile()` re-check, report-only), a refresh policy (flagged-for-human by default; force-regenerate only explicitly, through the shipped grader — a ✅ seed is never silently rewritten), a promotion path for the [`docs/explanation/gap-analysis.md`](docs/explanation/gap-analysis.md) §2 additions, and a domain-addition policy (numbering appends 16+; the `06` hole is never reused) · M | `chief/83-seed-library-refresh` *(proposed)* |
 
 ### Loose wishlist — ⬜ / 🚧 ongoing
 
@@ -114,7 +114,7 @@ Steady-state upkeep and smaller open threads, not big enough to anchor a tasklis
 
 | Status | Milestone | Tasklist |
 |---|---|---|
-| 🚧 | **Seed-library upkeep** — the 245 seed notebooks (14 domains) and their coverage stay current as tooling evolves; the recommended additions in [`docs/gap-analysis.md`](docs/gap-analysis.md) (§2, across every domain) are a running backlog. Now owned: the rot audit, refresh policy, §2 promotion path and domain-addition policy are `chief/83` | `chief/83-seed-library-refresh` *(proposed)* |
+| 🚧 | **Seed-library upkeep** — the 245 seed notebooks (14 domains) and their coverage stay current as tooling evolves; the recommended additions in [`docs/explanation/gap-analysis.md`](docs/explanation/gap-analysis.md) (§2, across every domain) are a running backlog. Now owned: the rot audit, refresh policy, §2 promotion path and domain-addition policy are `chief/83` | `chief/83-seed-library-refresh` *(proposed)* |
 | 🚧 | **Rubric / anti-fabrication tightening** — `construction_failures` and `checkset_failures` grow each time a new model fabrication is found; keep the grader's sentences specific (they are also the UI's error text) | — |
 
 ### JD-driven tutorial suggestion — ⬜ proposed
@@ -124,20 +124,20 @@ what the job actually demands, and suggest tutorials that close the learner's ga
 the *existing* define → scaffold → construct → gate pipeline rather than a parallel one. The hard
 part is not generation but **restraint**: the 245-notebook library (14 domains) plus the
 `recommended`-tagged neighbours already scaffolded in `curriculum.py` and catalogued in
-[`docs/gap-analysis.md`](docs/gap-analysis.md) must be held in mind so a suggestion is a genuine
+[`docs/explanation/gap-analysis.md`](docs/explanation/gap-analysis.md) must be held in mind so a suggestion is a genuine
 gap, never a redundant re-tutorial of a topic that already ships. The accepted suggestions become
 subjects the shipped `curriculum_gen.py` / `scaffold_notebooks.py` build exactly as a hand-typed
 subject would — this phase adds the front of the funnel, not a second constructor.
 
 *Depends on:* the shipped **Define** (`20`) + **Construct** (`30`) spine (suggestions feed the
-existing scaffolder); [`docs/gap-analysis.md`](docs/gap-analysis.md) + `curriculum.py`'s
+existing scaffolder); [`docs/explanation/gap-analysis.md`](docs/explanation/gap-analysis.md) + `curriculum.py`'s
 `recommended` tags as the dedup corpus.
 
 | Status | Milestone | Tasklist |
 |---|---|---|
 | ⬜ | **JD ingest** — import a job description by **copy-paste or file upload** (parse `.txt`/`.md`/`.pdf`/`.docx` to plain text), normalize to one canonical JD document; a BYO-key-optional read path (plain text needs no model) | `chief/74-jd-ingest` *(proposed)* |
 | ⬜ | **Requirement & skill extraction** — model-backed pass turning a JD into a structured list of required skills / tools / competencies, normalized leniently and graded strictly in the `curriculum_gen.py` house style (ask JSON, normalize, validate before use) | `chief/75-jd-requirement-extraction` *(proposed)* |
-| ⬜ | **Gap analysis vs the library** — match extracted requirements against the existing 245 notebooks (14 domains) + the `recommended` neighbours, classifying each requirement as *covered* / *partially covered* / *missing*, reusing the `docs/gap-analysis.md` coverage model | `chief/76-jd-library-gap-analysis` *(proposed)* |
+| ⬜ | **Gap analysis vs the library** — match extracted requirements against the existing 245 notebooks (14 domains) + the `recommended` neighbours, classifying each requirement as *covered* / *partially covered* / *missing*, reusing the `docs/explanation/gap-analysis.md` coverage model | `chief/76-jd-library-gap-analysis` *(proposed)* |
 | ⬜ | **Suggestion + dedup engine** — turn *missing* / *partial* requirements into proposed subjects, deduplicated against existing topics and domains so no suggestion re-tutorials shipped material; each suggestion carries its source requirement and its gap rationale | `chief/77-jd-suggestion-dedup-engine` *(proposed)* |
 | ⬜ | **Review / accept surface** — an in-app view to review, edit, drop, or accept suggestions; an accepted one becomes a subject handed to the shipped `POST /api/subjects` → scaffold → construct flow (no new constructor, just a new entry point) | `chief/78-jd-suggestion-review-surface` *(proposed)* |
 
@@ -249,11 +249,11 @@ cross-repo dependency (`chief:80-headless-programmatic-invocation`, bands `80`�
 ## Related Docs
 
 Reference contracts (living docs, kept in place):
-- [`docs/notebook-rubric.md`](docs/notebook-rubric.md) — the definition of a complete tutorial
+- [`docs/explanation/notebook-rubric.md`](docs/explanation/notebook-rubric.md) — the definition of a complete tutorial
   (8 sections, runnable vs conceptual) and the knowledge-check rules; the shape of the gate.
-- [`docs/storage.md`](docs/storage.md) — the one-root layout and the app / drive / cloud backends.
-- [`docs/packaging.md`](docs/packaging.md) — desktop bundle + optional web build + CI contract.
-- [`docs/gap-analysis.md`](docs/gap-analysis.md) — seed-library topic coverage and recommended additions.
+- [`docs/reference/storage.md`](docs/reference/storage.md) — the one-root layout and the app / drive / cloud backends.
+- [`docs/reference/packaging.md`](docs/reference/packaging.md) — desktop bundle + optional web build + CI contract.
+- [`docs/explanation/gap-analysis.md`](docs/explanation/gap-analysis.md) — seed-library topic coverage and recommended additions.
 
 Project orientation:
 - [`README.md`](README.md) — install, the reusable core, and first-run.

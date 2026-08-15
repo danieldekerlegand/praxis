@@ -2,7 +2,7 @@
 #
 # The Python core (rubric · scaffolder · gate · launcher) is the product; `ui/` +
 # `src-tauri/` are a shell around it. Everything here is a thin wrapper over the
-# commands in README.md, docs/packaging.md and .chief/verify.sh — no build logic
+# commands in README.md, docs/reference/packaging.md and .chief/verify.sh — no build logic
 # lives in this file that isn't already in one of those.
 #
 # Interpreter: a repo-local .venv if present, else python3. Override with PY=…
@@ -85,7 +85,7 @@ build-rust: ## cargo build (embeds whatever is in ui/dist right now)
 	cd src-tauri && $(CARGO) build
 
 # tauri build runs beforeBuildCommand itself, so ui/dist cannot go stale here. It finds
-# src-tauri/ by walking up from the CWD — hence repo root, not ui/ (docs/packaging.md).
+# src-tauri/ by walking up from the CWD — hence repo root, not ui/ (docs/reference/packaging.md).
 bundle: | ui/node_modules ## Release desktop bundle (.app/.dmg, .msi/.exe, .deb/.AppImage)
 	$(NPM) --prefix ui exec -- tauri build
 

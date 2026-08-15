@@ -21,7 +21,7 @@
   "warmup": [
     "head -60 scaffold_notebooks.py",
     "head -40 curriculum.py 2>/dev/null || grep -rl curriculum . | head",
-    "cat docs/notebook-rubric.md | sed -n '1,40p'",
+    "cat docs/explanation/notebook-rubric.md | sed -n '1,40p'",
     "ls notebooks/ | head; echo '--- an example scaffold ---'; find notebooks -name '*.ipynb' | head -1"
   ],
   "userStories": [
@@ -51,7 +51,7 @@
       "id": "US-3",
       "title": "Scaffold rubric-shaped notebooks for any generated curriculum",
       "acceptanceCriteria": [
-        "scaffold_notebooks.py is generalized to scaffold blank notebooks for ANY generated curriculum — each notebook carries the 8 rubric sections (docs/notebook-rubric.md) and reports 🔴 scaffold via nbstatus.py — not only the built-in manifest.",
+        "scaffold_notebooks.py is generalized to scaffold blank notebooks for ANY generated curriculum — each notebook carries the 8 rubric sections (docs/explanation/notebook-rubric.md) and reports 🔴 scaffold via nbstatus.py — not only the built-in manifest.",
         "Defining a new subject end-to-end (subject → curriculum → scaffold) produces real .ipynb files on disk under a per-subject path, visible in the library from tasklist 10.",
         "Re-scaffolding is idempotent: it never clobbers a notebook that already has content.",
         "Gate green: pytest (including a test that scaffolds a generated subject) passes."

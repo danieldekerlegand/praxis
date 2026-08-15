@@ -27,7 +27,7 @@ from nbstatus import notebook_status  # noqa: E402
 RALPH_DIR = ROOT / "ralph"
 
 RUBRIC = (
-    "Bring this notebook to the completion rubric in docs/notebook-rubric.md. "
+    "Bring this notebook to the completion rubric in docs/explanation/notebook-rubric.md. "
     "Keep the 8 sections (What & Why; Mental Model; Key Concepts; Setup; Worked "
     "Examples; Gotchas & Pitfalls; When to Use vs Alternatives; Resources). "
     "Remove every TODO/placeholder. Write a real, concise refresher with the right "
@@ -68,7 +68,7 @@ def _ctx(domain: Domain) -> str:
     return (
         f"Project context: Praxis tutorial notebook library. This task belongs to domain "
         f"'{domain.title}' (notebooks/{domain.dir}/). Single source of truth is curriculum.py; "
-        f"the rubric is docs/notebook-rubric.md; the gate is tests/test_notebooks.py. Edit only "
+        f"the rubric is docs/explanation/notebook-rubric.md; the gate is tests/test_notebooks.py. Edit only "
         f"the one notebook for this task. After editing, run `python generate_docs.py` is NOT "
         f"required (CURRICULUM.md is regenerated separately)."
     )

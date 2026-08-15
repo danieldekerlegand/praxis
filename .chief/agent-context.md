@@ -9,7 +9,7 @@ learner's understanding.
 
 This repo already ships the reusable machinery. Extend it; don't replace it.
 
-- `docs/notebook-rubric.md` — the **definition of a complete tutorial** (8 sections, runnable vs
+- `docs/explanation/notebook-rubric.md` — the **definition of a complete tutorial** (8 sections, runnable vs
   conceptual). The construction agents fill notebooks *to this rubric*; it is also the shape of the
   gated tutorial.
 - `scaffold_notebooks.py` + `curriculum.py` — the scaffolder. Generalize these from the 10 built-in

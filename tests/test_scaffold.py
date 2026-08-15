@@ -1,7 +1,7 @@
 """The scaffolder, on a generated curriculum as well as on the seed manifest.
 
 A scaffold is the contract between the curriculum and every consumer downstream: it must
-be valid nbformat, carry all 8 rubric sections (docs/notebook-rubric.md), and report
+be valid nbformat, carry all 8 rubric sections (docs/explanation/notebook-rubric.md), and report
 🔴 scaffold through nbstatus.py so the gate skips grading it until an author fills it.
 
 Nothing here writes into the real library: `PRAXIS_SUBJECTS_DIR` relocates generated
@@ -167,7 +167,7 @@ def test_the_rubric_link_resolves_from_where_the_notebook_lives(subject):
     nb = scaffold_notebook(module, module.topics[0])
     notebooks_root = subjects_dir().parent  # tmp stand-in for the repo's notebooks/
 
-    link = "../../../../docs/notebook-rubric.md"
+    link = "../../../../docs/explanation/notebook-rubric.md"
     assert link in _text(nb)
     # Relative to the notebook's own directory, that lands beside notebooks/ — which in
     # the real checkout is the rubric this scaffold tells its author to fill to.
@@ -223,7 +223,7 @@ def test_a_seed_domain_scaffolds_into_the_notebooks_root(monkeypatch, tmp_path):
     assert (created, skipped) == (len(domain.topics), 0)
     written = tmp_path / "notebooks" / domain.dir / f"{domain.topics[0].slug}.ipynb"
     assert notebook_status(written)[0] == "scaffold"
-    assert "../../docs/notebook-rubric.md" in _text(json.loads(written.read_text()))
+    assert "../../docs/explanation/notebook-rubric.md" in _text(json.loads(written.read_text()))
     assert scaffold_domain(domain) == (0, len(domain.topics))
 
 

@@ -144,7 +144,7 @@ because `choice` and `code` grade locally.
 `praxis/storage.py` is the only module that knows where the user's data lives. The four
 writes above (subject · scaffold · construct · checks) plus progress all land under **one
 root**, laid out as `<root>/subjects/<slug>/…` and `<root>/progress/<learner>.json`
-(`docs/storage.md` is the contract). The seed `notebooks/` are not user data — they ship
+(`docs/reference/storage.md` is the contract). The seed `notebooks/` are not user data — they ship
 with the app and are never written to.
 
 Nothing else resolves a storage path. `curriculum.subjects_dir()` and
@@ -222,7 +222,7 @@ for the reason in **Build order** above.
 
 ## Bundling
 
-`docs/packaging.md` is the contract. The Tauri CLI is a dev dependency of `ui/`, but it
+`docs/reference/packaging.md` is the contract. The Tauri CLI is a dev dependency of `ui/`, but it
 locates `src-tauri/` by walking up from the **working directory** — so a bundle is built
 from the repo root (`npm --prefix ui exec -- tauri build`), never from inside `ui/`, where
 it silently finds no app. `tauri build` runs `beforeBuildCommand` itself, so it cannot

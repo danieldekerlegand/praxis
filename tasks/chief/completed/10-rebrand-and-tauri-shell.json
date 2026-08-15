@@ -3,7 +3,7 @@
   "project": "praxis",
   "branchName": "chief/10-rebrand-and-tauri-shell",
   "baseBranch": "main",
-  "description": "Foundation, 10-band. Reframe this repo from `ai-tutor` (a static study-notebook library) into **Praxis** — a constructor for interactive, gated notebook tutorials on any subject — and stand up a Tauri desktop/web shell AROUND the existing reusable core without discarding it. The core to preserve and build on: docs/notebook-rubric.md (the definition of a complete tutorial), scaffold_notebooks.py + curriculum.py (the scaffolder), nbstatus.py + tests/test_notebooks.py (the completion gate), launcher/ (the FastAPI browse/launch/render UI), and notebooks/ (221 seed notebooks). This tasklist only establishes the app skeleton + rebrand; the subject-definition, AI-construction, gating, and storage capabilities come in later bands (20/30/40/50). Note: the GitHub repo rename (ai-tutor -> praxis) and the local directory rename are MANUAL steps for the owner; this tasklist does the in-repo rebrand only. Anti-fabrication: the app must actually build and launch — a story passes only when the relevant gate (cargo build / npm run build / pytest) is green, never on a scaffold that doesn't compile.",
+  "description": "Foundation, 10-band. Reframe this repo from `ai-tutor` (a static study-notebook library) into **Praxis** — a constructor for interactive, gated notebook tutorials on any subject — and stand up a Tauri desktop/web shell AROUND the existing reusable core without discarding it. The core to preserve and build on: docs/explanation/notebook-rubric.md (the definition of a complete tutorial), scaffold_notebooks.py + curriculum.py (the scaffolder), nbstatus.py + tests/test_notebooks.py (the completion gate), launcher/ (the FastAPI browse/launch/render UI), and notebooks/ (221 seed notebooks). This tasklist only establishes the app skeleton + rebrand; the subject-definition, AI-construction, gating, and storage capabilities come in later bands (20/30/40/50). Note: the GitHub repo rename (ai-tutor -> praxis) and the local directory rename are MANUAL steps for the owner; this tasklist does the in-repo rebrand only. Anti-fabrication: the app must actually build and launch — a story passes only when the relevant gate (cargo build / npm run build / pytest) is green, never on a scaffold that doesn't compile.",
   "parked": false,
   "dependsOn": [],
   "touches": [
@@ -17,7 +17,7 @@
   "iters": 10,
   "warmup": [
     "sed -n '1,40p' README.md",
-    "cat docs/notebook-rubric.md | head -30",
+    "cat docs/explanation/notebook-rubric.md | head -30",
     "head -30 launcher/app.py; ls launcher/templates launcher/static",
     "head -20 pyproject.toml; python3 nbstatus.py --help 2>/dev/null || head -20 nbstatus.py",
     "command -v cargo npm tauri 2>/dev/null; ls src-tauri ui 2>/dev/null || echo 'no app scaffold yet'"
@@ -29,7 +29,7 @@
       "acceptanceCriteria": [
         "README.md is reframed from a 'study-notebook library' to Praxis — a constructor for interactive, gated notebook tutorials on any subject — with a short vision statement and an explicit map of the reusable core (rubric, scaffolder, gate, launcher, seed notebooks) it builds on.",
         "pyproject.toml name/description and any `ai-tutor`/`ai_tutor` package or code identifiers are updated to praxis; imports still resolve.",
-        "The reusable core is PRESERVED, not deleted: docs/notebook-rubric.md, scaffold_notebooks.py, curriculum.py, nbstatus.py, tests/, launcher/, and notebooks/ all remain and still work.",
+        "The reusable core is PRESERVED, not deleted: docs/explanation/notebook-rubric.md, scaffold_notebooks.py, curriculum.py, nbstatus.py, tests/, launcher/, and notebooks/ all remain and still work.",
         "A note records that the GitHub-repo and local-directory renames are manual owner steps outside this tasklist.",
         "Gate green: `python3 -m pytest -q tests/` still passes (the notebook core is intact)."
       ],

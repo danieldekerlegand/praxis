@@ -4,7 +4,7 @@
   "category": "fix",
   "branchName": "chief/71-embed-python-interpreter",
   "baseBranch": "main",
-  "description": "A shipped Praxis `.app` is the shell only: `src-tauri/src/library.rs` discovers the Python construction core (`curriculum.py` + `launcher/`) by walking up from the binary and the cwd, and finds an interpreter via `PRAXIS_PYTHON` / `.venv` / `python3` \u2014 nothing is embedded, so a `.app` moved away from a checkout-with-the-launch-extra reports `LauncherStatus::failed` (CLAUDE.md \"Bundling\"). This tasklist makes a truly standalone bundle: embed a Python interpreter plus the launch extra into the bundle so `library.rs` can start the launcher without a checkout or venv beside it, preferring the embedded runtime while keeping the existing discovery fallbacks. It is a change to the discovery ORDER and the bundle contents, not a rewrite of how the core is started. Scope: `src-tauri/src/library.rs` (interpreter discovery), the bundle config + `docs/packaging.md`, and `tests/` where discovery order can be exercised. The dev flow (`.venv` + `npm run dev`) stays unchanged.",
+  "description": "A shipped Praxis `.app` is the shell only: `src-tauri/src/library.rs` discovers the Python construction core (`curriculum.py` + `launcher/`) by walking up from the binary and the cwd, and finds an interpreter via `PRAXIS_PYTHON` / `.venv` / `python3` \u2014 nothing is embedded, so a `.app` moved away from a checkout-with-the-launch-extra reports `LauncherStatus::failed` (CLAUDE.md \"Bundling\"). This tasklist makes a truly standalone bundle: embed a Python interpreter plus the launch extra into the bundle so `library.rs` can start the launcher without a checkout or venv beside it, preferring the embedded runtime while keeping the existing discovery fallbacks. It is a change to the discovery ORDER and the bundle contents, not a rewrite of how the core is started. Scope: `src-tauri/src/library.rs` (interpreter discovery), the bundle config + `docs/reference/packaging.md`, and `tests/` where discovery order can be exercised. The dev flow (`.venv` + `npm run dev`) stays unchanged.",
   "parked": false,
   "dependsOn": [],
   "touches": [
@@ -15,7 +15,7 @@
   "warmup": [
     "echo 'library.rs discovers curriculum.py + launcher/ by walking up, and the interpreter via PRAXIS_PYTHON / .venv / python3; embedding must be an added, preferred discovery step, not a rewrite \u2014 see CLAUDE.md \"Bundling\".'",
     "grep -n 'PRAXIS_PYTHON\\|\\.venv\\|python3\\|LauncherStatus\\|walk\\|discover' src-tauri/src/library.rs | head",
-    "sed -n '1,60p' docs/packaging.md"
+    "sed -n '1,60p' docs/reference/packaging.md"
   ],
   "userStories": [
     {
@@ -33,7 +33,7 @@
       "title": "A moved-away .app runs the whole loop from the embedded runtime",
       "acceptanceCriteria": [
         "A bundle relocated away from any checkout starts the launcher from the embedded interpreter and reaches `LauncherStatus` ready (not `failed`), and the full define -> scaffold -> construct -> gate loop runs against it \u2014 demonstrated and recorded in the progress log the way CLAUDE.md \"Build order\" checks a real page reached the backend (a launcher access-log request, not just a titled window).",
-        "docs/packaging.md is updated: what the embedded bundle contains, the discovery order (embedded first, then `PRAXIS_PYTHON` / `.venv` / `python3`), and how to build with and without the embed.",
+        "docs/reference/packaging.md is updated: what the embedded bundle contains, the discovery order (embedded first, then `PRAXIS_PYTHON` / `.venv` / `python3`), and how to build with and without the embed.",
         "Gate green: `cargo build` in src-tauri/, `npm run build` in ui/, and `python3 -m pytest -q tests/` all pass."
       ],
       "passes": false

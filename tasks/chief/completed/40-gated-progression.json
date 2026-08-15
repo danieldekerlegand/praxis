@@ -18,7 +18,7 @@
   ],
   "iters": 9,
   "warmup": [
-    "cat docs/notebook-rubric.md | sed -n '1,50p'",
+    "cat docs/explanation/notebook-rubric.md | sed -n '1,50p'",
     "sed -n '1,60p' tests/test_notebooks.py",
     "echo '--- how status is computed today ---'; head -60 nbstatus.py"
   ],

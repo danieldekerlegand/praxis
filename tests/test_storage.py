@@ -65,7 +65,7 @@ def test_the_shell_identifier_and_the_python_side_agree():
 
 
 def test_the_documented_layout_is_the_one_on_disk(app_dir):
-    """subjects/ and progress/ under one root — the layout docs/storage.md describes."""
+    """subjects/ and progress/ under one root — the layout docs/reference/storage.md describes."""
     root = app_dir / "data"
     assert storage.data_root() == root
     assert storage.subjects_dir() == root / "subjects"

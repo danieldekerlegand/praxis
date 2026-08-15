@@ -58,7 +58,7 @@ replace it.
 
 | Piece | Role in Praxis |
 |-------|----------------|
-| [`docs/notebook-rubric.md`](docs/notebook-rubric.md) | **The definition of a complete tutorial** — 8 sections, runnable vs conceptual. Construction agents fill to this bar; it is also the shape of the gated tutorial. |
+| [`docs/explanation/notebook-rubric.md`](docs/explanation/notebook-rubric.md) | **The definition of a complete tutorial** — 8 sections, runnable vs conceptual. Construction agents fill to this bar; it is also the shape of the gated tutorial. |
 | [`curriculum.py`](curriculum.py) | The curriculum model — the seed domains, and the data-driven subjects a user defines. |
 | [`praxis/curriculum_gen.py`](praxis/curriculum_gen.py) | **Subject → curriculum** — free text in, modules → topics out, one notebook per topic. |
 | [`scaffold_notebooks.py`](scaffold_notebooks.py) | **The scaffolder** — turns any curriculum's topic list, seed or generated, into 🔴 rubric-shaped notebook scaffolds. |
@@ -89,7 +89,7 @@ library is preserved under [`notebooks/11-devops-mlops-infra/`](notebooks/11-dev
   written under a single storage root — one directory you can copy. Keep it on this
   computer (the default), on a **drive** you pick, or in an **S3-compatible bucket**
   Praxis mirrors and syncs; choose in the app under *storage*. Switching only changes
-  where Praxis looks — nothing is moved or deleted. See [docs/storage.md](docs/storage.md).
+  where Praxis looks — nothing is moved or deleted. See [docs/reference/storage.md](docs/reference/storage.md).
 
 The subject-definition, AI-construction, gating, and storage capabilities land
 incrementally; the core above is what they build on.
@@ -197,7 +197,7 @@ your own words. Praxis asks your model (see above — your key, your provider) f
 curriculum: modules, then one notebook per topic, each tagged runnable or conceptual. The
 result is saved to `<storage root>/subjects/<slug>/curriculum.json` and shown for review
 before any notebook is written. That root is your app-data directory by default — see
-[docs/storage.md](docs/storage.md), or the path in the app's footer.
+[docs/reference/storage.md](docs/reference/storage.md), or the path in the app's footer.
 
 The same thing from a terminal:
 
@@ -230,7 +230,7 @@ are what the desktop shell calls, and what a script can call instead
 A subject's modules are ordinary domains, so the scaffolder, the badges and the gate treat
 them exactly like the seed library. Generated subjects are yours, not the product's: they
 are written to your own storage root, outside the repo entirely
-([docs/storage.md](docs/storage.md)).
+([docs/reference/storage.md](docs/reference/storage.md)).
 
 To edit the **seed** curriculum instead, change [`curriculum.py`](curriculum.py)
 (add/remove topics; `recommended=True` marks suggested additions), then:
@@ -352,7 +352,7 @@ Switching changes **where Praxis looks** — it never copies, moves or deletes a
 the root you leave is exactly as you left it if you switch back. If the backend is not
 reachable (drive unplugged), Praxis refuses every write with a 503 and tells you which
 one it wants, rather than quietly writing somewhere else. Full contract, including the
-cloud merge rule: **[docs/storage.md](docs/storage.md)**.
+cloud merge rule: **[docs/reference/storage.md](docs/reference/storage.md)**.
 
 ## The launcher API
 
@@ -431,7 +431,7 @@ from any static server on `localhost` against a hand-started `praxis-launch`, an
 `praxis-launch` alone serves its own HTML with no build step at all.
 
 Artifact paths per OS, prerequisites, signing status and the CI gate:
-**[docs/packaging.md](docs/packaging.md)**.
+**[docs/reference/packaging.md](docs/reference/packaging.md)**.
 
 Every PR to `main` runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml), which
 mirrors `.chief/verify.sh`: `npm run build`, `cargo build`, and `pytest tests/`, each

@@ -18,7 +18,7 @@ notebooks get graded, `gate_failures()` decides what "graded" means. The AI cons
 (praxis/construct.py) grades its own output with that same function before it is allowed
 to write, so a constructed notebook cannot pass one bar and fail the other.
 
-See docs/notebook-rubric.md.
+See docs/explanation/notebook-rubric.md.
 """
 
 from __future__ import annotations

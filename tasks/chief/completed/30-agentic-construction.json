@@ -20,7 +20,7 @@
   ],
   "iters": 10,
   "warmup": [
-    "cat docs/notebook-rubric.md",
+    "cat docs/explanation/notebook-rubric.md",
     "sed -n '1,60p' tests/test_notebooks.py",
     "head -40 nbstatus.py",
     "echo '--- a completed exemplar to match ---'; for f in $(find notebooks -name '*.ipynb'); do python3 nbstatus.py --one \"$f\" 2>/dev/null | grep -q complete && { echo $f; break; }; done"
@@ -30,7 +30,7 @@
       "id": "US-1",
       "title": "Construction agent fills a notebook to the rubric",
       "acceptanceCriteria": [
-        "Given a scaffolded topic, an AI construction agent (LLM client from 20) fills the 8 rubric sections per docs/notebook-rubric.md: What & Why, Mental Model, Key Concepts, Setup, at least two Worked Examples, Gotchas & Pitfalls, When to Use vs Alternatives, and Resources with real URLs.",
+        "Given a scaffolded topic, an AI construction agent (LLM client from 20) fills the 8 rubric sections per docs/explanation/notebook-rubric.md: What & Why, Mental Model, Key Concepts, Setup, at least two Worked Examples, Gotchas & Pitfalls, When to Use vs Alternatives, and Resources with real URLs.",
         "For runnable topics the agent writes real, executing code cells (a `%pip install` where needed); for conceptual topics it follows the rubric's conceptual path.",
         "The filled notebook passes the existing completion gate: nbstatus.py reports ✅ and tests/test_notebooks.py passes for it.",
         "Gate green: pytest passes, including the newly constructed notebook."

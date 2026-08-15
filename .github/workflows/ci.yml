@@ -101,7 +101,7 @@ jobs:
       - run: python -m pytest -q tests/
 
   # macOS bundle, on demand. Not a PR gate: it is the release build, and it is the same
-  # command documented in docs/packaging.md.
+  # command documented in docs/reference/packaging.md.
   bundle-macos:
     if: github.event_name == 'workflow_dispatch'
     runs-on: macos-latest

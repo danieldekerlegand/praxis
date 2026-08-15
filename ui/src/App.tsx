@@ -9,7 +9,7 @@ import { fetchStorage, storageSummary, type StorageInfo } from "./storage";
 
 /** The core this shell is built on — mirrors the map in README.md. */
 const CORE = [
-  ["docs/notebook-rubric.md", "the definition of a complete tutorial"],
+  ["docs/explanation/notebook-rubric.md", "the definition of a complete tutorial"],
   ["scaffold_notebooks.py + curriculum.py", "the scaffolder"],
   ["nbstatus.py + tests/", "the completion gate (🔴 · 🟡 · ✅)"],
   ["launcher/", "browse · launch · render"],
@@ -270,7 +270,7 @@ export default function App() {
                     : `Build ${unbuilt} notebook${unbuilt === 1 ? "" : "s"} with AI`}
                 </button>
                 <span className="legend">
-                  Each one is written to <code>docs/notebook-rubric.md</code> and only
+                  Each one is written to <code>docs/explanation/notebook-rubric.md</code> and only
                   saved once it passes the completion gate. Already ✅ notebooks are left
                   alone, so this can be re-run.
                 </span>

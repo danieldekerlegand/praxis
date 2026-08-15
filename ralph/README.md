@@ -2,7 +2,7 @@
 
 Eleven [ralphy](https://github.com/michaelshimeles/ralphy) tasklists, one per domain.
 Each has **one task per notebook that isn't complete yet**; ralphy fills the notebook to
-[`docs/notebook-rubric.md`](../docs/notebook-rubric.md) and the gate in
+[`docs/explanation/notebook-rubric.md`](../docs/explanation/notebook-rubric.md) and the gate in
 [`tests/test_notebooks.py`](../tests/test_notebooks.py), committing after each task.
 
 Each tasklist directory holds:
@@ -57,7 +57,7 @@ ralphy --json ralph/08-architectures/tasks.json --claude --parallel --max-parall
 
 ## Conventions every task assumes
 
-- Single source of truth: `curriculum.py`. Rubric: `docs/notebook-rubric.md`. Gate: `tests/test_notebooks.py`.
+- Single source of truth: `curriculum.py`. Rubric: `docs/explanation/notebook-rubric.md`. Gate: `tests/test_notebooks.py`.
 - A task edits exactly one notebook and marks `metadata.praxis.status = "complete"` when done
   (legacy domain-11 notebooks instead just drop all placeholder text).
 - "Runnable" topics need ≥2 executed code cells; "conceptual" topics use CLI/snippets with a clear note.
@@ -71,5 +71,5 @@ After editing `curriculum.py` (adding/removing topics) or filling notebooks:
 ```bash
 python scaffold_notebooks.py        # scaffold any newly-added topics
 python ralph/generate_tasklists.py  # rebuild tasklists (drops completed notebooks)
-python generate_docs.py             # refresh CURRICULUM.md + docs/gap-analysis.md
+python generate_docs.py             # refresh CURRICULUM.md + docs/explanation/gap-analysis.md
 ```

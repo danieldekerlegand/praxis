@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate CURRICULUM.md (human index) and docs/gap-analysis.md from curriculum.py.
+"""Generate CURRICULUM.md (human index) and docs/explanation/gap-analysis.md from curriculum.py.
 
 Both are derived from the manifest plus the live notebook status, so they never drift.
 Run:  python generate_docs.py
@@ -132,7 +132,7 @@ def gen_gap_analysis() -> str:
 def main() -> None:
     (ROOT / "CURRICULUM.md").write_text(gen_curriculum() + "\n")
     (ROOT / "docs" / "gap-analysis.md").write_text(gen_gap_analysis() + "\n")
-    print("wrote CURRICULUM.md and docs/gap-analysis.md")
+    print("wrote CURRICULUM.md and docs/explanation/gap-analysis.md")
 
 
 if __name__ == "__main__":

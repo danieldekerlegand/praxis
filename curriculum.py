@@ -18,7 +18,7 @@ Drives:
   - scaffold_notebooks.py   (creates blank notebook scaffolds + reorgs the legacy 64)
   - launcher/app.py         (sidebar navigation + completion status)
   - ralph/generate_tasklists.py (one ralphy task per notebook below the rubric bar)
-  - CURRICULUM.md / docs/gap-analysis.md (generated human indices)
+  - CURRICULUM.md / docs/explanation/gap-analysis.md (generated human indices)
 
 Domains 1-10 are the seed study curriculum (explicit topic lists below).
 Domain 11 (DevOps/MLOps & Infra) is the relocated legacy library; its topics are

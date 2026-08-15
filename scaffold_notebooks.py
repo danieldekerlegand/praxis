@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Scaffold rubric-shaped notebooks for any curriculum — seed or user-defined.
 
-A scaffold is a valid notebook carrying the 8 sections of docs/notebook-rubric.md with
+A scaffold is a valid notebook carrying the 8 sections of docs/explanation/notebook-rubric.md with
 every section still a TODO, and `metadata.praxis.status = "scaffold"` so nbstatus.py
 badges it 🔴 and tests/test_notebooks.py skips grading it until an author fills it.
 
@@ -106,7 +106,7 @@ def _rubric_link(domain: Domain) -> str:
     module sits three (`subjects/<slug>/<NN-module>/`), so the depth is computed rather
     than assumed — a dead link in every scaffold is a rubric nobody reads.
     """
-    return "../" * (len(domain.dir.strip("/").split("/")) + 1) + "docs/notebook-rubric.md"
+    return "../" * (len(domain.dir.strip("/").split("/")) + 1) + "docs/explanation/notebook-rubric.md"
 
 
 def scaffold_notebook(domain: Domain, topic: Topic) -> dict:
@@ -116,7 +116,7 @@ def scaffold_notebook(domain: Domain, topic: Topic) -> dict:
     header = (
         f"# {topic.title}\n\n"
         f"> **Study notebook — scaffold.** Replace every TODO and fill to the rubric in "
-        f"[`docs/notebook-rubric.md`]({_rubric_link(domain)}).\n\n"
+        f"[`docs/explanation/notebook-rubric.md`]({_rubric_link(domain)}).\n\n"
         f"**Domain:** {domain.title}  ·  **{tag}**  ·  "
         f"**runnable:** {'yes' if runnable else 'no — conceptual / CLI / snippets'}"
         + (f"  ·  _{note}_" if note else "")
