@@ -46,5 +46,8 @@
       ],
       "passes": false
     }
+  ],
+  "crossRepo": [
+    "chief"
   ]
 }
