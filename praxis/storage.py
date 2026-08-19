@@ -18,21 +18,25 @@ knows where that root is:
 the two functions below, so every existing caller moved with the root the day this landed
 and none of them had to learn about backends.
 
-A **backend** is a `kind` plus the root it resolves to. Three ship:
+A **backend** is a `kind` plus the root it resolves to. Four ship:
 
     app     (default)  the desktop shell's own app-data directory — this computer
     drive              a folder the user picked, typically on a mounted disk
     cloud              an S3-compatible bucket, mirrored to a local working copy
+    webdav             a WebDAV share (Nextcloud, a Synology, Box), likewise mirrored
 
-They differ only in `_RESOLVERS` / `_AVAILABLE` (plus `_ON_SELECT` / `_SYNC` for the one
-that has to talk to a network), which is the whole plug point: a new backend is a resolver
-and an availability check, never a path computation in a caller.
+They differ only in `_RESOLVERS` / `_AVAILABLE` (plus `_WRITABLE` / `_ON_SELECT` / `_SYNC`
+for the ones that have to talk to a network), which is the whole plug point: a new backend
+is a resolver and an availability check, never a path computation in a caller. The last of
+the four is registered through the public `register_backend()` seam rather than into those
+tables, so what a fifth backend would do is what the fourth already does.
 
-The reason `cloud` still resolves to a *directory* is that every writer in this project
-writes with `Path` — `nbformat.write`, `json.dump`, a `glob` over a module. So the cloud
-backend keeps an ordinary storage root on disk and syncs it with the bucket
-(`praxis/cloud.py`): the app works with the network down, and it is the sync that fails
-loudly rather than a notebook save.
+The reason a remote still resolves to a *directory* is that every writer in this project
+writes with `Path` — `nbformat.write`, `json.dump`, a `glob` over a module. So `cloud` and
+`webdav` each keep an ordinary storage root on disk and sync it with the remote
+(`praxis/cloud.py` over `praxis/s3.py`, `praxis/share.py` over `praxis/webdav.py`): the app
+works with the network down, and it is the sync that fails loudly rather than a notebook
+save.
 
 Which backend is active is the one piece of state that must *not* move with the data:
 it is `storage.json` in `app_dir()`, alongside — never inside — the active root. Point the
@@ -75,6 +79,9 @@ PROGRESS_DIRNAME = "progress"
 
 #: Where the `cloud` backend keeps its working copy, inside the app directory.
 CLOUD_DIRNAME = "cloud"
+
+#: Where the `webdav` backend keeps its working copy, likewise.
+WEBDAV_DIRNAME = "webdav"
 
 DEFAULT_KIND = "app"
 
@@ -315,6 +322,66 @@ def _cloud_sync(backend: Backend) -> dict:
         raise StorageError(f"sync failed: {exc}") from exc
 
 
+# --- a WebDAV share, mirrored locally ---------------------------------------
+
+
+def _resolve_webdav(options: dict) -> Backend:
+    """The share's working copy: a real directory, kept in step by `praxis.share.sync`."""
+    from praxis import share
+
+    root = app_dir() / WEBDAV_DIRNAME / share.mirror_name(options)
+    url = str(options.get("url") or "").strip().rstrip("/")
+    folder = share.folder_for(options)
+    where = f"{url}/{folder}".rstrip("/") if url else "no server configured"
+    return Backend(
+        kind="webdav",
+        root=root,
+        label="WebDAV share",
+        detail=f"{where} — mirrored at {root}",
+        options=dict(options),
+    )
+
+
+def _webdav_available(backend: Backend) -> tuple[bool, str]:
+    """Can we talk to the share right now? The mirror on disk is a separate question.
+
+    Strict on purpose, for the same reason `_drive_available` is: the mirror's parent is
+    the app directory, which always exists, so a check that only asked "could I make this
+    folder?" would answer yes with the server switched off — and `select_backend()` would
+    create a mirror nobody is behind and invite the user to fill a decoy. The collection
+    has to actually answer a `PROPFIND` before this backend may be selected.
+
+    Afterwards a `False` here means "you cannot sync", not "your work is gone" — the
+    mirror is a normal directory and the app keeps writing to it offline.
+    """
+    from praxis import share
+
+    if not str(backend.options.get("url") or "").strip():
+        return False, "no server configured"
+    return share.reachable(backend.options)
+
+
+def _webdav_on_select(backend: Backend) -> None:
+    """Selecting a share pulls it down, so a second machine sees the work already there."""
+    from praxis import share
+    from praxis.webdav import WebDAVError
+
+    try:
+        share.pull(backend.root, backend.options)
+    except WebDAVError as exc:
+        raise StorageError(f"could not read the share: {exc}") from exc
+
+
+def _webdav_sync(backend: Backend) -> dict:
+    from praxis import share
+    from praxis.webdav import WebDAVError
+
+    try:
+        return share.sync(backend.root, backend.options).to_dict()
+    except WebDAVError as exc:
+        raise StorageError(f"sync failed: {exc}") from exc
+
+
 #: kind -> resolver. Extend to add a backend; every caller keeps working unchanged.
 _RESOLVERS: dict[str, Callable[[dict], Backend]] = {
     "app": _resolve_app,
@@ -383,6 +450,33 @@ def register_backend(
         _ON_SELECT[kind] = on_select
     if sync is not None:
         _SYNC[kind] = sync
+
+
+#: The fourth backend goes in the way a fifth one would: through `register_backend`, not
+#: by editing the tables above. Two entries in `FIELDS`/`BLURBS` and the settings form
+#: grows its boxes on its own — that is the whole of adding a backend, and keeping this
+#: one on the public seam is what keeps the seam honest.
+register_backend(
+    "webdav",
+    _resolve_webdav,
+    available=_webdav_available,
+    writable=_local_available,
+    on_select=_webdav_on_select,
+    sync=_webdav_sync,
+)
+
+FIELDS["webdav"] = (
+    ("url", "server URL", True, False),
+    ("folder", "folder (optional)", False, False),
+    ("username", "username", False, False),
+    ("password", "password or app password", False, True),
+)
+
+BLURBS["webdav"] = (
+    "A WebDAV share (Nextcloud, ownCloud, a Synology, Box, `rclone serve webdav`). "
+    "Praxis keeps a working copy on this computer so it still runs offline, and syncs "
+    "it with the share."
+)
 
 
 def kinds() -> list[str]:
