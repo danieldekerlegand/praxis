@@ -25,3 +25,7 @@ src-tauri/target/
 src-tauri/gen/
 # Chief runner state (only state/ is transient; config, verify.sh, agent-context.md are tracked)
 .chief/state/
+
+# Staged by scripts/embed-python.sh: the Python runtime an embedded bundle carries.
+# Hundreds of MB of downloaded interpreter and a copy of the core — built, never tracked.
+src-tauri/resources/

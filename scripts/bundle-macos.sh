@@ -17,6 +17,10 @@
 #   notarization   APPLE_ID + APPLE_PASSWORD + APPLE_TEAM_ID          (app-specific password), or
 #                  APPLE_API_KEY + APPLE_API_ISSUER + APPLE_API_KEY_PATH   (App Store Connect key)
 #
+# It also reports whether the bundle carries an embedded Python runtime — staged by
+# scripts/embed-python.sh, opt-in, and the difference between a .app that runs anywhere
+# and one that needs a checkout beside it (docs/reference/packaging.md).
+#
 # Usage:
 #   scripts/bundle-macos.sh [--check] [extra tauri build args…]
 #     --check   report the plan and exit without building
@@ -107,6 +111,25 @@ command -v python3 >/dev/null 2>&1 \
 version="$(python3 scripts/check-versions.py)" \
   || fail "the manifests above disagree — bump them together before cutting a release."
 say "$version"
+
+# --- the Python runtime this bundle will (or will not) carry -------------------
+# Staged by scripts/embed-python.sh, untracked, and opt-in: with the payload there the
+# overlay config copies it into the bundle's resources and src-tauri/src/library.rs runs
+# it in preference to anything on the machine; without it, the bundle is the shell only
+# and needs a checkout with the launch extra beside it. Reported either way, because the
+# two produce identically-named artifacts that behave very differently once moved.
+EMBED_STAGE="$ROOT/src-tauri/resources/praxis-runtime"
+EMBED_CONFIG="src-tauri/tauri.embedded.conf.json"
+if [ -d "$EMBED_STAGE/python" ] && [ -d "$EMBED_STAGE/core" ]; then
+  embed="embedded"
+  say "embed $embed — $EMBED_STAGE goes into the bundle ($EMBED_CONFIG)."
+  tauri_args=(--config "$EMBED_CONFIG" ${tauri_args[@]+"${tauri_args[@]}"})
+elif [ -e "$EMBED_STAGE" ]; then
+  fail "$EMBED_STAGE exists but has no python/ + core/ — an interrupted scripts/embed-python.sh. Re-run it, or --clean it away."
+else
+  embed="none"
+  say "embed $embed — the .app will need a checkout with the launch extra beside it; scripts/embed-python.sh stages one to ship instead."
+fi
 
 if [ "$check_only" = 1 ]; then
   say "--check: not building."

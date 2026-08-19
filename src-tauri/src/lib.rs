@@ -82,6 +82,14 @@ pub fn run() {
                 Err(err) => eprintln!("praxis: no app-data directory ({err}) — \
                                        storage falls back to the per-OS default"),
             }
+            // Where a release bundle keeps the embedded Python runtime it may have
+            // shipped. Same reason as above: only the shell can ask Tauri where its
+            // resources landed, and that answer differs per platform and bundle format.
+            match app.path().resource_dir() {
+                Ok(dir) => launcher.use_resources(dir),
+                Err(err) => eprintln!("praxis: no resource directory ({err}) — \
+                                       an embedded Python runtime cannot be used"),
+            }
             // Off the main thread: starting uvicorn takes a second or two and the window
             // should be up (showing "starting the launcher…") the whole time.
             std::thread::spawn(move || launcher.start());
