@@ -298,6 +298,35 @@ fn embedded_runtime(resources: &Path) -> Option<Embedded> {
         .map(|python| Embedded { core, python })
 }
 
+/// The bundle's resource directory worked out from the binary, for when Tauri will not
+/// answer — `None` when this is not a macOS .app.
+///
+/// `app.path().resource_dir()` reads `current_exe()` through tauri-utils' `StartingBinary`,
+/// which on macOS **refuses any path with a symlinked ancestor** (it guards a relaunch
+/// against a hijacked path). An .app under a symlinked directory therefore gets no resource
+/// directory at all — `/tmp`, a link to `/private/tmp`, is the easy one to hit — and a
+/// bundle that shipped a runtime silently loses it, falling back to a checkout that a
+/// relocated app has no reason to have.
+///
+/// Locating our own read-only resources is not the operation that guard protects, so this
+/// reads the bundle layout instead: the binary of a macOS .app sits in `Contents/MacOS`,
+/// beside `Contents/Resources`. The name check is what keeps it from inventing a resource
+/// directory anywhere else — every other build still resolves through Tauri alone.
+fn resources_from_exe(exe: &Path) -> Option<PathBuf> {
+    let macos_dir = exe.parent()?;
+    if macos_dir.file_name()? != "MacOS" {
+        return None;
+    }
+    let resources = macos_dir.parent()?.join("Resources");
+    resources.is_dir().then_some(resources)
+}
+
+/// [`resources_from_exe`] for this process — what the shell passes to [`Launcher::use_resources`]
+/// when `app.path().resource_dir()` comes back with an error.
+pub fn bundle_resources() -> Option<PathBuf> {
+    resources_from_exe(&std::env::current_exe().ok()?)
+}
+
 /// A directory holding the Python core. The one predicate, used for a checkout and for an
 /// embedded copy alike — they are the same tree.
 fn is_root(dir: &Path) -> bool {
@@ -466,6 +495,29 @@ mod tests {
 
         // 1st: PRAXIS_PYTHON.
         assert_eq!(pick_python(None, Some("/opt/py/bin/python"), &root), PathBuf::from("/opt/py/bin/python"));
+    }
+
+    #[test]
+    fn a_bundles_resources_are_found_from_its_binary_when_tauri_will_not_say() {
+        // The .app layout, which is the only one this may answer for: Tauri gives up on a
+        // binary under a symlinked path, and a relocated bundle would lose its runtime.
+        let app = scratch("bundle").join("Praxis.app");
+        let exe = app.join("Contents").join("MacOS").join("praxis");
+        touch(&exe);
+        let resources = app.join("Contents").join("Resources");
+        runtime_at(&resources);
+
+        assert_eq!(resources_from_exe(&exe), Some(resources.clone()));
+        assert!(embedded_runtime(&resources_from_exe(&exe).unwrap()).is_some());
+
+        // Not a bundle: no Contents/MacOS, or no Resources beside it. Both read as "no
+        // resource directory", exactly as they did before this fallback existed.
+        let loose = scratch("bundle-loose").join("praxis");
+        touch(&loose);
+        assert_eq!(resources_from_exe(&loose), None);
+        let bare = scratch("bundle-bare").join("Contents").join("MacOS").join("praxis");
+        touch(&bare);
+        assert_eq!(resources_from_exe(&bare), None);
     }
 
     #[test]

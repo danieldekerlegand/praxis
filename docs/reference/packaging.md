@@ -15,8 +15,11 @@ start from the same `ui/dist`, and both browse the same launcher API.
 ## Prerequisites
 
 - **Rust** (stable, ≥ 1.77.2) and **Node 20+** with npm.
-- **Python 3.10+** with the launch extra — the bundle *runs* the Python core, it does not
-  contain it (see [The Python core is not inside the bundle](#the-python-core-is-not-inside-the-bundle)).
+- **Python 3.10+** with the launch extra — the shell *runs* the Python core, and a build
+  either embeds one or discovers one on the machine
+  (see [The Python runtime in the bundle](#the-python-runtime-in-the-bundle)).
+- **uv** — only for an embedded bundle: it is what fetches the relocatable interpreter
+  (`scripts/embed-python.sh`). Not needed to build or run anything else.
 - macOS: Xcode Command Line Tools (`xcode-select --install`). Full Xcode is not required
   for an unsigned build.
 - Linux: `libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev
@@ -136,26 +139,92 @@ variables come from repository secrets of the same names; an unset secret arrive
 empty variable, which is exactly the unsigned path — so a fork still gets a bundle rather
 than a failed job. Values are never echoed, only variable names.
 
-### The Python core is not inside the bundle
+### The Python runtime in the bundle
 
-The shell discovers the core at runtime rather than embedding it
-(`src-tauri/src/library.rs`), in this order:
+The shell does not reimplement the core — it starts `launcher/app.py` with a Python
+interpreter (`src-tauri/src/library.rs`). Where both come from is decided at runtime, and
+a release build can **carry** them so the `.app` needs nothing beside it.
 
-1. `PRAXIS_ROOT` — a directory holding `curriculum.py`, `launcher/app.py` and `notebooks/`.
-2. Otherwise the first such directory above the binary, then above the working directory.
-   A `.app` sitting inside (or beside) a checkout therefore just works.
+**Discovery order**, the same in every build — an embedded runtime only ever adds the
+first step:
 
-The interpreter is `PRAXIS_PYTHON`, else `<root>/.venv/bin/python`, else `python3` — and
-it must have the launch extra:
+| | The core (`curriculum.py` + `launcher/app.py` + `notebooks/`) | The interpreter |
+|-|-|-|
+| 1 | `<resources>/praxis-runtime/core` — this build's embedded copy | `<resources>/praxis-runtime/python/bin/python3` |
+| 2 | `PRAXIS_ROOT` | `PRAXIS_PYTHON` |
+| 3 | the first such directory above the binary, then above the cwd | `<root>/.venv/bin/python` |
+| 4 | — | `python3` on `PATH` |
+
+The embedded interpreter goes first because it is the only one *known* to carry the launch
+extra; a shipped app that quietly borrowed the user's `python3` is the failure the order
+prevents. Both halves must be present or neither is used, so a half-copied payload falls
+back rather than running a bundle's core on a checkout's interpreter. **`PRAXIS_NO_EMBED=1`
+ignores the embedded runtime** and takes the rest of the order — the escape hatch when a
+shipped runtime is broken.
+
+Row 1 needs the bundle's resource directory, and Tauri will not always name it: its
+`resource_dir()` refuses any binary reached through a **symlinked** path (a relaunch-hijack
+guard in tauri-utils), which an `.app` under a symlinked directory is — `/tmp`, a link to
+`/private/tmp`, is the easy one to hit. The shell falls back to the bundle's own layout in
+that case (`Contents/MacOS/…` beside `Contents/Resources`, `library::bundle_resources`), so
+a moved bundle keeps the runtime it shipped instead of silently dropping to row 2 and
+looking for a checkout it has no reason to have.
+
+Nothing about a dev build changes: `cargo run` / `npm run dev` ship no resources, so they
+read the table from row 2 exactly as they always did.
+
+#### Building with the embed
+
+```bash
+scripts/embed-python.sh                    # stage the runtime (~300 MB, downloads CPython)
+scripts/bundle-macos.sh --bundles app      # picks the payload up automatically
+```
+
+`scripts/embed-python.sh` writes `src-tauri/resources/praxis-runtime/`:
+
+| | What |
+|-|-|
+| `python/` | a relocatable CPython 3.12 (python-build-standalone, fetched by uv) with `.[launch]` installed into it — non-editable, so `site-packages` holds real files rather than a path back into the checkout |
+| `core/` | `curriculum.py` · `nbstatus.py` · `scaffold_notebooks.py` · `launcher/` · `praxis/` · `notebooks/` — the seed library included |
+
+It proves the payload before staging it (`import fastapi, uvicorn, jinja2` and
+`import curriculum, nbstatus, launcher.app` from the copy), and leaves nothing behind if
+that fails — exit **2** means "cannot embed here", not "the build failed".
+`--check` reports the plan; `--clean` removes the payload; `--python X.Y` picks the version.
+
+The payload is **untracked** (`.gitignore`) and the copy into the bundle lives in an
+**overlay** config, `src-tauri/tauri.embedded.conf.json`, rather than in `tauri.conf.json`:
+a `bundle.resources` entry naming a missing directory fails the build, so putting it in the
+main config would break every build that hasn't staged 300 MB first. Build by hand with:
+
+```bash
+npm --prefix ui exec -- tauri build --config src-tauri/tauri.embedded.conf.json
+```
+
+`scripts/bundle-macos.sh` adds that flag itself when the payload is there and says which
+bundle it is making — `embed embedded` or `embed none` — because the two produce
+identically-named artifacts that behave very differently once moved.
+
+#### Building without it
+
+Just don't stage the payload (or `scripts/embed-python.sh --clean` an old one). The bundle
+is then the shell alone and needs a checkout with the launch extra beside it:
 
 ```bash
 uv venv .venv && uv pip install --python .venv/bin/python -e '.[launch]'
 ```
 
-So a bundle shipped to another machine needs the checkout and that environment beside it;
-without them the window opens and the library view reports the missing piece (that is
-what `LauncherStatus::failed` is for) instead of failing silently. Embedding an
-interpreter is not done here.
+Without one the window opens and the library view reports the missing piece (that is what
+`LauncherStatus::failed` is for) rather than failing silently.
+
+#### What an embedded bundle actually does
+
+Verified on macOS 26.5 (arm64) with the `.app` copied to `/tmp`, no checkout anywhere above
+it, `PRAXIS_ROOT`/`PRAXIS_PYTHON` unset and the working directory outside the repo: the
+shell resolves `<app>/Contents/Resources/praxis-runtime`, starts uvicorn on the embedded
+CPython, reaches `LauncherStatus` **ready**, and serves the whole loop — define a subject,
+scaffold it, construct it to the rubric, and gate it behind the knowledge checks. The
+launcher's own status line reads `embedded runtime: …/Contents/Resources/praxis-runtime/python/bin/python3`.
 
 ## Web build (optional target)
 

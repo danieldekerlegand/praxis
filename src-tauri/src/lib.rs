@@ -85,10 +85,13 @@ pub fn run() {
             // Where a release bundle keeps the embedded Python runtime it may have
             // shipped. Same reason as above: only the shell can ask Tauri where its
             // resources landed, and that answer differs per platform and bundle format.
-            match app.path().resource_dir() {
-                Ok(dir) => launcher.use_resources(dir),
-                Err(err) => eprintln!("praxis: no resource directory ({err}) — \
-                                       an embedded Python runtime cannot be used"),
+            // Tauri refuses to answer for a binary under a symlinked path, which a
+            // relocated .app can easily be, so fall back to the bundle's own layout
+            // rather than lose the runtime it shipped (`library::bundle_resources`).
+            match app.path().resource_dir().ok().or_else(library::bundle_resources) {
+                Some(dir) => launcher.use_resources(dir),
+                None => eprintln!("praxis: no resource directory — an embedded Python \
+                                   runtime cannot be used"),
             }
             // Off the main thread: starting uvicorn takes a second or two and the window
             // should be up (showing "starting the launcher…") the whole time.
