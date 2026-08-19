@@ -31,6 +31,8 @@ LEAKY = (
     "OPENAI_API_KEY",
     "AGORA_BASE_URL",
     "AGORA_API_KEY",
+    "AGORA_ROUTE",
+    "AGORA_FALLBACK_MODELS",
 )
 
 
@@ -45,6 +47,13 @@ def clean_env(monkeypatch, tmp_path):
 class _Response(io.BytesIO):
     """Just enough of an http response for `with _urlopen(...) as r: r.read()`."""
 
+    def __init__(self, data: bytes, headers: dict | None = None):
+        super().__init__(data)
+        # Only set when a test says so: a response with no headers at all is the
+        # normal case, and the client has to survive it.
+        if headers is not None:
+            self.headers = headers
+
     def __enter__(self):
         return self
 
@@ -57,7 +66,7 @@ class _Response(io.BytesIO):
 def captured(monkeypatch):
     """Mock the network; record the request and reply with a canned body."""
     calls: list[dict] = []
-    body = {"payload": None}
+    body = {"payload": None, "headers": None}
 
     def fake_urlopen(request, timeout):
         calls.append(
@@ -68,7 +77,7 @@ def captured(monkeypatch):
                 "timeout": timeout,
             }
         )
-        return _Response(json.dumps(body["payload"]).encode())
+        return _Response(json.dumps(body["payload"]).encode(), body["headers"])
 
     monkeypatch.setattr(llm, "_urlopen", fake_urlopen)
     return calls, body
@@ -266,6 +275,157 @@ def test_agora_needs_no_provider_key(monkeypatch, captured):
     monkeypatch.setenv("AGORA_BASE_URL", "http://localhost:9000")
 
     assert llm.LLMClient().complete("hi") == "hello from openai"
+
+
+# --- routing mode: agora, deeper than a base-URL swap --------------------
+
+
+def test_router_hints_ride_in_headers_and_never_in_the_payload(monkeypatch, captured):
+    """A route or a fallback list must not become a body key a provider rejects."""
+    calls, body = captured
+    body["payload"] = OPENAI_REPLY
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-oai")
+    monkeypatch.setenv("AGORA_BASE_URL", "http://localhost:9000")
+    monkeypatch.setenv("AGORA_ROUTE", "cheap-and-fast")
+    monkeypatch.setenv("AGORA_FALLBACK_MODELS", "claude-opus-5, gpt-4o ,")
+
+    client = llm.LLMClient()
+    assert client.config.agora_fallbacks == ("claude-opus-5", "gpt-4o")
+    client.complete("hi")
+
+    (call,) = calls
+    assert call["headers"][llm.AGORA_ROUTE_HEADER] == "cheap-and-fast"
+    assert call["headers"][llm.AGORA_FALLBACK_HEADER] == "claude-opus-5,gpt-4o"
+    # The payload is still the plain chat-completions one: no sampling params, and
+    # nothing agora-specific for an upstream model to choke on.
+    assert set(call["json"]) == {"model", "max_tokens", "messages"}
+
+
+def test_the_router_reports_what_it_actually_served(monkeypatch, captured):
+    """The router's own headers are recorded, including a fallback it chose itself."""
+    _, body = captured
+    body["payload"] = dict(OPENAI_REPLY, model="ignored-echo", id="body-id")
+    body["headers"] = {
+        "X-Agora-Model": "gpt-4o",
+        "x-agora-provider": "openai",
+        "x-agora-route": "resolved-route",
+        "x-agora-request-id": "req-42",
+    }
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant")
+    monkeypatch.setenv("AGORA_BASE_URL", "http://localhost:9000")
+    monkeypatch.setenv("PRAXIS_LLM_MODEL", "claude-opus-5")
+    monkeypatch.setenv("AGORA_ROUTE", "asked-for-route")
+
+    client = llm.LLMClient()
+    assert client.complete("hi") == "hello from openai"
+
+    route = client.last_route
+    assert route.routed_via_agora is True
+    assert (route.requested_model, route.model) == ("claude-opus-5", "gpt-4o")
+    assert route.fell_back is True
+    assert (route.provider, route.route, route.request_id) == (
+        "openai", "resolved-route", "req-42")
+    described = client.route_description()
+    assert "agora provider-router" in described
+    assert "served gpt-4o (asked for claude-opus-5)" in described
+
+
+def test_a_quiet_router_falls_back_to_the_response_body(monkeypatch, captured):
+    """Nothing the router reports is required — a bare OpenAI reply still records."""
+    _, body = captured
+    body["payload"] = dict(OPENAI_REPLY, model="claude-opus-5", id="chatcmpl-7")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant")
+    monkeypatch.setenv("AGORA_BASE_URL", "http://localhost:9000")
+    monkeypatch.setenv("PRAXIS_LLM_MODEL", "claude-opus-5")
+
+    client = llm.LLMClient()
+    client.complete("hi")
+    assert (client.last_route.model, client.last_route.request_id) == (
+        "claude-opus-5", "chatcmpl-7")
+    assert client.last_route.fell_back is False
+    assert client.last_route.provider == ""
+
+
+def test_the_routers_error_body_is_surfaced_and_the_router_is_named(monkeypatch):
+    """A 502 from the router is the router's failure, with its own sentence first."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant")
+    monkeypatch.setenv("AGORA_BASE_URL", "http://localhost:9000")
+
+    def boom(request, timeout):
+        raise urllib.error.HTTPError(
+            request.full_url, 502, "Bad Gateway",
+            {"x-agora-provider": "anthropic", "x-agora-request-id": "req-9"},
+            io.BytesIO(json.dumps(
+                {"error": {"message": "every upstream for this route is rate limited"}}
+            ).encode()),
+        )
+
+    monkeypatch.setattr(llm, "_urlopen", boom)
+    with pytest.raises(llm.LLMError) as caught:
+        llm.LLMClient().complete("hi")
+    message = str(caught.value)
+    assert "agora provider-router call failed (502)" in message
+    assert "provider anthropic" in message and "request req-9" in message
+    assert message.endswith("every upstream for this route is rate limited")
+
+
+def test_an_unparseable_router_error_still_carries_its_body(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant")
+    monkeypatch.setenv("AGORA_BASE_URL", "http://localhost:9000")
+
+    def boom(request, timeout):
+        raise urllib.error.HTTPError(
+            request.full_url, 500, "Server Error", {}, io.BytesIO(b"<html>nginx</html>")
+        )
+
+    monkeypatch.setattr(llm, "_urlopen", boom)
+    with pytest.raises(llm.LLMError, match="<html>nginx</html>"):
+        llm.LLMClient().complete("hi")
+
+
+def test_an_unreachable_router_says_how_to_go_direct(monkeypatch):
+    """agora is opt-in: a router that is down must not read as a provider outage."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant")
+    monkeypatch.setenv("AGORA_BASE_URL", "http://localhost:9000")
+
+    def boom(request, timeout):
+        raise urllib.error.URLError("Connection refused")
+
+    monkeypatch.setattr(llm, "_urlopen", boom)
+    with pytest.raises(llm.LLMError) as caught:
+        llm.LLMClient().complete("hi")
+    message = str(caught.value)
+    assert "could not reach the agora provider-router" in message
+    assert "unset AGORA_BASE_URL" in message
+
+
+def test_describe_shows_the_route_a_human_would_need(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant")
+    monkeypatch.setenv("AGORA_BASE_URL", "http://localhost:9000")
+    monkeypatch.setenv("AGORA_ROUTE", "cheap-and-fast")
+    monkeypatch.setenv("AGORA_FALLBACK_MODELS", "gpt-4o")
+
+    described = llm.load_config().describe()
+    assert "via agora provider-router at http://localhost:9000/v1/chat/completions" in described
+    assert "route cheap-and-fast" in described
+    assert "fallback gpt-4o" in described
+    # Before any call, the client can only describe what was configured.
+    assert llm.LLMClient().route_description() == described
+
+
+def test_the_config_file_can_carry_the_router_hints(monkeypatch, tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"llm": {
+        "provider": "openai", "api_key": "sk-file",
+        "agora_base_url": "http://localhost:9000",
+        "agora_route": "from-file",
+        "agora_fallback_models": ["a-model", "b-model"],
+    }}))
+    monkeypatch.setenv("PRAXIS_CONFIG", str(path))
+    config = llm.load_config()
+    assert config.agora_route == "from-file"
+    assert config.agora_fallbacks == ("a-model", "b-model")
+    assert config.router_headers()[llm.AGORA_FALLBACK_HEADER] == "a-model,b-model"
 
 
 # --- failure handling ----------------------------------------------------

@@ -26,7 +26,8 @@
         "The agora path stays authenticated per the client's existing rule (`AGORA_API_KEY`, falling back to the provider key) and sends no sampling params the models reject; `describe()` reflects the deeper routing so a human can see the route in use.",
         "Gate green: `python3 -m pytest -q tests/` passes, with a test that drives the agora-routed path against a stub endpoint (no live agora) asserting the request goes to the router and the router's response/errors are surfaced."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "praxis/llm.py: AGORA_ROUTE/AGORA_FALLBACK_MODELS ride in x-agora-* headers (never the body, so no param a provider rejects); the router's served model/provider/route/request-id are read back into LLMClient.last_route (falls back to the reply's model/id when the router is quiet); a router HTTPError is reported as the router's with error.message extracted, and an unreachable router names AGORA_BASE_URL as the way back to direct. describe() now shows route + fallback. Observed: .venv/bin/python -m pytest -q tests/ = 802 passed, 1 warning (30 in tests/test_llm.py, 10 of them new); doctor prints 'anthropic/claude-opus-5 via agora provider-router at http://localhost:9000/v1/chat/completions route fast fallback gpt-4o (timeout 120s)' with AGORA_BASE_URL set and the unchanged '... via direct at https://api.anthropic.com/v1/messages (timeout 120s)' without it."
     },
     {
       "id": "US-2",

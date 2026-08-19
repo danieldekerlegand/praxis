@@ -117,6 +117,17 @@ endpoint; the model string is passed through untouched, so set `PRAXIS_LLM_MODEL
 whatever the router expects. When **`AGORA_BASE_URL` is unset, calls go direct** to the
 provider. Praxis is standalone — agora is optional, never required.
 
+With the router in the path, two more optional knobs steer it and one more thing comes
+back: `AGORA_ROUTE` asks for a named route/profile and `AGORA_FALLBACK_MODELS` (a
+comma-separated list) names the models it may fall back to. Both ride in `x-agora-*`
+**headers**, never in the request body, so they can never become a parameter the
+upstream model rejects. What the router actually served — model, upstream provider,
+resolved route, request id — is read back off the reply into `LLMClient.last_route`
+(`client.route_description()`), so a fallback the router chose is visible instead of
+silent, and a router failure is reported as the *router's*, with its own error message
+and a reminder that unsetting `AGORA_BASE_URL` goes direct. None of it is required: a
+router that reports nothing behaves exactly like the plain base-URL swap.
+
 Other knobs: `PRAXIS_LLM_MODEL` (overrides the per-provider default),
 `PRAXIS_LLM_API_KEY` (overrides the provider-specific key variable), and
 `PRAXIS_LLM_TIMEOUT` (seconds to wait for one reply, default 120). **Raise the timeout if
