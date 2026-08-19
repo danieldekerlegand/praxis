@@ -28,7 +28,7 @@ Everything those writes land on lives wherever `praxis/storage.py` says, and whi
 that is is itself something the user sets:
     GET  /api/storage                   the active backend, its root, and whether it's there
     POST /api/storage                   {kind, options} -> switch backend (400 with why not)
-    POST /api/storage/sync              push/pull the cloud backend's mirror (503 if offline)
+    POST /api/storage/sync              push/pull a mirrored backend (503 if offline)
 
 Every other write is refused with 503 while the active backend is unwritable — one
 middleware, so an unplugged drive can't be silently recreated on the internal disk.

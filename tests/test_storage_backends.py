@@ -1,4 +1,4 @@
-"""The other two places a user's work can live: a mounted drive, and a bucket.
+"""The three other places a user's work can live: a drive, a bucket, a WebDAV share.
 
 `tests/test_storage.py` covers the default backend and the layout. This file is about the
 claims US-2 makes that are easy to fake and expensive to get wrong:
@@ -11,8 +11,9 @@ claims US-2 makes that are easy to fake and expensive to get wrong:
 * a backend that has gone away (a drive unplugged, a bucket unreachable) produces a clear
   message and *refuses the write*, rather than silently recreating the drive's folder on
   the internal disk;
-* the cloud round trip is a real one. `tests/mocks3.py` serves the S3 protocol on a
-  loopback port, so `praxis/s3.py` signs and sends the requests it would send to AWS.
+* the remote round trips are real ones. `tests/mocks3.py` serves the S3 protocol and
+  `tests/mockdav.py` serves WebDAV, each on a loopback port, so `praxis/s3.py` signs and
+  `praxis/webdav.py` walks against the wire format the real servers use.
 """
 
 from __future__ import annotations
@@ -29,8 +30,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from mocks3 import MockS3  # noqa: E402
+from mockdav import MockDAV  # noqa: E402
 from curriculum import save_subject, subject_from_dict  # noqa: E402
-from praxis import cloud, storage  # noqa: E402
+from praxis import cloud, share, storage  # noqa: E402
 from praxis.checks import CheckOutcome  # noqa: E402
 from praxis.progress import record_outcome  # noqa: E402
 from praxis.s3 import S3Client, S3Error  # noqa: E402
@@ -55,6 +57,17 @@ def own_storage(monkeypatch, app_dir):
 @pytest.fixture
 def s3():
     server = MockS3()
+    try:
+        yield server
+    finally:
+        server.stop()
+
+
+@pytest.fixture
+def dav():
+    """A WebDAV share with the collection the account owner would have made."""
+    server = MockDAV()
+    server.make("Praxis")
     try:
         yield server
     finally:
@@ -394,3 +407,269 @@ def test_a_backend_switch_leaves_the_old_root_alone(tmp_path):
 
     storage.select_backend("app")
     assert (app_root / "subjects" / NOTEBOOK).is_file()
+
+
+# --- the WebDAV share -------------------------------------------------------
+
+
+def test_the_webdav_client_walks_rather_than_asking_for_infinite_depth(dav):
+    """One `PROPFIND` per collection: the shortcut every real server refuses (403)."""
+    client = share.client_for(dav.options("Praxis"))
+    client.put_file("subjects/a/one.json", b"1")
+    client.put_file("subjects/b/two.json", b"2")
+    assert [f.rel for f in client.list_files()] == ["subjects/a/one.json", "subjects/b/two.json"]
+
+    with pytest.raises(Exception, match="finite-depth"):
+        client.propfind("", depth="infinity")
+
+
+def test_the_webdav_client_sends_its_password(dav):
+    """The mock rejects an unauthenticated request, so this fails if auth is skipped."""
+    anonymous = share.client_for({"url": dav.url, "folder": "Praxis"})
+    with pytest.raises(Exception, match="401"):
+        anonymous.check()
+
+
+def test_a_webdav_backend_mirrors_the_share_inside_the_app_directory(dav, app_dir):
+    backend = storage.select_backend("webdav", dav.options("Praxis"))
+    assert backend.kind == "webdav"
+    assert backend.root == app_dir / "webdav" / share.mirror_name(dav.options("Praxis"))
+    assert backend.root.is_dir()
+    assert backend.available() == (True, "")
+
+
+def test_selecting_a_share_moves_every_writer_onto_it(dav):
+    """Not asserted through subjects_dir() — through the modules that write.
+
+    The delegates are the claim: `curriculum.subjects_dir()` and `progress.progress_dir()`
+    learned nothing about this backend, and follow its root because they always did.
+    """
+    backend = storage.select_backend("webdav", dav.options("Praxis"))
+    write_a_subject_and_some_progress()
+
+    assert (backend.root / "subjects" / "coastal-navigation" / "curriculum.json").is_file()
+    assert (backend.root / "subjects" / NOTEBOOK).is_file()
+    assert (backend.root / "progress" / "ada.json").is_file()
+    assert storage.subjects_dir() == backend.subjects
+    assert storage.progress_dir() == backend.progress
+
+
+def test_the_work_written_to_a_share_reads_back_through_the_same_modules(dav):
+    """Write with the four writers, read with the readers — no path arithmetic either way."""
+    from curriculum import load_subject
+    from praxis.progress import load_progress
+
+    storage.select_backend("webdav", dav.options("Praxis"))
+    write_a_subject_and_some_progress()
+
+    assert load_subject("coastal-navigation").title == "Coastal Navigation"
+    assert (storage.subjects_dir() / NOTEBOOK).read_text() == '{"cells": []}'
+    assert load_progress("ada")["topics"][REL]["outcomes"]["charts-1"]["passed"] is True
+
+
+def test_an_unreachable_share_is_refused_and_leaves_no_decoy_mirror(dav, app_dir, tmp_path):
+    """The `_drive_available` rule, one protocol along.
+
+    The mirror's parent is the app directory, which is always there — so "could I create
+    this folder?" would answer yes with the server switched off, and the user would fill a
+    mirror that nothing is behind. The collection has to answer before the folder is made.
+    """
+    drive = tmp_path / "Backup" / "Praxis"
+    drive.parent.mkdir(parents=True)
+    storage.select_backend("drive", {"path": str(drive)})
+
+    options = dav.options("Praxis")
+    dav.stop()
+    with pytest.raises(storage.StorageError, match="cannot reach"):
+        storage.select_backend("webdav", options)
+
+    assert not (app_dir / "webdav").exists()          # no decoy to fill
+    assert storage.active_backend().root == drive     # and the selection did not move
+
+
+def test_a_share_that_goes_away_is_a_clear_error_and_never_a_lost_notebook(dav):
+    """Offline: *not available* (no sync), still *writable* (the mirror is right here)."""
+    backend = storage.select_backend("webdav", dav.options("Praxis"))
+    write_a_subject_and_some_progress()
+    dav.stop()
+
+    ok, why = storage.active_backend().available()
+    assert not ok and "cannot reach" in why
+    assert storage.active_backend().writable() == (True, "")
+    assert (storage.subjects_dir() / NOTEBOOK).is_file()
+
+    with pytest.raises(storage.StorageError, match="sync failed|cannot reach"):
+        storage.sync_active()
+    assert storage.active_backend().root == backend.root  # still selected, still there
+
+
+def test_a_folder_that_is_not_on_the_share_is_refused_rather_than_created(dav, app_dir):
+    """A typo in the folder is the same failure as a server that is not there."""
+    with pytest.raises(storage.StorageError, match="cannot reach"):
+        storage.select_backend("webdav", dav.options("Praxsi"))
+    assert not (app_dir / "webdav").exists()
+
+
+def test_a_webdav_backend_with_no_server_says_what_is_missing():
+    ok, why = storage.resolve("webdav", {}).available()
+    assert not ok and why == "no server configured"
+
+
+def test_the_webdav_backend_is_plugged_in_through_the_public_seam():
+    """It uses `register_backend`, and every hook it needs landed in the tables."""
+    assert storage._RESOLVERS["webdav"] is storage._resolve_webdav
+    assert storage._AVAILABLE["webdav"] is storage._webdav_available
+    assert storage._WRITABLE["webdav"] is storage._local_available
+    assert "webdav" in storage._ON_SELECT and "webdav" in storage._SYNC
+    assert storage.kinds() == ["app", "cloud", "drive", "webdav"]
+
+
+# --- the share's sync, and what it is allowed to move -----------------------
+
+
+def test_writing_to_the_webdav_backend_and_syncing_puts_it_on_the_share(dav):
+    storage.select_backend("webdav", dav.options("Praxis"))
+    write_a_subject_and_some_progress()
+    assert dav.keys() == []  # nothing leaves this machine until a sync says so
+
+    result = storage.sync_active()
+    assert result["synced"] is True
+    assert dav.keys() == [
+        "Praxis/progress/ada.json",
+        "Praxis/subjects/coastal-navigation/01-charts/reading-a-chart.checks.json",
+        "Praxis/subjects/coastal-navigation/01-charts/reading-a-chart.ipynb",
+        "Praxis/subjects/coastal-navigation/curriculum.json",
+    ]
+    assert dav.body("Praxis/subjects/" + NOTEBOOK) == b'{"cells": []}'
+
+
+def test_a_second_share_sync_moves_nothing(dav):
+    """Idempotent, and by content — which here is the harder half.
+
+    A WebDAV `ETag` is opaque, so a mirror that compared it with a local digest would
+    disagree with itself forever and re-upload every file on every sync. What stops that
+    is `.praxis-sync.json` remembering *both* tokens, and this is what proves it works.
+    """
+    storage.select_backend("webdav", dav.options("Praxis"))
+    write_a_subject_and_some_progress()
+    storage.sync_active()
+    uploaded = len(dav.puts)
+
+    again = storage.sync_active()
+    assert again["moved"] == 0
+    assert len(dav.puts) == uploaded
+
+
+def test_the_share_round_trip_survives_losing_the_mirror_and_the_process(dav, app_dir, tmp_path):
+    """Work written here, pushed, and then read back from the share alone.
+
+    The mirror is deleted between the two halves, so nothing on this disk can be what the
+    second process reads — it has to come down off the share, in a fresh interpreter.
+    """
+    backend = storage.select_backend("webdav", dav.options("Praxis"))
+    write_a_subject_and_some_progress()
+    storage.sync_active()
+
+    for path in sorted(backend.root.rglob("*"), reverse=True):
+        path.unlink() if path.is_file() else path.rmdir()
+    assert not any(backend.root.rglob("*"))
+
+    pulled = storage.sync_active()
+    assert len(pulled["pulled"]) == 4
+    read_back = read_it_back_in_a_new_process(app_dir, tmp_path / "elsewhere-home")
+    assert read_back["kind"] == "webdav"
+    assert read_back["root"] == str(backend.root)
+    assert read_back["title"] == "Coastal Navigation"
+    assert read_back["notebook"] == '{"cells": []}'
+    assert read_back["passed"] is True
+
+
+def test_selecting_a_share_pulls_what_is_already_on_it(dav, app_dir):
+    """The second machine: choose the share, and the work is there without a sync."""
+    storage.select_backend("webdav", dav.options("Praxis"))
+    write_a_subject_and_some_progress()
+    storage.sync_active()
+
+    storage.select_backend("app")           # go away…
+    mirror = app_dir / "webdav" / share.mirror_name(dav.options("Praxis"))
+    for path in sorted(mirror.rglob("*"), reverse=True):
+        path.unlink() if path.is_file() else path.rmdir()
+
+    storage.select_backend("webdav", dav.options("Praxis"))   # …and come back
+    assert (storage.subjects_dir() / NOTEBOOK).read_text() == '{"cells": []}'
+
+
+def test_the_side_that_changed_wins_on_a_share_in_both_directions(dav):
+    storage.select_backend("webdav", dav.options("Praxis"))
+    write_a_subject_and_some_progress()
+    storage.sync_active()
+    notebook = storage.subjects_dir() / NOTEBOOK
+    key = "Praxis/subjects/" + NOTEBOOK
+
+    # ours is the side that changed -> the share takes it
+    notebook.write_text('{"cells": ["local"]}')
+    storage.sync_active()
+    assert dav.body(key) == b'{"cells": ["local"]}'
+
+    # theirs is -> we take it back
+    dav.share.put(key, b'{"cells": ["remote"]}', time.time() + 60)
+    storage.sync_active()
+    assert notebook.read_text() == '{"cells": ["remote"]}'
+
+
+def test_a_share_sync_never_deletes(dav):
+    """A share that lost a file cannot empty the mirror, and a cleared mirror cannot
+    empty the share — and the evidence is that no `DELETE` is ever sent."""
+    storage.select_backend("webdav", dav.options("Praxis"))
+    write_a_subject_and_some_progress()
+    storage.sync_active()
+    notebook = storage.subjects_dir() / NOTEBOOK
+    key = "Praxis/subjects/" + NOTEBOOK
+
+    dav.share.clear()                       # the share loses everything
+    storage.sync_active()
+    assert notebook.is_file() and notebook.read_text() == '{"cells": []}'
+    assert key in dav.keys()                # …and gets it back, rather than us losing it
+
+    notebook.unlink()                       # and now the other way round
+    storage.sync_active()
+    assert key in dav.keys()
+    assert notebook.read_text() == '{"cells": []}'
+    assert dav.deletes == []
+
+
+# --- the share's settings form ----------------------------------------------
+
+
+def test_the_share_password_survives_editing_the_rest_of_the_form(dav):
+    """The form is never sent the password, so a blank one has to mean "keep it"."""
+    dav.make("Team")
+    storage.select_backend("webdav", dav.options("Praxis"))
+    storage.select_backend("webdav", {**dav.options("Team"), "password": ""})
+    assert storage.active_backend().options["password"] == "praxis-test-password"
+    assert storage.active_backend().options["folder"] == "Team"
+
+
+def test_the_share_password_never_leaves_the_process(dav):
+    storage.select_backend("webdav", dav.options("Praxis"))
+    described = storage.describe()
+    assert "praxis-test-password" not in json.dumps(described)
+    field = next(f for b in described["backends"] if b["kind"] == "webdav"
+                 for f in b["fields"] if f["key"] == "password")
+    assert field["value"] == "" and field["set"] is True
+
+
+def test_the_settings_form_is_told_about_the_share_without_being_told_it_is_a_share(dav):
+    """`ui/src/StorageSettings.tsx` renders this and knows no backend by name: a kind, a
+    blurb, and fields carrying everything an input needs to be drawn and validated."""
+    storage.select_backend("webdav", dav.options("Praxis"))
+    described = storage.describe()
+    assert described["syncable"] is True
+    webdav = next(b for b in described["backends"] if b["kind"] == "webdav")
+    assert webdav["blurb"] and webdav["label"] == "WebDAV share"
+    assert [f["key"] for f in webdav["fields"]] == ["url", "folder", "username", "password"]
+    assert [f["key"] for f in webdav["fields"] if f["required"]] == ["url"]
+    assert [f["key"] for f in webdav["fields"] if f["secret"]] == ["password"]
+    assert all(set(f) == {"key", "label", "required", "secret", "value", "set"}
+               for f in webdav["fields"])
+    assert next(f for f in webdav["fields"] if f["key"] == "url")["value"] == dav.url

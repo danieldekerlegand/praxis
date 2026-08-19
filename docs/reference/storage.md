@@ -1,6 +1,6 @@
 # Storage — where your work is kept
 
-> **Status:** Current · **Updated:** 2026-08-14 · **Owner:** praxis
+> **Status:** Current · **Updated:** 2026-08-19 · **Owner:** praxis
 
 Praxis writes four kinds of thing, and all four belong to **you**: the subjects you
 define, the curricula generated for them, the tutorials constructed into them (notebooks
@@ -31,14 +31,15 @@ passed. Nothing else is needed, and nothing in it points back at where it came f
 
 ## Where the root is
 
-Three backends ship. They differ only in where the root is; the layout above and every
-line of code that writes into it are identical across all three.
+Four backends ship. They differ only in where the root is; the layout above and every
+line of code that writes into it are identical across all four.
 
 | backend | root | |
 |---|---|---|
 | `app` *(default)* | the app-data directory, `data/` | this computer, per user |
 | `drive` | the folder you picked, verbatim | an external disk, a share, a synced folder |
 | `cloud` | a mirror in the app-data directory, `cloud/<bucket>[-<prefix>]/` | synced with an S3-compatible bucket |
+| `webdav` | a mirror in the app-data directory, `webdav/<host>[-<folder>]/` | synced with a WebDAV share |
 
 Choose one in the app under **storage**, or from a terminal:
 
@@ -91,6 +92,34 @@ path-style addressing and single-part uploads (`praxis/s3.py`, ~250 lines of `ur
 | `prefix` | optional key prefix, so one bucket can hold several things |
 | `region` | defaults to `us-east-1` |
 | `access_key_id` / `secret_access_key` | omit both for an unauthenticated endpoint |
+
+### `webdav` — a share you already have
+
+The remote most people own without buying anything: Nextcloud, ownCloud, a Synology, Box,
+a Fastmail file store, `rclone serve webdav`, Apache's `mod_dav`. It works exactly like
+`cloud` — a **local mirror plus a sync** (`praxis/share.py` over `praxis/webdav.py`), so
+the app runs offline and it is the sync that fails out loud — and it follows the same
+rules: selecting the share pulls it down, the side that *changed* wins per file, and **a
+sync never deletes** at either end.
+
+| option | |
+|---|---|
+| `url` | the collection URL, e.g. `https://cloud.example/remote.php/dav/files/ada` |
+| `folder` | optional directory under it, so one account can hold several things |
+| `username` / `password` | omit both for a share that needs no credentials; an app password is the right kind |
+
+Two differences from the S3 mirror, both forced by the protocol. WebDAV's `ETag` is
+**opaque** — Nextcloud's is a random token, Apache's is inode+size+mtime — so it is not
+comparable with a local digest the way S3's is; `.praxis-sync.json` therefore records
+*both* sides' tokens (`{"local": …, "remote": …}`) and a file with no entry yet is fetched
+and compared byte for byte. And the listing is one `PROPFIND` per collection at `Depth: 1`
+rather than a single `Depth: infinity` request, because that shortcut is the first thing a
+real server turns off.
+
+Selecting the share is refused unless the collection actually answers, which is the same
+discipline as `drive`'s "the immediate parent must exist": the mirror's parent is the app
+directory and always exists, so a permissive check would create a mirror with nothing
+behind it and invite you to fill a decoy.
 
 ### The app-data directory
 

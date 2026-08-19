@@ -173,8 +173,9 @@ Nothing else resolves a storage path. `curriculum.subjects_dir()` and
 `progress.progress_dir()` are one-line delegates, which is why every existing caller
 followed the root the day it moved. Adding a backend is a resolver in `_RESOLVERS` (plus
 an availability check in `_AVAILABLE` when it isn't a plain path) — **never** a new path
-computation in a caller. Three ship: `app`, `drive` (the picked folder, verbatim) and
-`cloud`.
+computation in a caller. Four ship: `app`, `drive` (the picked folder, verbatim), `cloud`
+and `webdav`. The last goes in through the public `register_backend()` seam rather than
+into the tables, so what a fifth would do is what the fourth already does — keep it there.
 
 `_drive_available()` is stricter than `_local_available()` on purpose, and the comment
 there is the reason: an unplugged disk leaves `/Volumes` behind, so walking up to the
@@ -185,14 +186,18 @@ the user fill a decoy. The **immediate** parent must be there. The same failure 
 is exempt because it is the fix. `writable()` is the local, cheap half of `available()`;
 they differ only for `cloud`, which stays writable offline.
 
-`cloud` is a **local mirror plus a sync** (`praxis/cloud.py` over `praxis/s3.py`, ~250
-lines of urllib+hmac rather than boto3), because every writer here writes with `Path`.
+`cloud` and `webdav` are each a **local mirror plus a sync** (`praxis/cloud.py` over
+`praxis/s3.py`, ~250 lines of urllib+hmac rather than boto3; `praxis/share.py` over
+`praxis/webdav.py`, urllib again), because every writer here writes with `Path`.
 The merge rule is content-based: `.praxis-sync.json` records the digest both sides last
 agreed on, so the side that *changed* wins and mtimes only break a true conflict — a
 timestamp rule alone loses an edit made in the same second as the previous sync. A sync
-never deletes. `tests/mocks3.py` serves the real protocol on a loopback port, so the sync
-tests sign and send what AWS would receive; a cloud round trip is proved by wiping the
-mirror and reading the work back in a second process.
+never deletes. `tests/mocks3.py` and `tests/mockdav.py` serve the real protocols on a loopback
+port, so the sync tests sign and send what AWS or Nextcloud would receive; a round trip is
+proved by wiping the mirror and reading the work back in a second process. Each fake is
+awkward where the real thing is — `mockdav` refuses `Depth: infinity`, 409s a `PUT` into a
+collection that doesn't exist, and serves an `ETag` that is deliberately *not* the body's
+digest, so nothing can quietly assume S3's.
 
 `storage.FIELDS` / `BLURBS` are the settings form's single source of truth —
 `ui/src/StorageSettings.tsx` renders whatever `GET /api/storage` describes and knows no

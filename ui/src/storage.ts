@@ -28,7 +28,7 @@ export type StorageKind = {
 };
 
 export type StorageInfo = {
-  /** `app` · `drive` · `cloud` — every kind the backend has registered is in `kinds`. */
+  /** `app` · `drive` · `cloud` · `webdav` — every registered kind is in `kinds`. */
   kind: string;
   label: string;
   /** The root everything below is written under. */
@@ -45,7 +45,7 @@ export type StorageInfo = {
   kinds: string[];
   /** The whole settings form, from Python — the UI keeps no second copy of it. */
   backends: StorageKind[];
-  /** True when the active backend has a copy somewhere else (today: cloud). */
+  /** True when the active backend has a copy somewhere else — a mirrored one. */
   syncable: boolean;
 };
 
@@ -97,7 +97,7 @@ export async function selectStorage(
   return (await res.json()) as StorageInfo;
 }
 
-/** Reconcile the active backend with wherever its real copy lives (today: the bucket). */
+/** Reconcile the active backend with wherever its real copy lives (a bucket, a share). */
 export async function syncStorage(base: string): Promise<SyncReport> {
   const res = await fetch(`${base}/api/storage/sync`, { method: "POST" });
   if (!res.ok) return fail(res, `POST ${base}/api/storage/sync`);
