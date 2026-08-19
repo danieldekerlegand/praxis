@@ -26,7 +26,8 @@
         "Embedding is optional at build time: the dev flow (`.venv` + `npm run dev` / `cargo run --no-default-features`) is unchanged, and a build without the embed still walks up to a checkout's venv exactly as today.",
         "Gate green: `cargo build` in src-tauri/ passes, `python3 -m pytest -q tests/` passes (including any test that exercises the discovery order), and `npm run build` in ui/ passes."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "cargo build green; cargo test 4 passed (discovery order); npm run build green; pytest 794 passed, 0 failed. Embed run for real: 295M staged, CPython 3.12.13 + the launch extra + 6 core entries, and the launcher served GET /healthz 200 and GET /api/library 200 (real seed domains) from that payload with cwd=/tmp."
     },
     {
       "id": "US-2",
