@@ -206,7 +206,15 @@ def classify_requirement(requirement: object, *, index: LibraryIndex | None = No
         requirement = {"name": requirement}
     if not isinstance(requirement, dict):
         raise GapError(f"a requirement is not an object (got {type(requirement).__name__})")
-    return {**requirement, **classify(requirement.get("name"), index=index)}
+    row = {**requirement, **classify(requirement.get("name"), index=index)}
+    # Both bands call their justification `evidence`, and this band's wins the merge: a
+    # verdict without its notebooks is not representable. The extractor's is the posting
+    # quote its own validator checked against `doc["text"]`, so it is kept beside them
+    # rather than lost — band 77 quotes it back to the model in a suggestion's goal.
+    quote = requirement.get("evidence")
+    if isinstance(quote, str) and quote.strip():
+        row["quote"] = quote.strip()
+    return row
 
 
 def analyze(requirements: object, *, index: LibraryIndex | None = None) -> dict:
