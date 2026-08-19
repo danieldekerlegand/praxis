@@ -223,3 +223,105 @@ def test_a_release_reports_the_version_it_would_carry():
     """The release path runs the check itself, so a mismatch costs a second, not a build."""
     result = check()
     assert re.search(r"^bundle: version \S+ in step", result.stdout, re.MULTILINE), result.stdout
+
+
+# --- the embedded Python runtime --------------------------------------------
+# A bundle is the shell only unless a runtime is staged beside it: scripts/embed-python.sh
+# writes `src-tauri/resources/praxis-runtime/{python,core}`, the overlay config copies that
+# into the bundle, and src-tauri/src/library.rs prefers it. Three files have to agree on
+# one path and one order, and nothing derives them from each other — so they are asserted
+# here, the way the three version manifests are above.
+
+EMBED = ROOT / "scripts" / "embed-python.sh"
+EMBED_CONFIG = ROOT / "src-tauri" / "tauri.embedded.conf.json"
+STAGE = ROOT / "src-tauri" / "resources" / "praxis-runtime"
+LIBRARY_RS = (ROOT / "src-tauri" / "src" / "library.rs").read_text()
+
+
+def embed(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["bash", str(EMBED), *args],
+        cwd=ROOT,
+        env={"PATH": os.environ["PATH"]},
+        capture_output=True,
+        text=True,
+    )
+
+
+@pytest.fixture
+def staged(request):
+    """A runtime-shaped payload where the release script looks for one, then removed.
+
+    Skips rather than overwrites: a developer who really has staged one (hundreds of MB
+    of downloaded interpreter) must not have it deleted by a test run.
+    """
+    if STAGE.exists():
+        pytest.skip("a real embedded runtime is staged in this checkout — not replacing it")
+    import shutil
+
+    for rel in getattr(request, "param", ("python/bin", "core")):
+        (STAGE / rel).mkdir(parents=True)
+    yield STAGE
+    shutil.rmtree(STAGE.parent)
+
+
+def test_the_embed_script_reports_where_the_runtime_goes_and_builds_nothing():
+    """`--check` is the cheap half: it must name the payload, the config, and no more."""
+    staged_before = STAGE.exists()
+    result = embed("--check")
+    assert result.returncode == 0, result.stderr
+    assert "embed: plan embed" in result.stdout
+    assert str(STAGE) in result.stdout
+    assert "src-tauri/tauri.embedded.conf.json" in result.stdout
+    assert STAGE.exists() == staged_before, "--check staged (or removed) a runtime"
+
+
+def test_a_bundle_with_no_staged_runtime_says_the_app_needs_a_checkout():
+    if STAGE.exists():
+        pytest.skip("a real embedded runtime is staged in this checkout")
+    result = check()
+    assert result.returncode == 0
+    assert "embed none" in result.stdout
+    assert "scripts/embed-python.sh" in result.stdout
+
+
+def test_a_staged_runtime_is_bundled_through_the_overlay_config(staged):
+    """The payload alone changes nothing — `tauri build` has to be told to copy it."""
+    result = check()
+    assert result.returncode == 0, result.stderr
+    assert "embed embedded" in result.stdout
+    assert "src-tauri/tauri.embedded.conf.json" in result.stdout
+
+
+@pytest.mark.parametrize("staged", [("python/bin",)], indirect=True)
+def test_a_half_staged_runtime_is_refused_before_the_build(staged):
+    """An interrupted embed would otherwise ship an interpreter with no core to run."""
+    result = check()
+    assert result.returncode == 2
+    assert "embed-python.sh" in result.stderr
+
+
+def test_the_overlay_config_copies_the_payload_where_the_shell_looks():
+    resources = json.loads(EMBED_CONFIG.read_text())["bundle"]["resources"]
+    assert resources == {"resources/praxis-runtime": "praxis-runtime"}
+    source, target = next(iter(resources.items()))
+    assert (ROOT / "src-tauri" / source) == STAGE, "the script stages somewhere else"
+    # library.rs joins its resource dir with RUNTIME_DIR, then core/ and python/.
+    assert f'const RUNTIME_DIR: &str = "{target}"' in LIBRARY_RS
+
+
+def test_the_embed_stays_opt_in():
+    """The dev flow and a plain `tauri build` must not require a payload that isn't there:
+    a `resources` key naming a missing directory fails the build outright."""
+    assert "resources" not in json.loads((ROOT / "src-tauri" / "tauri.conf.json").read_text())["bundle"]
+    assert "src-tauri/resources/" in (ROOT / ".gitignore").read_text()
+
+
+def test_the_discovery_order_gains_a_step_rather_than_losing_the_fallbacks():
+    """Embedded first, then PRAXIS_PYTHON, then the checkout's .venv, then python3 — the
+    last three are what every unembedded build still runs on."""
+    body = LIBRARY_RS.split("fn pick_python(")[1].split("\n}\n")[0]
+    order = ["embedded.python", "PathBuf::from(explicit)", '".venv"', '"python3"']
+    found = [body.find(step) for step in order]
+    assert all(at >= 0 for at in found), dict(zip(order, found))
+    assert found == sorted(found), f"discovery order changed: {dict(zip(order, found))}"

@@ -243,7 +243,13 @@ it rides CI's existing python job. That is why the python path predicate in **bo
 `.github/workflows/ci.yml` and `.chief/verify.sh` scopes those three files and `scripts/`
 — a lone version bump must still reach the gate.
 
-The bundle is the shell only: `library.rs` still discovers `curriculum.py` + `launcher/`
-by walking up from the binary and the cwd, and the interpreter via `PRAXIS_PYTHON` /
-`.venv` / `python3`. No interpreter is embedded — a `.app` moved away from a checkout with
-the launch extra reports it through `LauncherStatus::failed` rather than failing silently.
+A bundle can carry the Python side or discover it. `scripts/embed-python.sh` stages
+`src-tauri/resources/praxis-runtime/{python,core}` — a relocatable CPython with the launch
+extra beside a copy of the core — and `tauri.embedded.conf.json` is the **overlay** config
+(`tauri build --config …`) that copies it in; the payload is untracked, so naming it in
+`tauri.conf.json` would fail every build that hasn't staged one. `library.rs` prefers that
+runtime and otherwise reads exactly as it did before it existed: `PRAXIS_ROOT` then the
+walk-up from the binary and the cwd for the core, `PRAXIS_PYTHON` then `.venv` then
+`python3` for the interpreter (`PRAXIS_NO_EMBED=1` is the way back). So an embedded `.app`
+runs anywhere, an unembedded one still wants a checkout with the launch extra beside it and
+says so through `LauncherStatus::failed` rather than failing silently.
