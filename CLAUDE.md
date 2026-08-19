@@ -139,6 +139,28 @@ logic. Answering refetches the library, which is how finishing a topic unlocks t
 one in the list. Grading a `short` answer is the one path that needs a key (503),
 because `choice` and `code` grade locally.
 
+## Model access: BYO-key, with agora as one opt-in branch
+
+`praxis/llm.py` is the only module that talks to a model, and it is one client with two
+branches, not two clients. `AGORA_BASE_URL` unset is the **direct** BYO-key path
+(anthropic `messages`, openai/local `chat`); set, every call goes to agora's
+provider-router instead. Everything the router adds hangs off
+`LLMConfig.routed_via_agora` — hints out (`AGORA_ROUTE` / `AGORA_FALLBACK_MODELS`, sent
+as `x-agora-*` **headers** so a route can never become a body key a provider rejects),
+what served the call back (`LLMClient.last_route`, a best-effort read of the reply's
+headers then its body), and the router's own error sentence in place of the provider's.
+
+Two rules keep it opt-in, and `tests/test_llm.py` pins both:
+
+- the direct branch's bytes are **frozen** — endpoint, headers, payload, error strings.
+  `DIRECT_WIRE` asserts the whole request per provider, so anything new must sit behind
+  `if self.config.routed_via_agora`. `AGORA_*` left in a shell without `AGORA_BASE_URL`
+  resolves but changes nothing.
+- agora is a URL in an env var, never an import or a manifest entry. Its wire vocabulary
+  is consumed **by reference** — one block of `x-agora-*` constants at the top of the
+  module, all of it a hint going out and a best effort coming back, so a router that
+  ignores or omits every bit of it still behaves like the plain base-URL swap.
+
 ## Storage: whose data, and on which disk
 
 `praxis/storage.py` is the only module that knows where the user's data lives. The four
