@@ -28,7 +28,8 @@
         "Each proposed subject carries its source requirement and its gap rationale (why the library does not already cover it \u2014 the evidence from 76), so the eventual review surface can show the learner why it was suggested.",
         "Gate green: python3 -m pytest -q tests/ passes, including a test that a set of missing/partial requirements yields proposed subjects each with a goal string, a source requirement, and a rationale."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "praxis/suggest.py + tests/test_suggest.py: .venv/bin/python -m pytest -q tests/ green, 955 passed (17 new in test_suggest.py). A missing/partial requirement yields a proposal with goal (starts \"I want to\"), requirement (name/kind/importance/verbatim posting quote) and rationale (band 76's `why` verbatim + its citations); generate_curriculum(goal) with a FakeClient returns a Subject whose goal is the suggestion's, proving no new constructor. Also fixed an `evidence` key collision in praxis/gap.py that dropped band 75's posting quote."
     },
     {
       "id": "US-2",
