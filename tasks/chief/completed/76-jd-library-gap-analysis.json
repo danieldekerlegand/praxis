@@ -4,7 +4,7 @@
   "category": "feature",
   "branchName": "chief/76-jd-library-gap-analysis",
   "baseBranch": "main",
-  "description": "JD-driven tutorial suggestion, gap analysis (76-band). Match the requirements extracted in 75 against what the library ALREADY teaches, classifying each requirement as covered / partially-covered / missing, and reusing the coverage model already written down in docs/explanation/gap-analysis.md. The corpus to match against is concrete and shipped: the 245 seed notebooks across 14 domains PLUS the `recommended`-tagged neighbours already enumerated in curriculum.py (T(..., recommended=True)) and catalogued in docs/explanation/gap-analysis.md \u00a72 \u2014 a topic that is only scaffolded still counts as covered for suggestion purposes, because the point is to avoid re-tutorialing material the product can already build. This band produces the classification only; turning gaps into suggestions is band 77. Depends on 75. Anti-fabrication: coverage is computed from the real curriculum.py DOMAINS/topics (built live, not a hand-copied list), so it cannot drift from the shipped library; a test pins the domain/topic counts it reads.",
+  "description": "JD-driven tutorial suggestion, gap analysis (76-band). Match the requirements extracted in 75 against what the library ALREADY teaches, classifying each requirement as covered / partially-covered / missing, and reusing the coverage model already written down in docs/explanation/gap-analysis.md. The corpus to match against is concrete and shipped: the 245 seed notebooks across 14 domains PLUS the `recommended`-tagged neighbours already enumerated in curriculum.py (T(..., recommended=True)) and catalogued in docs/explanation/gap-analysis.md §2 — a topic that is only scaffolded still counts as covered for suggestion purposes, because the point is to avoid re-tutorialing material the product can already build. This band produces the classification only; turning gaps into suggestions is band 77. Depends on 75. Anti-fabrication: coverage is computed from the real curriculum.py DOMAINS/topics (built live, not a hand-copied list), so it cannot drift from the shipped library; a test pins the domain/topic counts it reads.",
   "parked": false,
   "dependsOn": [
     "75-jd-requirement-extraction"
@@ -24,7 +24,7 @@
       "id": "US-1",
       "title": "A library coverage index built live from the shipped curriculum",
       "acceptanceCriteria": [
-        "A module in the construction core builds the dedup corpus live from curriculum.py \u2014 every DOMAIN's topics across all 14 domains plus the `recommended`-tagged neighbours \u2014 rather than from any hand-copied list, so it tracks the real 245-notebook (14-domain) library and its recommended additions with no drift.",
+        "A module in the construction core builds the dedup corpus live from curriculum.py — every DOMAIN's topics across all 14 domains plus the `recommended`-tagged neighbours — rather than from any hand-copied list, so it tracks the real 245-notebook (14-domain) library and its recommended additions with no drift.",
         "The index normalizes topic titles/slugs for matching in the same lenient spirit as the rest of the JD funnel (case/punctuation-insensitive, alias-tolerant) so a requirement phrased differently than the topic title can still match.",
         "Gate green: python3 -m pytest -q tests/ passes, including a test that asserts the index is built from curriculum.DOMAINS and that its domain/topic counts match the shipped library (guarding against a stale copy)."
       ],
@@ -36,11 +36,12 @@
       "title": "Classify each requirement covered / partial / missing",
       "acceptanceCriteria": [
         "Given a requirement list from 75, each requirement is classified as covered (a shipped or recommended topic already teaches it), partially-covered (an adjacent topic touches it but is not a match), or missing (nothing in the library addresses it), reusing the covered/partial/missing coverage model of docs/explanation/gap-analysis.md.",
-        "Each classification carries the matched topic(s)/domain(s) as evidence so band 77 can attach a gap rationale, and a `recommended`-tagged neighbour counts as covered (it is already scaffolded \u2014 re-tutorialing it is exactly the redundancy this funnel must avoid).",
+        "Each classification carries the matched topic(s)/domain(s) as evidence so band 77 can attach a gap rationale, and a `recommended`-tagged neighbour counts as covered (it is already scaffolded — re-tutorialing it is exactly the redundancy this funnel must avoid).",
         "Gate green: python3 -m pytest -q tests/ covers a mixed requirement set asserting at least one covered, one partial, and one missing classification against the real library index, each with its evidence."
       ],
       "passes": true,
-      "notes": "praxis/gap.py + tests/test_gap.py. Mixed list against the REAL 245-notebook index: MLflow covered (exact, 02-ai-ml-tooling/mlflow.ipynb), JAX & Flax covered as a `recommended` neighbour (evidence carries recommended: true), Kubernetes partial (only 11-.../kubernetes-jobsets.ipynb is adjacent), Terraform + incident response missing with no evidence \u2014 counts {covered: 2, partial: 1, missing: 2}, and every cited rel asserted to be a file on disk. Adjacency never earns covered: a test pins related(\"Kubernetes\") == 1.0 and the verdict still partial. A subprocess with no key configured returns the same three verdicts without importing praxis.llm. Gate: .chief/verify.sh -> verify: PASS; python3 -m pytest -q tests/ = 938 passed, 1 warning (pre-existing starlette/httpx deprecation), 29 of them new."
+      "notes": "praxis/gap.py + tests/test_gap.py. Mixed list against the REAL 245-notebook index: MLflow covered (exact, 02-ai-ml-tooling/mlflow.ipynb), JAX & Flax covered as a `recommended` neighbour (evidence carries recommended: true), Kubernetes partial (only 11-.../kubernetes-jobsets.ipynb is adjacent), Terraform + incident response missing with no evidence — counts {covered: 2, partial: 1, missing: 2}, and every cited rel asserted to be a file on disk. Adjacency never earns covered: a test pins related(\"Kubernetes\") == 1.0 and the verdict still partial. A subprocess with no key configured returns the same three verdicts without importing praxis.llm. Gate: .chief/verify.sh -> verify: PASS; python3 -m pytest -q tests/ = 938 passed, 1 warning (pre-existing starlette/httpx deprecation), 29 of them new."
     }
-  ]
+  ],
+  "mergedToMain": "97fa811"
 }
