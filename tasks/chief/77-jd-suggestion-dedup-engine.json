@@ -28,7 +28,8 @@
         "Each proposed subject carries its source requirement and its gap rationale (why the library does not already cover it \u2014 the evidence from 76), so the eventual review surface can show the learner why it was suggested.",
         "Gate green: python3 -m pytest -q tests/ passes, including a test that a set of missing/partial requirements yields proposed subjects each with a goal string, a source requirement, and a rationale."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "praxis/suggest.py + tests/test_suggest.py: .venv/bin/python -m pytest -q tests/ green, 955 passed (17 new in test_suggest.py). A missing/partial requirement yields a proposal with goal (starts \"I want to\"), requirement (name/kind/importance/verbatim posting quote) and rationale (band 76's `why` verbatim + its citations); generate_curriculum(goal) with a FakeClient returns a Subject whose goal is the suggestion's, proving no new constructor. Also fixed an `evidence` key collision in praxis/gap.py that dropped band 75's posting quote."
     },
     {
       "id": "US-2",
@@ -38,7 +39,8 @@
         "A requirement classified `covered` in 76 produces NO suggestion at all, and a `partial` produces a suggestion scoped to the uncovered part rather than a re-tutorial of the adjacent topic.",
         "Gate green: python3 -m pytest -q tests/ covers the dedup path \u2014 asserting a requirement matching a shipped topic yields zero suggestions, a requirement matching a `recommended` neighbour yields zero suggestions, and a genuinely missing one survives."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "praxis/suggest.py dedupe()/collides()/_duplicate() + 8 new tests: .venv/bin/python -m pytest -q tests/ green, 963 passed (25 in test_suggest.py). A forged-stale analysis marking MLflow/Optuna/Model Evaluation as `missing` yields ZERO suggestions \u2014 dropped with reason shipped/recommended/domain and band 76's own evidence \u2014 while Terraform survives in the same pass; three spellings of Kubernetes collapse to one (duplicateOf: kubernetes). Dedup re-classifies against the live index, proven by monkeypatching a new domain into curriculum.DOMAINS and watching the same stale analysis drop to 0."
     }
   ]
 }
