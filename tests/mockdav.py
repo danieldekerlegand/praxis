@@ -217,6 +217,7 @@ class _Handler(BaseHTTPRequestHandler):
         with share.lock:
             share.files.pop(key, None)
             share.dirs.discard(key)
+        self.store.deletes.append(key)
         self._send(204)
 
 
@@ -228,6 +229,9 @@ class MockDAV:
         self.require_auth = require_auth
         self.puts: list[str] = []
         self.mkcols: list[str] = []
+        # Recorded so a test can assert what a sync *didn't* do: "never deletes" is a
+        # claim about the wire, and an empty list here is the whole of the evidence.
+        self.deletes: list[str] = []
         self._now: float | None = None
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
         self._server.store = self  # type: ignore[attr-defined]

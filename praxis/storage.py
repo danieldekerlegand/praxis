@@ -603,8 +603,9 @@ def select_backend(kind: str, options: dict | None = None) -> Backend:
 def sync_active() -> dict:
     """Reconcile the active backend with wherever its real copy lives.
 
-    Only `cloud` has somewhere else to be; for the others this is a no-op that says so,
-    rather than an error — "sync" is a question the UI can ask of any backend.
+    Only a mirrored backend (`cloud`, `webdav`) has somewhere else to be; for the others
+    this is a no-op that says so, rather than an error — "sync" is a question the UI can
+    ask of any backend.
     """
     backend = active_backend()
     hook = _SYNC.get(backend.kind)

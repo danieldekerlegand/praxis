@@ -16,6 +16,7 @@ Skipped wholesale when the launch extra isn't installed — the core stays depen
 from __future__ import annotations
 
 import json
+import os
 import sys
 import threading
 import time
@@ -33,6 +34,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 import launcher.app as launcher_app  # noqa: E402
 from curriculum import CurriculumError, save_subject, subject_from_dict  # noqa: E402
 from launcher.app import SHELL_ORIGIN_RE, _exit_with_parent, create_app  # noqa: E402
+from mockdav import MockDAV  # noqa: E402
 from praxis.llm import LLMConfigError, LLMError  # noqa: E402
 
 CURRICULUM = {
@@ -164,6 +166,96 @@ def test_syncing_a_backend_that_is_already_in_one_place_is_not_an_error(
     assert res.status_code == 200
     assert res.json() == {"kind": "app", "synced": False,
                           "detail": "app storage is already in one place — nothing to sync"}
+
+
+# --- a mirrored backend, through the same endpoints -------------------------
+
+#: A superuser is allowed to write into a directory whose mode says otherwise, so the
+#: one test that takes a permission away has nothing to prove when run as one.
+ROOT_USER = hasattr(os, "getuid") and os.getuid() == 0
+
+
+@pytest.fixture
+def dav():
+    """A WebDAV share with the collection the account owner would have made."""
+    server = MockDAV()
+    server.make("Praxis")
+    try:
+        yield server
+    finally:
+        server.stop()
+
+
+def test_a_share_that_is_offline_still_takes_writes_but_cannot_be_synced(
+    client: TestClient, dav, no_model
+) -> None:
+    """The one backend where `writable()` and `available()` come apart, over HTTP.
+
+    The mirror is an ordinary directory on this disk, so the write guard must *not* fire
+    with the server switched off — a learner on a plane keeps working. What fails is the
+    sync, and it fails out loud rather than reporting a push that never happened.
+    """
+    no_model(None)
+    res = client.post("/api/storage", json={"kind": "webdav", "options": dav.options("Praxis")})
+    assert res.status_code == 200 and res.json()["syncable"] is True
+    mirror = Path(res.json()["root"])
+    dav.stop()
+
+    assert client.post("/api/subjects", json={"goal": "sail"}).status_code == 201
+    assert (mirror / "subjects" / "sailing-navigation" / "curriculum.json").is_file()
+
+    res = client.post("/api/storage/sync")
+    assert res.status_code == 503 and "cannot reach" in res.json()["error"]
+    assert client.get("/api/storage").json()["available"] is False
+
+
+def test_syncing_a_share_reports_what_it_moved(
+    client: TestClient, dav, no_model
+) -> None:
+    """`POST /api/storage/sync` knows no backend by name either — it asks storage."""
+    no_model(None)
+    client.post("/api/storage", json={"kind": "webdav", "options": dav.options("Praxis")})
+    assert client.post("/api/subjects", json={"goal": "sail"}).status_code == 201
+
+    res = client.post("/api/storage/sync")
+    assert res.status_code == 200
+    assert res.json()["synced"] is True
+    assert res.json()["pushed"] == ["subjects/sailing-navigation/curriculum.json"]
+    assert dav.keys() == ["Praxis/subjects/sailing-navigation/curriculum.json"]
+
+
+@pytest.mark.skipif(ROOT_USER, reason="a superuser ignores the mode bits this test sets")
+def test_a_mirror_that_cannot_be_written_refuses_writes_like_any_other_backend(
+    client: TestClient, dav
+) -> None:
+    """The 503 guard is one middleware, so a backend added later inherits it.
+
+    Same shape as the unplugged drive above, one backend along: every non-GET refused
+    with the reason, reads unaffected, and `/api/storage` exempt because it is the fix.
+    """
+    res = client.post("/api/storage", json={"kind": "webdav", "options": dav.options("Praxis")})
+    mirror = Path(res.json()["root"])
+    mirror.chmod(0o500)
+    try:
+        for path, payload in [
+            ("/api/subjects", {"goal": "sail"}),
+            ("/api/subjects/anything/scaffold", {}),
+            ("/api/construct", {"domain": "python"}),
+            ("/api/study/notebooks/x.ipynb", {"check_id": "c1", "answer": "a"}),
+        ]:
+            res = client.post(path, json=payload)
+            assert res.status_code == 503, path
+            assert "storage is unavailable" in res.json()["error"]
+            assert "is not writable" in res.json()["error"]
+
+        assert client.get("/api/library").status_code == 200
+        assert client.get("/api/storage").json()["kind"] == "webdav"
+
+        res = client.post("/api/storage", json={"kind": "app", "options": {}})
+        assert res.status_code == 200 and res.json()["kind"] == "app"
+        assert client.post("/api/storage/sync").json()["synced"] is False
+    finally:
+        mirror.chmod(0o700)
 
 
 def test_library_carries_every_seed_notebook(library: dict) -> None:
