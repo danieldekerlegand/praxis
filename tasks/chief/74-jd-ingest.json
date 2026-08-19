@@ -44,7 +44,8 @@
         "A UI surface lets the user paste JD text or pick a file to upload and shows the ingested JD back for confirmation; it reuses the shell's existing cross-origin fetch path (SHELL_ORIGIN_RE) with no widening to '*'.",
         "Gate green: npm run build in ui/ and cargo build in src-tauri/ both pass, and python3 -m pytest -q tests/ covers the endpoint (paste + upload) with the launch extra; document the end-to-end paste->persisted->reloaded round trip in the progress log."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "launcher/app.py: POST /api/jd (paste) + POST /api/jd/upload?filename= (raw bytes, no multipart dep) onto praxis/jd.py; GET /api/jd + /api/jd/<id> read back. Gate green: .chief/verify.sh -> verify: PASS; python3 -m pytest -q tests/ = 861 passed, 0 failed (6 new launcher JD tests); npm run build in ui/ green (44 modules, dist 171.11 kB); cargo build in src-tauri/ green (Finished dev profile in 7.51s). End-to-end against a live uvicorn on :8731 with only PRAXIS_APP_DIR set: POST /api/jd -> 201 id=platform-role-at-acme-62a91516, a SECOND process read it back off /tmp/jd-e2e/data/jd/<id>.json (206 words, praxis.llm never imported), .docx uploaded through the same server -> 201 206 words same digest, GET /api/jd/<id> -> 1239 chars reloaded, GET /api/jd carries no text. CORS unwidened: tauri://localhost gets ACAO, https://evil.example gets 0 ACAO headers. Both ingest routes answer 503 'storage is unavailable' on an unplugged drive."
     }
   ]
 }
