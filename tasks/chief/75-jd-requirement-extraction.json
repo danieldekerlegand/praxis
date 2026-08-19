@@ -29,7 +29,8 @@
         "The extraction runs only on the model-backed path (needs a key / 503 when none, like construct's short-answer grading); no requirement is invented locally.",
         "Gate green: python3 -m pytest -q tests/ passes, including a test that runs extraction against a mocked LLM reply (fenced + bare JSON variants) and asserts a well-formed, normalized requirement list."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "python3 -m pytest -q tests/: 871 passed, 0 failed (10 new in tests/test_jd_extract.py, fenced + bare JSON variants both normalize to the same 5-requirement list)"
     },
     {
       "id": "US-2",
@@ -39,7 +40,8 @@
         "A rejected payload is fed back to the model with the validator's own sentences for one repair attempt rather than retried blind, and a still-invalid result is surfaced as a failure \u2014 never coerced into a partial list.",
         "Gate green: python3 -m pytest -q tests/ covers at least one malformed-payload case (missing field / wrong type) asserting it is rejected with the actionable message, and one repair case asserting the second attempt is accepted."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "python3 -m pytest -q tests/: 885 passed, 0 failed (14 new; tests/test_jd_extract.py 24 passed). A rejected payload triggers exactly one repair carrying the validator's sentences + the draft (2 calls asserted), and a still-invalid second attempt raises with all failures and no partial list."
     }
   ]
 }
