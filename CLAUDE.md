@@ -243,6 +243,16 @@ posting rewrites one document rather than piling up copies, and an edited one is
 `sips` made them) — `.txt`, `.pdf` and `.docx` must normalize to the *same string and the
 same id*, which is the strongest available statement about a normalizer.
 
+In the app it is two writes onto one core call: `POST /api/jd` takes `{text, title}` and
+`POST /api/jd/upload?filename=` takes the file's **raw bytes as the body** — not
+multipart, which is a `fetch(url, {body: file})` in `ui/src/jd.ts` and saves the launcher
+a `python-multipart` dependency for a form with one field. Every `JDError` is a **400**
+carrying `jd`'s own sentence, so the UI's error text is the module's; the writable() 503
+middleware covers both like any other non-GET. `ui/src/ImportJD.tsx` shows the import back
+by re-reading `GET /api/jd/<id>` rather than the response body, so the confirmation is
+what landed on the backend and not an echo — the same reason the construction job re-reads
+each badge off the file.
+
 ## Construction in the app
 
 `POST /api/construct` takes `{rel}` | `{domain}` | `{subject}` and answers **202 with a

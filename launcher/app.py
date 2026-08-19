@@ -24,6 +24,12 @@ Learning is the other write, and the one the whole thing is for:
     GET  /api/study/<rel>               a notebook's gate: sections, locked, passed
     POST /api/study/<rel>               grade one answer and move the gate (423 if locked)
 
+A job description is the one document the user brings, and it needs no model at all:
+    GET  /api/jd                        every imported posting, as summaries (no text)
+    GET  /api/jd/<id>                   one posting, canonical plain text included
+    POST /api/jd                        {text, title} -> normalize a pasted posting
+    POST /api/jd/upload?filename=       the file's raw bytes -> parse, normalize, persist
+
 Everything those writes land on lives wherever `praxis/storage.py` says, and which disk
 that is is itself something the user sets:
     GET  /api/storage                   the active backend, its root, and whether it's there
@@ -73,7 +79,7 @@ from praxis.checks import CheckError, checks_path, grade, load_checks, needs_che
 from praxis.construct import topic_for_rel  # noqa: E402
 from praxis.curriculum_gen import generate_and_save  # noqa: E402
 from praxis.llm import LLMClient, LLMConfigError, LLMError  # noqa: E402
-from praxis import storage  # noqa: E402
+from praxis import jd, storage  # noqa: E402
 from praxis.progress import (  # noqa: E402
     DEFAULT_LEARNER,
     gate_for,
@@ -602,6 +608,70 @@ def create_app():
 
         record_outcome(learner, rel, outcome)
         return {"outcome": outcome.to_dict(), "state": study_model(rel, learner)}
+
+    @app.get("/api/jd", response_class=JSONResponse)
+    def api_jds():
+        """Every imported job description, newest first — summaries, never the text.
+
+        `praxis.jd.list_jds` drops `text` on purpose: a list view renders titles and word
+        counts, and a dozen postings' full text is megabytes the shell would never show.
+        """
+        return {"jds": jd.list_jds()}
+
+    @app.post("/api/jd", response_class=JSONResponse)
+    def api_import_jd(payload: dict = Body(...)):
+        """A pasted posting -> one canonical plain-text document, persisted.
+
+        The read path with no model in it: `praxis/jd.py` imports nothing from
+        `praxis/llm.py`, so this works with no key configured — BYO-key starts a band
+        later, at extraction. Everything `jd` refuses (an empty paste, a posting too
+        short to be one) is a 400 carrying the sentence to show the user; nothing that
+        failed to parse is written.
+
+        The id is the title's slug plus a digest of the normalized text, so re-posting
+        the same posting rewrites one document instead of piling up copies.
+        """
+        try:
+            doc = jd.ingest_text(
+                str(payload.get("text") or ""),
+                title=str(payload.get("title") or ""),
+            )
+        except jd.JDError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
+        return JSONResponse(doc, status_code=201)
+
+    @app.post("/api/jd/upload", response_class=JSONResponse)
+    async def api_upload_jd(request: Request, filename: str = "", title: str = ""):
+        """An uploaded .txt/.md/.pdf/.docx -> the same canonical document.
+
+        The file arrives as the **raw request body** with its name in the query string,
+        not as multipart — which is a `fetch(url, {body: file})` on the shell's side and
+        saves the launcher a `python-multipart` dependency for a form with one field.
+        The same stdlib-over-a-dependency call `praxis/jd.py` itself makes for .docx and
+        .pdf.
+
+        `jd` decides what is readable: an unsupported extension, bytes that are not text
+        and a scan with no extractable text are each a 400 naming the file and what to do
+        instead. It also enforces its own 8MB ceiling, so the size error is the
+        file-shaped one rather than a truncated body.
+        """
+        data = await request.body()
+        try:
+            doc = jd.ingest_upload(filename, data, title=title)
+        except jd.JDError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
+        return JSONResponse(doc, status_code=201)
+
+    @app.get("/api/jd/{jd_id}", response_class=JSONResponse)
+    def api_jd(jd_id: str):
+        """One imported posting, canonical text and all — what a later band reads."""
+        if jd_id != Path(jd_id).name or jd_id.startswith("."):
+            return JSONResponse({"error": "not a job description id"}, status_code=404)
+        doc = jd.load_jd(jd_id)
+        if doc is None:
+            return JSONResponse(
+                {"error": f"no imported job description '{jd_id}'"}, status_code=404)
+        return doc
 
     @app.get("/api/storage", response_class=JSONResponse)
     def api_storage():

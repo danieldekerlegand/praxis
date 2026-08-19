@@ -133,6 +133,7 @@ def test_a_backend_that_has_gone_away_refuses_writes_rather_than_recreating_itse
         ("/api/subjects/anything/scaffold", {}),
         ("/api/construct", {"domain": "python"}),
         ("/api/study/notebooks/x.ipynb", {"check_id": "c1", "answer": "a"}),
+        ("/api/jd", {"text": "Senior Platform Engineer. " * 20}),
     ]:
         res = client.post(path, json=payload)
         assert res.status_code == 503, path
@@ -1027,3 +1028,130 @@ def test_study_refuses_what_is_not_in_the_library(client: TestClient, gated) -> 
     assert client.post("/api/study/nope/x.ipynb", json={}).status_code == 404
     assert client.post(f"/api/study/{FIRST_REL}",
                        json={"check_id": "made-up"}).status_code == 404
+
+
+# --- the one document the user brings ---------------------------------------
+
+#: The same posting as four real files (see tests/test_jd.py) — `.txt`, `.pdf` and
+#: `.docx` must come back through the endpoints as the *same* text and the *same* id.
+FIXTURES = Path(__file__).resolve().parent / "fixtures" / "jd"
+POSTING = FIXTURES / "senior-platform-engineer.txt"
+
+
+def upload(client: TestClient, path: Path, title: str = ""):
+    """POST one file's raw bytes, the way `importJDFile` in ui/src/jd.ts does."""
+    params = {"filename": path.name}
+    if title:
+        params["title"] = title
+    return client.post("/api/jd/upload", params=params, content=path.read_bytes())
+
+
+def test_a_pasted_posting_becomes_one_canonical_document(
+    client: TestClient, app_dir: Path
+) -> None:
+    """Paste in, canonical plain text on the backend, and the same text back out.
+
+    The round trip is the point: the confirmation the shell shows is a second read
+    (`GET /api/jd/<id>`) off storage, not an echo of what was posted.
+    """
+    text = POSTING.read_text()
+    res = client.post("/api/jd", json={"text": text})
+    assert res.status_code == 201
+    doc = res.json()
+    assert doc["source"] == "paste" and doc["kind"] == "text"
+    assert doc["id"] == "senior-platform-engineer-62a91516"
+    assert doc["words"] > 100 and doc["chars"] == len(doc["text"])
+
+    stored = app_dir / "data" / "jd" / f"{doc['id']}.json"
+    assert stored.is_file(), "the document has to be on the storage backend, not in memory"
+    assert json.loads(stored.read_text())["text"] == doc["text"]
+
+    again = client.get(f"/api/jd/{doc['id']}")
+    assert again.status_code == 200 and again.json()["text"] == doc["text"]
+
+    listed = client.get("/api/jd").json()["jds"]
+    assert [s["id"] for s in listed] == [doc["id"]]
+    assert "text" not in listed[0], "a list view must not ship every posting's text"
+
+
+def test_an_upload_of_any_supported_format_lands_as_the_same_document(
+    client: TestClient, app_dir: Path
+) -> None:
+    """`.txt`, `.pdf` and `.docx` of one posting normalize to one id — so one file."""
+    pasted = client.post("/api/jd", json={"text": POSTING.read_text()}).json()
+
+    for name in ("senior-platform-engineer.txt", "senior-platform-engineer.pdf",
+                 "senior-platform-engineer.docx"):
+        res = upload(client, FIXTURES / name)
+        assert res.status_code == 201, name
+        doc = res.json()
+        assert doc["source"] == "upload" and doc["filename"] == name
+        assert doc["text"] == pasted["text"], name
+        assert doc["id"] == pasted["id"], name
+
+    # `.md` is a decode, not a stripper — the marks stay in the text and come off the
+    # title only, so it is a distinct document from the same posting as plain text.
+    md = upload(client, FIXTURES / "senior-platform-engineer.md").json()
+    assert md["kind"] == "markdown" and md["text"].startswith("# Senior Platform Engineer")
+    assert md["title"] == "Senior Platform Engineer" and md["id"] != pasted["id"]
+
+    # Re-importing rewrote one document rather than piling up copies.
+    ids = {s["id"] for s in client.get("/api/jd").json()["jds"]}
+    assert ids == {pasted["id"], md["id"]}
+    assert len(list((app_dir / "data" / "jd").glob("*.json"))) == len(ids)
+
+
+def test_importing_a_posting_needs_no_key(client: TestClient, monkeypatch) -> None:
+    """BYO-key starts one band later: plain text needs no model, so no key is asked for."""
+    for var in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "PRAXIS_LLM_BASE_URL",
+                "PRAXIS_LLM_PROVIDER", "AGORA_BASE_URL"):
+        monkeypatch.delenv(var, raising=False)
+    assert client.post("/api/subjects", json={"goal": "sail"}).status_code == 503
+    assert client.post("/api/jd", json={"text": POSTING.read_text()}).status_code == 201
+
+
+def test_nothing_that_failed_to_parse_is_persisted(client: TestClient, app_dir: Path) -> None:
+    """Every refusal is a 400 saying what to do instead, and leaves `jd/` empty."""
+    refused = [
+        client.post("/api/jd", json={"text": ""}),
+        client.post("/api/jd", json={"text": "too short to be a posting"}),
+        client.post("/api/jd/upload", params={"filename": "posting.rtf"}, content=b"x" * 200),
+        client.post("/api/jd/upload", params={"filename": "posting.txt"},
+                    content=b"\x89PNG\r\n\x1a\n" + bytes(range(8)) * 40),
+        upload(client, FIXTURES / "scanned-poster.pdf"),  # image-only: no text to read
+        client.post("/api/jd/upload", content=b"a posting with nowhere to say so" * 8),
+    ]
+    for res in refused:
+        assert res.status_code == 400, res.text
+        assert res.json()["error"] and "\n" not in res.json()["error"]
+    assert list((app_dir / "data" / "jd").glob("*.json")) == []
+
+
+def test_an_unimported_posting_is_a_404(client: TestClient) -> None:
+    assert client.get("/api/jd/nope").status_code == 404
+    assert client.get("/api/jd/..").status_code == 404
+    assert client.get("/api/jd").json()["jds"] == []
+
+
+def test_an_imported_posting_follows_the_storage_backend(
+    client: TestClient, tmp_path: Path, app_dir: Path
+) -> None:
+    """A JD is the user's data: it lives wherever storage says, like every other write."""
+    drive = tmp_path / "Backup" / "Praxis"
+    drive.parent.mkdir(parents=True)
+    assert client.post("/api/storage",
+                       json={"kind": "drive", "options": {"path": str(drive)}}).status_code == 200
+
+    doc = upload(client, POSTING, title="Platform role at Acme").json()
+    assert doc["title"] == "Platform role at Acme"
+    assert (drive / "jd" / f"{doc['id']}.json").is_file()
+    assert not (app_dir / "data" / "jd").exists()
+    assert client.get(f"/api/jd/{doc['id']}").json()["text"] == doc["text"]
+
+    # …and when that drive goes away, both ingest routes refuse rather than recreate it.
+    (tmp_path / "Backup").rename(tmp_path / "gone")
+    for res in (client.post("/api/jd", json={"text": POSTING.read_text()}),
+                upload(client, POSTING)):
+        assert res.status_code == 503
+        assert "storage is unavailable" in res.json()["error"]
+    assert not drive.exists()
