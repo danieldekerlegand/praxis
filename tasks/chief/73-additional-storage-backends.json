@@ -26,7 +26,8 @@
         "The backend's availability is stricter-than-local where a vanished/unreachable target would otherwise let a decoy folder be created on the internal disk (the `_drive_available` immediate-parent-must-exist rule), and `select_backend()` resolves + checks + creates before it stores so a bad target leaves the app pointed where it already was.",
         "Gate green: `python3 -m pytest -q tests/` passes, including a test that resolves the new backend, writes a subject/progress artifact under its root and reads it back \u2014 plus its availability failing cleanly (no decoy folder)."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "python3 -m pytest -q tests/: 822 passed, 0 failed (34 in test_storage_backends.py, 10 of them new for the webdav backend). Verified: select_backend(\"webdav\") resolves to <app dir>/webdav/<host>-<folder>, the four writers land under it and read back through load_subject/load_progress, subjects_dir()/progress_dir() unchanged; an unreachable share raises StorageError \"cannot reach \u2026\" and leaves no <app dir>/webdav decoy with the drive selection still active. doc-links: 0 dead vs 0 on main."
     },
     {
       "id": "US-2",
