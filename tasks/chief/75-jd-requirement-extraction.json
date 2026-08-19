@@ -29,7 +29,8 @@
         "The extraction runs only on the model-backed path (needs a key / 503 when none, like construct's short-answer grading); no requirement is invented locally.",
         "Gate green: python3 -m pytest -q tests/ passes, including a test that runs extraction against a mocked LLM reply (fenced + bare JSON variants) and asserts a well-formed, normalized requirement list."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "python3 -m pytest -q tests/: 871 passed, 0 failed (10 new in tests/test_jd_extract.py, fenced + bare JSON variants both normalize to the same 5-requirement list)"
     },
     {
       "id": "US-2",
