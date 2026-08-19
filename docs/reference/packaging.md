@@ -54,12 +54,53 @@ everything it can; narrow a run with `--bundles`, e.g. `tauri build --bundles ap
 macOS `.app` without the DMG step.
 
 The CI job `bundle-macos` in `.github/workflows/ci.yml` (manual, `workflow_dispatch`)
-runs exactly the command above and uploads the `.app` and `.dmg` as artifacts.
+runs the release script below and uploads the `.app` and `.dmg` as artifacts.
 
 The app version comes from `version` in `tauri.conf.json`; keep it in step with
-`pyproject.toml` and `ui/package.json` when cutting a release. Builds are **unsigned** —
-macOS Gatekeeper will need a right-click → Open on first launch until a signing identity
-is configured.
+`pyproject.toml` and `ui/package.json` when cutting a release.
+
+### Signing and notarization (macOS)
+
+A release is Gatekeeper-clean when signing credentials are in the **environment**, and is
+the unsigned bundle above when they are not. Both paths are the same command:
+
+```bash
+scripts/bundle-macos.sh            # the release build
+scripts/bundle-macos.sh --check    # report which path it would take, and build nothing
+```
+
+The script only decides and reports — the signing is `tauri build`'s, and the variables
+are the ones its bundler already reads. It exists so that a half-configured release fails
+in a second rather than after a ten-minute build, and so the log says which bundle came
+out. It also runs the build **from the repo root** (the CLI finds `src-tauri/` by walking
+up from the working directory), so there is one command that cannot be run from the wrong
+place.
+
+| Variable | Path | What it is |
+|----------|------|------------|
+| `APPLE_SIGNING_IDENTITY` | signing | The identity, e.g. `Developer ID Application: Name (TEAMID)` |
+| `APPLE_CERTIFICATE` · `APPLE_CERTIFICATE_PASSWORD` | signing, CI only | base64 `.p12` + its password; the CLI imports it into a temporary keychain, which a CI runner has no login keychain for |
+| `APPLE_ID` · `APPLE_PASSWORD` · `APPLE_TEAM_ID` | notarization | Apple ID with an **app-specific** password |
+| `APPLE_API_KEY` · `APPLE_API_ISSUER` · `APPLE_API_KEY_PATH` | notarization | App Store Connect key, instead of the row above |
+
+Three outcomes, and what the user of the `.dmg` sees:
+
+| Environment | `plan` | First launch on another Mac |
+|-------------|--------|------------------------------|
+| No `APPLE_SIGNING_IDENTITY` | `unsigned` | Gatekeeper refuses a double-click; **right-click → Open**, then *Open* in the dialog. This is today's build, and it still works. |
+| Identity only | `signed` | Still blocked once *downloaded* — since macOS 10.15 a signed app also has to be notarized. The script says so and names the variables that finish the job. |
+| Identity + either notarization set | `signed+notarized` | Opens on a double-click, with no warning. |
+
+Anything half-configured — a certificate without its password, notarization credentials
+without an identity, two of the three variables in a set, an `APPLE_API_KEY_PATH` that
+points at nothing — exits **2** and names what is missing, before any build starts.
+
+No credential is in this repo, and none can be: `src-tauri/tauri.conf.json` sets
+`bundle.macOS.hardenedRuntime` (which notarization requires) and deliberately no
+`signingIdentity`, so the identity has nowhere to live but the environment. In CI the
+variables come from repository secrets of the same names; an unset secret arrives as an
+empty variable, which is exactly the unsigned path — so a fork still gets a bundle rather
+than a failed job. Values are never echoed, only variable names.
 
 ### The Python core is not inside the bundle
 

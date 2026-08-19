@@ -228,6 +228,13 @@ from the repo root (`npm --prefix ui exec -- tauri build`), never from inside `u
 it silently finds no app. `tauri build` runs `beforeBuildCommand` itself, so it cannot
 embed a stale `ui/dist`.
 
+`scripts/bundle-macos.sh` is that command plus the signing decision: it reads the Apple
+credentials `tauri build` already looks for **from the environment only** (never the
+repo), refuses a half-configured release before the build, and otherwise falls through to
+the unsigned bundle. `--check` reports the plan without building, which is what
+`tests/test_packaging.py` asserts on. `tauri.conf.json` carries `bundle.macOS`'s
+hardened-runtime flag and deliberately **no** `signingIdentity`.
+
 The bundle is the shell only: `library.rs` still discovers `curriculum.py` + `launcher/`
 by walking up from the binary and the cwd, and the interpreter via `PRAXIS_PYTHON` /
 `.venv` / `python3`. No interpreter is embedded — a `.app` moved away from a checkout with

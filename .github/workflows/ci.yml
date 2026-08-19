@@ -102,9 +102,22 @@ jobs:
 
   # macOS bundle, on demand. Not a PR gate: it is the release build, and it is the same
   # command documented in docs/reference/packaging.md.
+  #
+  # Signing and notarization come entirely from the secrets below. An unset secret is an
+  # empty environment variable, which is exactly the "no credentials" case — so a fork,
+  # or a repo that has not configured them, still gets today's unsigned bundle instead of
+  # a failed job. scripts/bundle-macos.sh reports which of the two it is taking, and
+  # refuses a half-configured one before spending the build.
   bundle-macos:
     if: github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
+    env:
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -118,7 +131,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-      - run: npm --prefix ui exec -- tauri build
+      - run: ./scripts/bundle-macos.sh
       - uses: actions/upload-artifact@v4
         with:
           name: praxis-macos
