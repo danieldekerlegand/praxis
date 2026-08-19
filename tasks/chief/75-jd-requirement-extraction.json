@@ -40,7 +40,8 @@
         "A rejected payload is fed back to the model with the validator's own sentences for one repair attempt rather than retried blind, and a still-invalid result is surfaced as a failure \u2014 never coerced into a partial list.",
         "Gate green: python3 -m pytest -q tests/ covers at least one malformed-payload case (missing field / wrong type) asserting it is rejected with the actionable message, and one repair case asserting the second attempt is accepted."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "python3 -m pytest -q tests/: 885 passed, 0 failed (14 new; tests/test_jd_extract.py 24 passed). A rejected payload triggers exactly one repair carrying the validator's sentences + the draft (2 calls asserted), and a still-invalid second attempt raises with all failures and no partial list."
     }
   ]
 }
