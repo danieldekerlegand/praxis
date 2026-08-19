@@ -16,6 +16,19 @@ Four routing modes, three of them direct:
              OpenAI-compatible chat-completions format; the model string is passed
              through untouched, so set PRAXIS_LLM_MODEL to whatever the router expects.
 
+The agora path is opt-in and stays that way: with AGORA_BASE_URL unset nothing below
+runs, no module here imports or reaches agora, and the direct calls are exactly what
+they were before the router existed. What the router adds when it *is* set:
+
+  * routing hints ride in `x-agora-*` **headers**, never in the JSON body — a body key
+    the upstream model does not know is a 400, a header it does not know is ignored, so
+    AGORA_ROUTE / AGORA_FALLBACK_MODELS can never make a payload a provider rejects;
+  * what the router actually served is read back off the reply (`model`/`id`, plus any
+    `x-agora-*` headers) into `LLMClient.last_route`, so a fallback the router chose is
+    visible rather than silent — read defensively, since none of it is guaranteed;
+  * a router failure is reported as the router's, with the router's own message pulled
+    out of its error body the way a provider's already is.
+
 Only the standard library is used, so the construction core stays dependency-light
 (see pyproject: `nbformat` is the sole hard dependency) and the tests have exactly one
 seam to mock: `_urlopen`.
@@ -31,6 +44,8 @@ Env vars, all optional but at least one key needed for a direct provider:
   ANTHROPIC_API_KEY / OPENAI_API_KEY
   AGORA_BASE_URL        set -> route through agora; unset -> go direct
   AGORA_API_KEY         key for the router (falls back to the provider key)
+  AGORA_ROUTE           named route/profile to ask the router for (agora only)
+  AGORA_FALLBACK_MODELS comma-separated models the router may fall back to (agora only)
   PRAXIS_CONFIG         path to the JSON config file
 """
 
@@ -72,6 +87,19 @@ PROVIDER_KEY_ENV = {
     "local": "PRAXIS_LLM_API_KEY",
 }
 
+# The router's own vocabulary, used on the agora path only. Praxis consumes agora's
+# contract by reference rather than re-stating it: everything here is a *hint* going
+# out and a *best effort* coming back, so a router that ignores or omits any of it
+# still works exactly like the plain base-URL swap that shipped before.
+AGORA_ROUTE_HEADER = "x-agora-route"
+AGORA_FALLBACK_HEADER = "x-agora-fallback"
+
+# Read back off the reply, first match wins; absent means "the router didn't say".
+AGORA_SERVED_MODEL_HEADERS = ("x-agora-model", "x-agora-served-model")
+AGORA_PROVIDER_HEADERS = ("x-agora-provider", "x-agora-upstream")
+AGORA_ROUTE_HEADERS = ("x-agora-route", "x-agora-selected-route")
+AGORA_REQUEST_ID_HEADERS = ("x-agora-request-id", "x-request-id")
+
 
 class LLMError(RuntimeError):
     """A call to the provider failed."""
@@ -93,6 +121,91 @@ def _normalize_base(url: str) -> str:
     return url
 
 
+def _header_map(source: object) -> dict[str, str]:
+    """Headers as a lowercase dict — anything unusable reads as "none given".
+
+    Deliberately forgiving: nothing the router reports is required for a call to
+    succeed, and a response object without headers at all (a stub, a proxy that
+    strips them) must behave like a router that simply stayed quiet.
+    """
+    items = getattr(source, "items", None)
+    if items is None:
+        return {}
+    try:
+        return {str(k).lower(): str(v).strip() for k, v in items()}
+    except (AttributeError, TypeError, ValueError):
+        return {}
+
+
+def _first_header(headers: dict[str, str], names: tuple[str, ...]) -> str:
+    for name in names:
+        value = headers.get(name, "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _error_message(body: str) -> str:
+    """The message out of an OpenAI-shaped error body, or "" if it isn't one.
+
+    The router reports an upstream failure in its own body; pulling the sentence out
+    of it is what makes `error.message` reach the UI instead of a wall of JSON.
+    """
+    try:
+        data = json.loads(body)
+    except ValueError:
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    error = data.get("error")
+    if isinstance(error, dict):
+        for key in ("message", "detail", "description"):
+            value = error.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return ""
+    for value in (error, data.get("message"), data.get("detail")):
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+@dataclass(frozen=True)
+class RouteReport:
+    """What actually served one call — the router's answer, not our request.
+
+    Recorded for every call so a caller needs no branch, but only the agora path can
+    fill in more than the endpoint: a direct call has no router to ask.
+    """
+
+    endpoint: str
+    routed_via_agora: bool
+    requested_model: str
+    model: str = ""          # what the router says it served
+    provider: str = ""       # which upstream it picked
+    route: str = ""          # which named route it resolved to
+    request_id: str = ""     # the router's id for this call, for its own logs
+
+    @property
+    def fell_back(self) -> bool:
+        """The router served something other than what was asked for."""
+        return bool(self.model) and self.model != self.requested_model
+
+    def describe(self) -> str:
+        if not self.routed_via_agora:
+            return f"{self.requested_model} direct at {self.endpoint}"
+        parts = [f"served {self.model or 'unreported'}"]
+        if self.fell_back:
+            parts[0] += f" (asked for {self.requested_model})"
+        if self.provider:
+            parts.append(f"provider {self.provider}")
+        if self.route:
+            parts.append(f"route {self.route}")
+        if self.request_id:
+            parts.append(f"request {self.request_id}")
+        return f"agora provider-router at {self.endpoint}: " + ", ".join(parts)
+
+
 @dataclass(frozen=True)
 class LLMConfig:
     """Everything needed to make one call, with no secrets on disk in this repo."""
@@ -102,6 +215,10 @@ class LLMConfig:
     api_key: str = ""
     base_url: str = ""
     agora_base_url: str = ""
+    # Router hints. Both are ignored unless agora_base_url is set — there is no router
+    # to honour them otherwise, and the direct payload must not change shape.
+    agora_route: str = ""
+    agora_fallbacks: tuple[str, ...] = ()
     # Seconds to wait for one reply. A local server generating a 9000-character
     # notebook is minutes, not seconds, of work, so this has to be raisable from
     # outside — the default is sized for a hosted provider.
@@ -127,9 +244,32 @@ class LLMConfig:
             return "messages"
         return "chat"
 
+    def router_headers(self) -> dict[str, str]:
+        """The routing hints for one call — empty for every direct call.
+
+        Headers, never body keys: the router reads these, and anything that doesn't
+        understand them (including the upstream model, which never sees them) ignores
+        them. That is what keeps a route or a fallback list from ever becoming a
+        parameter a provider rejects.
+        """
+        if not self.routed_via_agora:
+            return {}
+        headers = {}
+        if self.agora_route:
+            headers[AGORA_ROUTE_HEADER] = self.agora_route
+        if self.agora_fallbacks:
+            headers[AGORA_FALLBACK_HEADER] = ",".join(self.agora_fallbacks)
+        return headers
+
     def describe(self) -> str:
         route = "agora provider-router" if self.routed_via_agora else "direct"
-        return (f"{self.provider}/{self.model} via {route} at {self.endpoint} "
+        detail = ""
+        if self.routed_via_agora:
+            if self.agora_route:
+                detail += f" route {self.agora_route}"
+            if self.agora_fallbacks:
+                detail += f" fallback {' -> '.join(self.agora_fallbacks)}"
+        return (f"{self.provider}/{self.model} via {route} at {self.endpoint}{detail} "
                 f"(timeout {self.timeout:g}s)")
 
 
@@ -187,6 +327,13 @@ def _resolve_timeout(raw: str) -> float:
     return timeout
 
 
+def _resolve_fallbacks(env: dict, file_cfg: dict) -> tuple[str, ...]:
+    """`AGORA_FALLBACK_MODELS` as a comma-separated string, or a JSON list in the file."""
+    raw = env.get("AGORA_FALLBACK_MODELS") or file_cfg.get("agora_fallback_models") or ""
+    parts = raw if isinstance(raw, (list, tuple)) else str(raw).split(",")
+    return tuple(item for item in (str(p).strip() for p in parts) if item)
+
+
 def load_config(env: dict | None = None, config_path: str | Path | None = None) -> LLMConfig:
     """Resolve a config from env + config file. Raises LLMConfigError if it can't."""
     env = dict(os.environ if env is None else env)
@@ -198,6 +345,10 @@ def load_config(env: dict | None = None, config_path: str | Path | None = None) 
     model = _pick(env, file_cfg, "PRAXIS_LLM_MODEL", "model") or DEFAULT_MODEL[provider]
     base_url = _pick(env, file_cfg, "PRAXIS_LLM_BASE_URL", "base_url")
     agora_base_url = _pick(env, file_cfg, "AGORA_BASE_URL", "agora_base_url")
+    # Resolved either way, honoured only when there is a router: an AGORA_* value left
+    # in the environment must not change a direct call.
+    agora_route = _pick(env, file_cfg, "AGORA_ROUTE", "agora_route")
+    agora_fallbacks = _resolve_fallbacks(env, file_cfg)
 
     timeout = _resolve_timeout(_pick(env, file_cfg, "PRAXIS_LLM_TIMEOUT", "timeout"))
 
@@ -218,6 +369,8 @@ def load_config(env: dict | None = None, config_path: str | Path | None = None) 
         api_key=api_key,
         base_url=base_url,
         agora_base_url=agora_base_url,
+        agora_route=agora_route,
+        agora_fallbacks=agora_fallbacks,
         timeout=timeout,
     )
 
@@ -235,6 +388,8 @@ class LLMClient:
         # An explicit argument wins; otherwise follow the resolved config, so
         # PRAXIS_LLM_TIMEOUT reaches every caller without one of them plumbing it.
         self.timeout = self.config.timeout if timeout is None else timeout
+        # What served the most recent call. None until one has been made.
+        self.last_route: RouteReport | None = None
 
     # -- request building ------------------------------------------------
 
@@ -245,6 +400,8 @@ class LLMClient:
             headers["anthropic-version"] = ANTHROPIC_VERSION
         elif self.config.api_key:
             headers["authorization"] = f"Bearer {self.config.api_key}"
+        # Empty unless a router is in the path, so a direct request is unchanged.
+        headers.update(self.config.router_headers())
         return headers
 
     def _payload(self, prompt: str, system: str | None, max_tokens: int) -> dict:
@@ -279,22 +436,76 @@ class LLMClient:
         try:
             with _urlopen(request, self.timeout) as response:
                 raw = response.read()
+                headers = _header_map(getattr(response, "headers", None))
         except urllib.error.HTTPError as exc:  # 4xx/5xx carry a useful body
             detail = exc.read().decode("utf-8", "replace")[:500] if exc.fp else ""
-            raise LLMError(
-                f"{self.config.provider} call failed ({exc.code}) at "
-                f"{self.config.endpoint}: {detail}"
-            ) from exc
+            raise LLMError(self._http_failure(exc, detail)) from exc
         except urllib.error.URLError as exc:
-            raise LLMError(
-                f"could not reach {self.config.endpoint}: {exc.reason}"
-            ) from exc
+            raise LLMError(self._unreachable(exc.reason)) from exc
 
         try:
             data = json.loads(raw)
         except ValueError as exc:
             raise LLMError(f"non-JSON response from {self.config.endpoint}") from exc
+        self.last_route = self._route_report(data, headers)
         return self._text(data)
+
+    # -- what came back --------------------------------------------------
+
+    def _route_report(self, data: object, headers: dict[str, str]) -> RouteReport:
+        """Record what served the call. The router's headers win over the body's
+        `model`, which some routers echo back unchanged from the request."""
+        body = data if isinstance(data, dict) else {}
+        if not self.config.routed_via_agora:
+            return RouteReport(
+                endpoint=self.config.endpoint,
+                routed_via_agora=False,
+                requested_model=self.config.model,
+                model=str(body.get("model") or ""),
+            )
+        served = _first_header(headers, AGORA_SERVED_MODEL_HEADERS)
+        return RouteReport(
+            endpoint=self.config.endpoint,
+            routed_via_agora=True,
+            requested_model=self.config.model,
+            model=served or str(body.get("model") or ""),
+            provider=_first_header(headers, AGORA_PROVIDER_HEADERS),
+            route=_first_header(headers, AGORA_ROUTE_HEADERS) or self.config.agora_route,
+            request_id=_first_header(headers, AGORA_REQUEST_ID_HEADERS)
+            or str(body.get("id") or ""),
+        )
+
+    def route_description(self) -> str:
+        """The route in use, as specifically as it is known — what the router reported
+        after a call, and what was configured before one."""
+        return self.last_route.describe() if self.last_route else self.config.describe()
+
+    # -- when it fails ---------------------------------------------------
+
+    def _http_failure(self, exc: urllib.error.HTTPError, detail: str) -> str:
+        if not self.config.routed_via_agora:
+            return (f"{self.config.provider} call failed ({exc.code}) at "
+                    f"{self.config.endpoint}: {detail}")
+        # A router failure is the *router's*, and it knows more about it than we do:
+        # name it, say which upstream it had picked, and lead with its own sentence
+        # rather than burying it in the raw body (which still follows if there is none).
+        headers = _header_map(getattr(exc, "headers", None))
+        facts = [f"provider {p}" for p in [_first_header(headers, AGORA_PROVIDER_HEADERS)] if p]
+        facts += [f"route {r}" for r in
+                  [_first_header(headers, AGORA_ROUTE_HEADERS) or self.config.agora_route] if r]
+        facts += [f"request {i}" for i in [_first_header(headers, AGORA_REQUEST_ID_HEADERS)] if i]
+        where = f" [{', '.join(facts)}]" if facts else ""
+        return (f"agora provider-router call failed ({exc.code}) for "
+                f"{self.config.provider}/{self.config.model} at {self.config.endpoint}"
+                f"{where}: {_error_message(detail) or detail}")
+
+    def _unreachable(self, reason: object) -> str:
+        if not self.config.routed_via_agora:
+            return f"could not reach {self.config.endpoint}: {reason}"
+        # The router being down must never read as the provider being down, and the
+        # way out is one unset variable away — agora is opt-in, so say so here.
+        return (f"could not reach the agora provider-router at {self.config.endpoint}: "
+                f"{reason} (unset AGORA_BASE_URL to call {self.config.provider} directly)")
 
     def _text(self, data: dict) -> str:
         try:
