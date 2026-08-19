@@ -20,6 +20,15 @@ forgiving about everything the model may omit, unforgiving about anything the ga
 band would choke on. Nothing is coerced past it — a payload that fails comes back as a
 `JDExtractError` carrying the grader's own sentences, and there is no partial list.
 
+A rejected payload is not retried blind. As in `praxis/construct.py` and
+`praxis/checks.py`, the model gets its own draft back along with the validator's
+sentences (`_repair_prompt`) and one more go at it; a list that still fails is a failure,
+so those sentences are the error text end to end — the exception's message, the repair
+prompt, and whatever a UI eventually shows. Dropping the requirements that failed and
+returning the rest is the one thing this must never do: band 76 diffs a learner against
+this list, and a list quietly missing what the model got wrong reads as a posting that
+never asked for it.
+
 One rule carries the anti-fabrication weight, and it is the reason `evidence` is not
 decoration: **a requirement's evidence must really appear in the posting.** It is checked
 by looking for it (whitespace- and case-insensitively) in `doc["text"]`, so a model that
@@ -82,6 +91,8 @@ IMPORTANCE_ALIASES = {
 
 DEFAULT_LIMIT = 30      # a posting asks for a page of things, not a hundred
 MAX_LIMIT = 60
+DEFAULT_ATTEMPTS = 2    # the ask, then one repair carrying the validator's sentences
+MAX_ATTEMPTS = 4
 JD_EXCERPT = 24000      # a posting is a few pages; anything past this is boilerplate
 
 MIN_NAME_CHARS = 2
@@ -117,9 +128,10 @@ class JDExtractError(RuntimeError):
     repair prompt hands back to the model, and the text a UI shows.
     """
 
-    def __init__(self, message: str, failures: tuple[str, ...] = ()):
+    def __init__(self, message: str, failures: tuple[str, ...] = (), attempts: int = 0):
         super().__init__(message)
         self.failures = tuple(failures) or (message,)
+        self.attempts = attempts
 
 
 # --- asking ------------------------------------------------------------------
@@ -194,18 +206,28 @@ def canonical_importance(value: object) -> str:
     return IMPORTANCE_ALIASES.get(raw, raw)
 
 
+#: Where a model puts the requirement's own name when it doesn't use "name".
+NAME_KEYS = ("name", "requirement", "title", "skill")
+
+
 def normalize_requirement(raw: object, index: int) -> dict | None:
     """One requirement in canonical shape, or None when there is nothing there to keep.
 
     Lenient about what the model names things and about everything it may omit; strict
     about nothing — that is `requirement_failures`, so every complaint is a sentence the
     repair prompt can hand back.
+
+    The one thing not quietly dropped is a name key the model *did* send and this cannot
+    read (a number, an object, an empty string): an entry with no name key at all is
+    filler, but a broken one is a mistake the repair prompt has to be told about, and
+    silently omitting it would hand band 76 a list shorter than the posting.
     """
     if not isinstance(raw, dict):
         raise JDExtractError(f"requirement {index} is not an object")
-    name = re.sub(r"\s+", " ", _text(raw.get("name") or raw.get("requirement")
-                                     or raw.get("title") or raw.get("skill")))
-    if not name:
+    name = re.sub(r"\s+", " ", _text(next(
+        (raw[key] for key in NAME_KEYS if raw.get(key) is not None), "",
+    )))
+    if not name and not any(key in raw for key in NAME_KEYS):
         return None
     return {
         "id": slugify(name, fallback=f"requirement-{index}"),
@@ -351,18 +373,53 @@ def _clamp(value: object, default: int, high: int) -> int:
     return max(1, min(n, high))
 
 
+def _repair_prompt(prompt: str, previous: list[dict] | None, failures: list[str]) -> str:
+    """Hand the model its own list and the validator's complaints, ask for a full redo.
+
+    `previous` is None when the reply never became a list at all (prose, broken JSON, no
+    requirements in it). There is no draft to quote back then, but the complaint still
+    goes out — a blind retry asks the model to guess what was wrong with an answer it
+    cannot see.
+    """
+    ask = (
+        f"{prompt}\n\n"
+        "Your previous answer FAILED validation:\n\n"
+        + "\n".join(f"- {f}" for f in failures)
+    )
+    if previous is None:
+        return ask + (
+            "\n\nAnswer again with ONLY the JSON object described above, and fix every "
+            "failure listed."
+        )
+    draft = json.dumps({"requirements": previous}, indent=1)[:16000]
+    return ask + (
+        "\n\nHere is that list:\n\n<draft>\n"
+        + draft
+        + "\n</draft>\n\nReturn the COMPLETE corrected list as JSON in the same schema — "
+        "every requirement, not a patch, and fix every failure listed above. Where the "
+        "posting does not actually support a requirement, drop it rather than writing "
+        "evidence for it."
+    )
+
+
 def extract_requirements(
     doc: dict,
     *,
     client: LLMClient | None = None,
     limit: int = DEFAULT_LIMIT,
+    attempts: int = DEFAULT_ATTEMPTS,
 ) -> dict:
     """Ask the configured model what `doc` requires. Returns the requirements document.
 
-    Pure — it writes nothing. Raises `JDExtractError` when the model's payload does not
-    validate (never a partial list) and `LLMError`/`LLMConfigError` when there is no
-    model to ask; `client` is injectable so tests and any caller with its own config can
-    drive this without touching the network.
+    Pure — it writes nothing. A payload that fails `requirements_failures` is handed back
+    to the model with those sentences (`_repair_prompt`) until `attempts` is spent, and a
+    list still failing then is a `JDExtractError` carrying every sentence — never the
+    requirements that happened to pass.
+
+    `LLMError`/`LLMConfigError` are deliberately *not* caught: no model to ask is not
+    something a repair prompt can fix, and it is the launcher's 503 rather than a
+    validation failure. `client` is injectable so tests and any caller with its own
+    config can drive this without touching the network.
     """
     if not isinstance(doc, dict):
         raise JDExtractError("extraction needs an imported job description")
@@ -370,19 +427,33 @@ def extract_requirements(
     prompt = build_prompt(doc, limit=_clamp(limit, DEFAULT_LIMIT, MAX_LIMIT))
 
     client = client or LLMClient()
-    reply = client.complete(prompt, system=SYSTEM_PROMPT)
-    payload = build_requirements(
-        doc,
-        requirements_from_reply(extract_json(reply)),
-        model=getattr(client.config, "model", ""),
-    )
-    failures = requirements_failures(payload, posting=posting)
-    if failures:
-        raise JDExtractError(
-            "the model's requirement list did not validate: " + "; ".join(failures),
-            tuple(failures),
+    failures: list[str] = ["no attempt was made"]
+    previous: list[dict] | None = None
+    used = 0
+
+    for used in range(1, _clamp(attempts, DEFAULT_ATTEMPTS, MAX_ATTEMPTS) + 1):
+        ask = prompt if used == 1 else _repair_prompt(prompt, previous, failures)
+        try:
+            requirements = requirements_from_reply(extract_json(client.complete(
+                ask, system=SYSTEM_PROMPT,
+            )))
+        except (JDExtractError, ValueError) as exc:  # CurriculumError is a ValueError
+            failures, previous = [str(exc)], None
+            continue
+        payload = build_requirements(
+            doc, requirements, model=getattr(client.config, "model", ""),
         )
-    return payload
+        failures = requirements_failures(payload, posting=posting)
+        if not failures:
+            return payload
+        previous = requirements
+
+    raise JDExtractError(
+        f"the model's requirement list did not validate in {used} attempts: "
+        + "; ".join(failures),
+        tuple(failures),
+        attempts=used,
+    )
 
 
 def _main(argv: list[str]) -> int:  # pragma: no cover - a convenience CLI

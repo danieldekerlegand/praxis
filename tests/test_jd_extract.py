@@ -186,3 +186,118 @@ def test_there_is_no_local_extractor_without_a_key(monkeypatch, tmp_path, postin
 
     with pytest.raises(llm.LLMConfigError):
         extract_requirements(posting)
+
+
+# --- the strict half: what a payload is rejected for ------------------------
+
+
+def broken(**changes) -> list[dict]:
+    """The good list with its first requirement damaged the way a model damages one."""
+    first = dict(REQUIREMENTS[0])
+    for key, value in changes.items():
+        if value is None:
+            first.pop(key, None)
+        else:
+            first[key] = value
+    return [first] + REQUIREMENTS[1:]
+
+
+@pytest.mark.parametrize(
+    "damage, expected",
+    [
+        ({"kind": "vibes"}, "'kind' is 'vibes'"),
+        ({"kind": None}, "'kind' is nothing"),
+        ({"kind": 7}, "'kind' is nothing"),
+        ({"evidence": None}, "'evidence' has to quote the line"),
+        ({"evidence": "yes"}, "'evidence' has to quote the line"),
+        ({"name": 42}, "no usable 'name'"),
+        ({"importance": "someday"}, "'importance' is 'someday'"),
+        (
+            {"evidence": "You will be issued a company helicopter on your first day."},
+            "does not appear in the posting",
+        ),
+    ],
+    ids="bad-kind no-kind kind-not-a-string no-evidence short-evidence "
+        "name-not-a-string bad-importance invented-evidence".split(),
+)
+def test_an_unusable_requirement_is_rejected_with_a_sentence_naming_it(
+    posting, damage, expected
+):
+    payload = build_requirements(posting, requirements_from_reply({"requirements": broken(**damage)}))
+    failures = requirements_failures(payload, posting=posting["text"])
+
+    assert any(expected in f for f in failures), failures
+    # The complaint is a sentence a reader could act on, not a code or a boolean.
+    assert all(len(f) > 40 and f == f.strip() for f in failures), failures
+
+
+def test_a_name_the_model_sent_but_broke_is_rejected_rather_than_dropped(posting):
+    """A missing name key is filler; an unreadable one is a mistake worth naming back."""
+    requirements = requirements_from_reply({"requirements": broken(name=42)})
+
+    assert len(requirements) == len(REQUIREMENTS)  # not silently one shorter
+    assert requirements_failures(
+        build_requirements(posting, requirements), posting=posting["text"]
+    )
+
+
+def test_a_payload_that_is_not_a_document_is_refused():
+    assert requirements_failures(["Kubernetes"]) == [
+        "the requirements payload does not hold a JSON object"
+    ]
+    assert requirements_failures({"version": 99, "requirements": REQUIREMENTS}) == [
+        "unsupported requirements version 99"
+    ]
+
+
+# --- repair -----------------------------------------------------------------
+
+
+def test_a_rejected_payload_is_repaired_with_the_validators_own_sentences(posting):
+    """Attempt two carries the complaint and the draft — the model is not asked to guess."""
+    client = FakeClient(reply(broken(kind="vibes")), reply())
+    payload = extract_requirements(posting, client=client)
+
+    assert len(client.calls) == 2
+    assert payload["count"] == len(REQUIREMENTS)
+    assert {r["kind"] for r in payload["requirements"]} <= set(KINDS)
+
+    first, second = (call["prompt"] for call in client.calls)
+    assert "FAILED validation" not in first
+    assert "FAILED validation" in second
+    assert "'kind' is 'vibes'" in second          # the validator's own sentence
+    assert '"Terraform"' in second                # its own draft, quoted back
+    assert first.split("Your previous answer")[0] in second  # the whole original ask
+
+
+def test_a_repair_that_still_fails_is_a_failure_not_a_partial_list(posting):
+    """The four good requirements are not returned without the one that failed."""
+    client = FakeClient(reply(broken(evidence="We are a rocketship with great snacks.")))
+
+    with pytest.raises(JDExtractError) as exc:
+        extract_requirements(posting, client=client)
+
+    assert len(client.calls) == 2                      # asked, repaired, gave up
+    assert exc.value.attempts == 2
+    assert "did not validate" in str(exc.value)
+    assert any("does not appear in the posting" in f for f in exc.value.failures)
+    assert "Terraform" not in str(exc.value)           # no partial list smuggled out
+
+
+def test_one_attempt_means_no_repair(posting):
+    client = FakeClient(reply(broken(kind="vibes")), reply())
+
+    with pytest.raises(JDExtractError):
+        extract_requirements(posting, client=client, attempts=1)
+    assert len(client.calls) == 1
+
+
+def test_a_reply_with_no_json_in_it_is_repaired_without_a_draft(posting):
+    """Nothing parsed means nothing to quote back — the complaint still goes out."""
+    client = FakeClient("I could not read that posting.", reply())
+    payload = extract_requirements(posting, client=client)
+
+    assert payload["count"] == len(REQUIREMENTS)
+    second = client.calls[1]["prompt"]
+    assert "no JSON object in the model's reply" in second
+    assert "<draft>" not in second
