@@ -38,7 +38,10 @@ fi
 # Notebook-construction core + the completion gate (the reusable Python core).
 # Prefer a repo-local .venv — the system python3 usually lacks pytest/nbformat, and a
 # silently-skipped gate is worse than no gate.
-if echo "$changed" | grep -qE '\.(py|ipynb)$|^notebooks/|^tests/'; then
+# The three manifests and scripts/ are in scope too: tests/test_packaging.py is where the
+# release version is pinned in step across them (and where the release script is asserted
+# on), so a lone version bump in tauri.conf.json must reach this gate.
+if echo "$changed" | grep -qE '\.(py|ipynb)$|^notebooks/|^tests/|^scripts/|^pyproject\.toml$|^ui/package\.json$|^src-tauri/tauri\.conf\.json$'; then
   py=python3
   [ -x .venv/bin/python ] && py=.venv/bin/python
   if "$py" -c 'import pytest, nbformat' >/dev/null 2>&1; then

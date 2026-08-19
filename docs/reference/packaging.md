@@ -56,8 +56,42 @@ macOS `.app` without the DMG step.
 The CI job `bundle-macos` in `.github/workflows/ci.yml` (manual, `workflow_dispatch`)
 runs the release script below and uploads the `.app` and `.dmg` as artifacts.
 
-The app version comes from `version` in `tauri.conf.json`; keep it in step with
-`pyproject.toml` and `ui/package.json` when cutting a release.
+### One version, three manifests
+
+The app version is declared in three files, and nothing derives one from another:
+
+| File | What carries it |
+|------|-----------------|
+| `src-tauri/tauri.conf.json` | the app version, and the name of the `.dmg` (`Praxis_<version>_<arch>.dmg`) |
+| `pyproject.toml` | the Python core, which the bundle *runs* rather than contains |
+| `ui/package.json` | the frontend embedded into the shell |
+
+So **bumping a release means editing all three in the same commit** — otherwise a `.dmg`
+called 0.2.0 ships a 0.1.0 core, and there is no build step that would notice.
+
+`scripts/check-versions.py` is the check, and it is wired in twice:
+
+```bash
+scripts/check-versions.py     # prints the agreed version, or names the files that disagree
+```
+
+- **Every PR** that touches one of the three manifests (or `scripts/`, or any Python) runs
+  it — `tests/test_packaging.py` asserts on it, so it rides in CI's existing `python`
+  job. `.github/workflows/ci.yml` and `.chief/verify.sh` scope those files into that job
+  for exactly this reason; the three checks stay three.
+- **Every release**: `scripts/bundle-macos.sh` runs it before building and refuses (exit
+  2) a mismatch, so the disagreement costs a second rather than a ten-minute build. The
+  plan line is followed by `bundle: version <x> in step across …`.
+
+A mismatch prints every manifest and the version it declares, which is the fix:
+
+```
+version: the manifests disagree — a release must carry one version.
+  src-tauri/tauri.conf.json  0.2.0
+  pyproject.toml             0.1.0
+  ui/package.json            0.1.0
+fix: set the same version in each file above, then re-run this check.
+```
 
 ### Signing and notarization (macOS)
 
@@ -155,7 +189,8 @@ that is the fastest way to browse a library over SSH.
 
 `.github/workflows/ci.yml` mirrors `.chief/verify.sh`: the frontend build, the Rust
 build, and `pytest tests/`, each scoped to whether the PR touched `ui/`, `src-tauri/`, or
-Python/notebooks. The Rust job builds the frontend first — `src-tauri` embeds `ui/dist`
+Python/notebooks — plus `scripts/` and the three version manifests, which scope into the
+python job because that is where packaging is asserted. The Rust job builds the frontend first — `src-tauri` embeds `ui/dist`
 at compile time, and `build.rs` writes a placeholder when it is missing, so a green cargo
 build over an unbuilt frontend proves nothing.
 

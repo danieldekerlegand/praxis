@@ -97,6 +97,17 @@ else
 fi
 say "plan $plan"
 
+# --- the version this release will carry --------------------------------------
+# Three manifests declare it and nothing derives one from another, so a release can
+# name a .dmg 0.2.0 around a 0.1.0 core. Refused here for the same reason as every
+# check above: before the build, not after it. scripts/check-versions.py names the
+# files that disagree; we only turn its exit into this script's "misconfigured" 2.
+command -v python3 >/dev/null 2>&1 \
+  || fail "python3 is needed to check the release version across the manifests (it is a prerequisite of the bundle anyway — docs/reference/packaging.md)."
+version="$(python3 scripts/check-versions.py)" \
+  || fail "the manifests above disagree — bump them together before cutting a release."
+say "$version"
+
 if [ "$check_only" = 1 ]; then
   say "--check: not building."
   exit 0

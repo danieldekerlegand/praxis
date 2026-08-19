@@ -15,7 +15,9 @@ from __future__ import annotations
 import json
 import os
 import platform
+import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -159,3 +161,65 @@ def test_the_build_runs_from_the_repo_root(tmp_path):
     assert result.returncode == 0, result.stderr
     assert f"cwd={ROOT}" in result.stdout
     assert "args=--prefix ui exec -- tauri build" in result.stdout
+
+
+# --- one version, three manifests -------------------------------------------
+# Nothing derives one of these from another, so a release can name a .dmg 0.2.0 around a
+# 0.1.0 core. scripts/check-versions.py is the single check; the release script runs it
+# before building, and these tests are what put it in CI's python job.
+
+VERSIONS = ROOT / "scripts" / "check-versions.py"
+MANIFESTS = ("src-tauri/tauri.conf.json", "pyproject.toml", "ui/package.json")
+
+
+def check_versions(root: Path) -> subprocess.CompletedProcess:
+    return subprocess.run([sys.executable, str(VERSIONS), str(root)], capture_output=True, text=True)
+
+
+def fake_manifests(root: Path, tauri: str, pyproject: str, ui: str) -> Path:
+    """A repo-shaped tree declaring the three versions given, to test the failure paths."""
+    (root / "src-tauri").mkdir()
+    (root / "ui").mkdir()
+    (root / "src-tauri" / "tauri.conf.json").write_text(json.dumps({"version": tauri} if tauri else {}))
+    (root / "pyproject.toml").write_text(f'[project]\nname = "praxis"\nversion = "{pyproject}"\n')
+    (root / "ui" / "package.json").write_text(json.dumps({"name": "praxis-ui", "version": ui}))
+    return root
+
+
+def test_the_three_manifests_declare_the_same_version():
+    """Read here rather than through the checker, so the rule holds even if it doesn't."""
+    tauri = json.loads((ROOT / "src-tauri" / "tauri.conf.json").read_text())["version"]
+    ui = json.loads((ROOT / "ui" / "package.json").read_text())["version"]
+    pyproject = re.search(
+        r"""^\[project\](?:.|\n)*?^version\s*=\s*["']([^"']+)["']""",
+        (ROOT / "pyproject.toml").read_text(),
+        re.MULTILINE,
+    ).group(1)
+    assert tauri == pyproject == ui, f"{MANIFESTS} disagree: {tauri} / {pyproject} / {ui}"
+
+
+def test_the_check_passes_on_this_repo_and_reports_the_version():
+    result = check_versions(ROOT)
+    assert result.returncode == 0, result.stderr
+    assert "in step" in result.stdout
+
+
+def test_a_mismatch_names_every_manifest_and_the_version_it_declares(tmp_path):
+    """The message is the fix: it must say which files disagree, and about what."""
+    result = check_versions(fake_manifests(tmp_path, tauri="0.2.0", pyproject="0.1.0", ui="0.1.0"))
+    assert result.returncode == 1
+    for rel in MANIFESTS:
+        assert rel in result.stderr
+    assert "0.2.0" in result.stderr and "0.1.0" in result.stderr
+
+
+def test_a_manifest_with_no_version_at_all_is_a_mismatch(tmp_path):
+    result = check_versions(fake_manifests(tmp_path, tauri="", pyproject="0.1.0", ui="0.1.0"))
+    assert result.returncode == 1
+    assert "src-tauri/tauri.conf.json" in result.stderr
+
+
+def test_a_release_reports_the_version_it_would_carry():
+    """The release path runs the check itself, so a mismatch costs a second, not a build."""
+    result = check()
+    assert re.search(r"^bundle: version \S+ in step", result.stdout, re.MULTILINE), result.stdout
