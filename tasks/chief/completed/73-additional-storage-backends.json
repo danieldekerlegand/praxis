@@ -1,0 +1,45 @@
+{
+  "name": null,
+  "project": "praxis",
+  "category": "feature",
+  "branchName": "chief/73-additional-storage-backends",
+  "baseBranch": "main",
+  "description": "`praxis/storage.py` is the only module that knows where the user's data lives, and it is built so a new backend is a resolver plus an availability check — never a new path computation in any caller. Three ship (`app`, `drive`, `cloud`) and `register_backend(kind, resolver, available=..., writable=..., on_select=..., sync=...)` is the seam that plugs one in: `_RESOLVERS` / `_AVAILABLE` (plus `_WRITABLE` / `_ON_SELECT` / `_SYNC`) and `FIELDS` / `BLURBS` (the settings form's single source of truth, rendered by `ui/src/StorageSettings.tsx`, which knows no backend by name). This tasklist adds at least one further backend on that seam — following the same disciplines the shipped ones hold: a stricter-than-local availability check where an unplugged/unreachable target would otherwise recreate a decoy folder, a stored secret reported as `set: true` never by value, a sync that never deletes and merges by content digest, and the `writable()` 503 middleware in `launcher/app.py` gating every non-GET write. Scope: `praxis/storage.py` (+ a sync module if the backend mirrors, like `praxis/cloud.py` over `praxis/s3.py`), `storage.FIELDS`/`BLURBS`, and `tests/` with a loopback fake for any remote protocol (as `tests/mocks3.py` does).",
+  "parked": false,
+  "dependsOn": [],
+  "touches": [
+    "praxis/",
+    "tests/"
+  ],
+  "iters": 7,
+  "warmup": [
+    "echo 'A backend is a resolver in _RESOLVERS + an availability check in _AVAILABLE via register_backend — NEVER a new path computation in a caller. Secrets report set:true, sync never deletes, writable() gates writes — see CLAUDE.md \"Storage\".'",
+    "sed -n '319,400p' praxis/storage.py",
+    "grep -n 'FIELDS\\|BLURBS\\|_drive_available\\|writable\\|register_backend' praxis/storage.py | head"
+  ],
+  "userStories": [
+    {
+      "id": "US-1",
+      "title": "A new backend added through the register_backend seam",
+      "acceptanceCriteria": [
+        "At least one further backend is added via `register_backend` — a resolver in `_RESOLVERS` plus an availability check in `_AVAILABLE` (and `_WRITABLE`/`_ON_SELECT`/`_SYNC` if it needs them) — with NO new path computation in any caller: `curriculum.subjects_dir()` and `progress.progress_dir()` stay one-line delegates and follow the new root unchanged.",
+        "The backend's availability is stricter-than-local where a vanished/unreachable target would otherwise let a decoy folder be created on the internal disk (the `_drive_available` immediate-parent-must-exist rule), and `select_backend()` resolves + checks + creates before it stores so a bad target leaves the app pointed where it already was.",
+        "Gate green: `python3 -m pytest -q tests/` passes, including a test that resolves the new backend, writes a subject/progress artifact under its root and reads it back — plus its availability failing cleanly (no decoy folder)."
+      ],
+      "passes": true,
+      "notes": "python3 -m pytest -q tests/: 822 passed, 0 failed (34 in test_storage_backends.py, 10 of them new for the webdav backend). Verified: select_backend(\"webdav\") resolves to <app dir>/webdav/<host>-<folder>, the four writers land under it and read back through load_subject/load_progress, subjects_dir()/progress_dir() unchanged; an unreachable share raises StorageError \"cannot reach …\" and leaves no <app dir>/webdav decoy with the drive selection still active. doc-links: 0 dead vs 0 on main."
+    },
+    {
+      "id": "US-2",
+      "title": "Settings-form and write-gate discipline for the new backend",
+      "acceptanceCriteria": [
+        "`storage.FIELDS`/`BLURBS` describe the new backend so `ui/src/StorageSettings.tsx` renders its form with no backend-by-name knowledge; a stored secret is reported `set: true` never by value, and a blank secret field means keep the stored one (`merge_options`).",
+        "The `writable()` 503 middleware in `launcher/app.py` gates every non-GET write for the new backend exactly as for the others (`/api/storage` exempt because it is the fix), and if the backend mirrors + syncs, the sync never deletes at either end and merges by content digest — proved by a loopback fake for its protocol the way `tests/mocks3.py` serves S3, wiping the mirror and reading the work back in a second process.",
+        "Gate green: `python3 -m pytest -q tests/` passes (backend + launcher API with the launch extra), `npm run build` in ui/ and `cargo build` in src-tauri/ pass if touched."
+      ],
+      "passes": true,
+      "notes": "python3 -m pytest -q tests/: 834 passed, 0 failed (43 in test_storage_backends.py, 9 of them new; 49 in test_launcher_api.py, 3 new). npm run build in ui/: green (tsc --noEmit + vite build, 42 modules). Verified: describe() gives webdav its four fields with url required and password secret, the password is absent from the whole describe() JSON and reported value \"\" / set true, and a blank password re-selecting folder Team kept the stored one; a chmod 0o500 mirror 503s all four write endpoints with \"storage is unavailable — … is not writable\" while GET /api/library stays 200 and POST /api/storage back to app is exempt and fixes it; offline share still takes POST /api/subjects (201, file in the mirror) and only the sync 503s; second sync moved 0, side-that-changed won both ways, dav.deletes == [] after clearing each end, and 4 files pulled back into a wiped mirror then read in a second process."
+    }
+  ],
+  "mergedToMain": "e262757"
+}
