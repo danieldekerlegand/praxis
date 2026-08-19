@@ -164,8 +164,9 @@ Two rules keep it opt-in, and `tests/test_llm.py` pins both:
 ## Storage: whose data, and on which disk
 
 `praxis/storage.py` is the only module that knows where the user's data lives. The four
-writes above (subject · scaffold · construct · checks) plus progress all land under **one
-root**, laid out as `<root>/subjects/<slug>/…` and `<root>/progress/<learner>.json`
+writes above (subject · scaffold · construct · checks) plus progress and an imported job
+description all land under **one root**, laid out as `<root>/subjects/<slug>/…`,
+`<root>/progress/<learner>.json` and `<root>/jd/<id>.json`
 (`docs/reference/storage.md` is the contract). The seed `notebooks/` are not user data — they ship
 with the app and are never written to.
 
@@ -216,6 +217,41 @@ same bundle identifier, so `praxis-launch` by hand sees what the app wrote. Keep
 `storage.APP_ID` equal to `tauri.conf.json`'s `identifier` — a test asserts it.
 `tests/conftest.py` points `PRAXIS_APP_DIR` at a tmp dir for **every** test; a test that
 writes user data must never rely on the real one.
+
+## Job descriptions: the one document the user brings
+
+`praxis/jd.py` is the front of a different funnel — everything else starts from a subject
+the user *types*; this starts from a posting they already have. It is a parser and a
+normalizer, nothing more: pasted text or an uploaded `.txt`/`.md`/`.pdf`/`.docx` becomes
+**one canonical plain text**, and every later band reads that one field, `doc["text"]`,
+whatever the file it arrived as. Three properties carry the weight:
+
+- **No model.** `praxis/llm.py` is not imported here, so importing a JD works with no key
+  configured — BYO-key starts one band later, at extraction. A test asserts a restart
+  reading a JD back never loads `praxis.llm`.
+- **No parser for a format that doesn't need one.** `.txt`/`.md` are a decode; `zipfile`
+  and `zlib` are imported *inside* the `.docx` and `.pdf` readers. All four are stdlib,
+  the same call `praxis/s3.py` makes against boto3.
+- **Nothing that failed to parse is persisted** — an unsupported extension, bytes that are
+  not text (CP1252 decodes anything, so binary is caught *before* the fallback, not by it)
+  and a scan with no extractable text are each a `JDError` naming the file and what to do
+  instead. Same rule as the constructor's: the failure comes back, no file is written.
+
+The id is the title's slug plus a digest of the normalized text, so re-importing the same
+posting rewrites one document rather than piling up copies, and an edited one is new.
+`tests/fixtures/jd/` holds the same posting as four real files (`textutil`, `cupsfilter`,
+`sips` made them) — `.txt`, `.pdf` and `.docx` must normalize to the *same string and the
+same id*, which is the strongest available statement about a normalizer.
+
+In the app it is two writes onto one core call: `POST /api/jd` takes `{text, title}` and
+`POST /api/jd/upload?filename=` takes the file's **raw bytes as the body** — not
+multipart, which is a `fetch(url, {body: file})` in `ui/src/jd.ts` and saves the launcher
+a `python-multipart` dependency for a form with one field. Every `JDError` is a **400**
+carrying `jd`'s own sentence, so the UI's error text is the module's; the writable() 503
+middleware covers both like any other non-GET. `ui/src/ImportJD.tsx` shows the import back
+by re-reading `GET /api/jd/<id>` rather than the response body, so the confirmation is
+what landed on the backend and not an echo — the same reason the construction job re-reads
+each badge off the file.
 
 ## Construction in the app
 

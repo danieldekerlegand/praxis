@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import DefineSubject from "./DefineSubject";
+import ImportJD from "./ImportJD";
 import KnowledgeChecks from "./KnowledgeChecks";
 import StorageSettings from "./StorageSettings";
 import { itemFor, jobSummary, phaseBadge, useConstruction } from "./construct";
@@ -26,10 +27,14 @@ const MODES = {
 type Mode = keyof typeof MODES;
 type Reading = { topic: Topic; mode: Mode };
 
-/** Browse what exists, define something new, or say where all of it is kept. */
+/**
+ * Browse what exists, define something new, bring the posting you are aiming at, or say
+ * where all of it is kept.
+ */
 const VIEWS = {
   library: "library",
   subjects: "define a subject",
+  jd: "job description",
   storage: "storage",
 } as const;
 
@@ -160,6 +165,10 @@ export default function App() {
             setActiveDir(null);
           }}
         />
+      ) : view === "jd" && status.url ? (
+        // Importing a posting writes nothing into the library — it is the front of the
+        // JD funnel, not a curriculum — so nothing here has to be dropped afterwards.
+        <ImportJD base={status.url} />
       ) : view === "subjects" && status.url ? (
         // Scaffolding a subject writes notebooks; drop the library so the effect above
         // refetches it and the new module shows up in the sidebar with live badges.

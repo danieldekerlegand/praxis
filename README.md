@@ -381,6 +381,9 @@ a window onto it, and holds no logic of its own.
 | `GET /api/construct` · `GET /api/construct/<id>` | runs, newest first · one run's live progress |
 | `GET /api/study/<rel>` | one topic's gate for one learner — locked sections carry no questions |
 | `POST /api/study/<rel>` | `{"check_id": …, "answer": …}` → graded, recorded; **423** if not reached |
+| `GET /api/jd` · `GET /api/jd/<id>` | imported job descriptions — summaries · one, with its canonical text |
+| `POST /api/jd` | `{"text": "..."}` → a pasted posting, normalized and persisted (no key needed) |
+| `POST /api/jd/upload?filename=` | the file's raw bytes — `.txt`/`.md`/`.pdf`/`.docx` → the same document |
 | `GET /api/storage` | which backend is holding your work, and whether it's reachable |
 | `POST /api/storage` | `{"kind": "drive", "options": {...}}` → keep it somewhere else |
 | `POST /api/storage/sync` | push/pull the cloud backend's mirror |
