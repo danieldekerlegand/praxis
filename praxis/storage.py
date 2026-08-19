@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Where a user's own data lives — the one module that answers "on which disk?".
 
-Praxis writes four kinds of thing, and only these four are the *user's*: the subjects
+Praxis writes five kinds of thing, and only these five are the *user's*: the subjects
 they define, the curricula generated for them, the notebooks (plus `<slug>.checks.json`)
-constructed into them, and each learner's progress. The seed library under `notebooks/`
-is not user data — it ships with the app and is read-only — so nothing here touches it.
+constructed into them, each learner's progress, and the job descriptions they import.
+The seed library under `notebooks/` is not user data — it ships with the app and is
+read-only — so nothing here touches it.
 
 Everything the user owns lives under **one root**, and this module is the only thing that
 knows where that root is:
@@ -13,10 +14,11 @@ knows where that root is:
     <root>/subjects/<slug>/<NN-module>/<topic>.ipynb        the tutorial
     <root>/subjects/<slug>/<NN-module>/<topic>.checks.json  its gate
     <root>/progress/<learner>.json                 what that learner has passed
+    <root>/jd/<id>.json                            a job description they imported
 
-`curriculum.subjects_dir()` and `praxis.progress.progress_dir()` are one-line delegates to
-the two functions below, so every existing caller moved with the root the day this landed
-and none of them had to learn about backends.
+`curriculum.subjects_dir()`, `praxis.progress.progress_dir()` and `praxis.jd.jd_dir()` are
+one-line delegates to the functions below, so every existing caller moved with the root the
+day this landed and none of them had to learn about backends.
 
 A **backend** is a `kind` plus the root it resolves to. Four ship:
 
@@ -45,7 +47,8 @@ drive" is on the internal disk.
 
 Four environment overrides, in the order they win:
 
-    PRAXIS_SUBJECTS_DIR / PRAXIS_PROGRESS_DIR   one leaf each (tests, and only tests)
+    PRAXIS_SUBJECTS_DIR / PRAXIS_PROGRESS_DIR / PRAXIS_JD_DIR
+                                                one leaf each (tests, and only tests)
     PRAXIS_DATA_DIR                             the `app` backend's root
     PRAXIS_APP_DIR                              the app directory itself — the desktop
                                                 shell passes Tauri's `app_data_dir()` here
@@ -76,6 +79,8 @@ CONFIG_VERSION = 1
 DATA_DIRNAME = "data"
 SUBJECTS_DIRNAME = "subjects"
 PROGRESS_DIRNAME = "progress"
+#: The job descriptions the user imported (`praxis/jd.py`) — theirs, like the rest.
+JD_DIRNAME = "jd"
 
 #: Where the `cloud` backend keeps its working copy, inside the app directory.
 CLOUD_DIRNAME = "cloud"
@@ -144,6 +149,10 @@ class Backend:
     def progress(self) -> Path:
         return self.root / PROGRESS_DIRNAME
 
+    @property
+    def jd(self) -> Path:
+        return self.root / JD_DIRNAME
+
     def available(self) -> tuple[bool, str]:
         """`(usable now, why not)` — checked per request, never cached.
 
@@ -170,7 +179,7 @@ class Backend:
         ok, why = self.available()
         if not ok:
             raise StorageError(why)
-        for path in (self.root, self.subjects, self.progress):
+        for path in (self.root, self.subjects, self.progress, self.jd):
             try:
                 path.mkdir(parents=True, exist_ok=True)
             except OSError as exc:
@@ -192,6 +201,7 @@ class Backend:
             "root": str(self.root),
             "subjects": str(self.subjects),
             "progress": str(self.progress),
+            "jd": str(self.jd),
             "available": ok,
             "detail": why or self.detail,
             "options": self.public_options(),
@@ -637,6 +647,12 @@ def progress_dir() -> Path:
     return Path(override) if override else active_backend().progress
 
 
+def jd_dir() -> Path:
+    """Where imported job descriptions live. `PRAXIS_JD_DIR` relocates just this leaf."""
+    override = os.environ.get("PRAXIS_JD_DIR")
+    return Path(override) if override else active_backend().jd
+
+
 def kind_info(kind: str) -> dict:
     """What the settings form needs to offer one backend: its fields and their values.
 
@@ -668,6 +684,7 @@ def describe() -> dict:
         # The effective paths, which the env overrides can move off the backend root.
         "subjects": str(subjects_dir()),
         "progress": str(progress_dir()),
+        "jd": str(jd_dir()),
         "kinds": kinds(),
         "backends": [kind_info(kind) for kind in kinds()],
         "syncable": backend.kind in _SYNC,

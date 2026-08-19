@@ -2,13 +2,13 @@
 
 > **Status:** Current · **Updated:** 2026-08-19 · **Owner:** praxis
 
-Praxis writes four kinds of thing, and all four belong to **you**: the subjects you
+Praxis writes five kinds of thing, and all five belong to **you**: the subjects you
 define, the curricula generated for them, the tutorials constructed into them (notebooks
-plus their knowledge checks), and each learner's progress. The seed library under
-`notebooks/` is not yours in that sense — it ships with the app and is never written to,
-so nothing described here touches it.
+plus their knowledge checks), each learner's progress, and the job descriptions you
+import. The seed library under `notebooks/` is not yours in that sense — it ships with
+the app and is never written to, so nothing described here touches it.
 
-All four live under **one root**, and one module knows where that root is:
+All five live under **one root**, and one module knows where that root is:
 [`praxis/storage.py`](../../praxis/storage.py).
 
 ## The layout
@@ -22,8 +22,11 @@ All four live under **one root**, and one module knows where that root is:
 │           ├── <topic>.ipynb               the tutorial
 │           └── <topic>.checks.json         its gate — the answer key lives here,
 │                                           beside the notebook, never inside it
-└── progress/
-    └── <learner>.json                      every graded outcome, answers verbatim
+├── progress/
+│   └── <learner>.json                      every graded outcome, answers verbatim
+└── jd/
+    └── <id>.json                           a job description you imported, as one
+                                            canonical plain text (praxis/jd.py)
 ```
 
 Copying that one directory copies everything you have built and everything you have
@@ -53,7 +56,7 @@ back. Moving your work between backends is `cp -R` on the one directory in the l
 
 ### `drive` — a folder you picked
 
-The path you choose *is* the root; Praxis creates `subjects/` and `progress/` in it. The
+The path you choose *is* the root; Praxis creates `subjects/`, `progress/` and `jd/` in it. The
 availability check is deliberately stricter than for the other backends: the folder's
 **immediate parent** must exist. That parent is the mount point, and its absence is the
 question "is the drive plugged in?".
@@ -191,6 +194,7 @@ In the order they win:
 |---|---|
 | `PRAXIS_SUBJECTS_DIR` | just `subjects/` — the test suite's escape hatch |
 | `PRAXIS_PROGRESS_DIR` | just `progress/` — likewise |
+| `PRAXIS_JD_DIR` | just `jd/` — likewise |
 | `PRAXIS_DATA_DIR` | the `app` backend's root (a portable checkout, a scratch run) |
 | `PRAXIS_APP_DIR` | the app directory itself, config and all |
 
