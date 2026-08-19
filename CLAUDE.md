@@ -228,6 +228,21 @@ from the repo root (`npm --prefix ui exec -- tauri build`), never from inside `u
 it silently finds no app. `tauri build` runs `beforeBuildCommand` itself, so it cannot
 embed a stale `ui/dist`.
 
+`scripts/bundle-macos.sh` is that command plus the signing decision: it reads the Apple
+credentials `tauri build` already looks for **from the environment only** (never the
+repo), refuses a half-configured release before the build, and otherwise falls through to
+the unsigned bundle. `--check` reports the plan without building, which is what
+`tests/test_packaging.py` asserts on. `tauri.conf.json` carries `bundle.macOS`'s
+hardened-runtime flag and deliberately **no** `signingIdentity`.
+
+The version is declared in **three** manifests that nothing derives from each other —
+`src-tauri/tauri.conf.json`, `pyproject.toml`, `ui/package.json` — so a bump edits all
+three in one commit. `scripts/check-versions.py` is the only check: the release script
+runs it before building (exit 2 on a mismatch) and `tests/test_packaging.py` pins it, so
+it rides CI's existing python job. That is why the python path predicate in **both**
+`.github/workflows/ci.yml` and `.chief/verify.sh` scopes those three files and `scripts/`
+— a lone version bump must still reach the gate.
+
 The bundle is the shell only: `library.rs` still discovers `curriculum.py` + `launcher/`
 by walking up from the binary and the cwd, and the interpreter via `PRAXIS_PYTHON` /
 `.venv` / `python3`. No interpreter is embedded — a `.app` moved away from a checkout with

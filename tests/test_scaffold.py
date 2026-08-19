@@ -172,9 +172,9 @@ def test_the_rubric_link_resolves_from_where_the_notebook_lives(subject):
     # Relative to the notebook's own directory, that lands beside notebooks/ — which in
     # the real checkout is the rubric this scaffold tells its author to fill to.
     assert (notebooks_root / module.dir / link).resolve() == (
-        notebooks_root.parent / "docs" / "notebook-rubric.md"
+        notebooks_root.parent / "docs" / "explanation" / "notebook-rubric.md"
     )
-    assert (ROOT / "docs" / "notebook-rubric.md").is_file()
+    assert (ROOT / "docs" / "explanation" / "notebook-rubric.md").is_file()
 
 
 # --- idempotence -----------------------------------------------------------

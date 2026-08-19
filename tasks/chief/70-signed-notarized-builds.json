@@ -27,7 +27,8 @@
         "docs/reference/packaging.md's Gatekeeper right-click -> Open note is updated to describe the signed path and what the user sees with and without credentials, and the release build is still produced from the repo root the way CLAUDE.md \"Bundling\" requires (never from inside ui/).",
         "Gate green: `npm run build` in ui/ and `cargo build` in src-tauri/ both pass, and `python3 -m pytest -q tests/` passes."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "verify.sh PASS on the branch: pytest 782 passed (12 new in tests/test_packaging.py), cargo build --quiet green, doc-links 0 dead vs 0 on main; `npm run build` in ui/ green (42 modules, built in 2.94s). Observed `scripts/bundle-macos.sh --check` report plan unsigned / signed / signed+notarized across the credential combinations, and exit 2 naming the missing variable on each half-configured one."
     },
     {
       "id": "US-2",
@@ -37,7 +38,8 @@
         "The release/CI job fails on a version mismatch with an actionable message naming the files that disagree, and docs/reference/packaging.md records the version-in-step rule as part of the release procedure.",
         "Gate green: `python3 -m pytest -q tests/` passes (including the new parity test), `npm run build` in ui/ and `cargo build` in src-tauri/ both pass."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "verify.sh PASS on the branch: pytest 787 passed (5 new version-parity tests in tests/test_packaging.py), cargo build --quiet green, doc-links 0 dead vs 0 on main; `npm run build` in ui/ green (42 modules, built in 2.78s). Observed `scripts/check-versions.py` print \"version 0.1.0 in step across src-tauri/tauri.conf.json, pyproject.toml, ui/package.json\" (exit 0), and \u2014 with ui/package.json temporarily at 0.9.9 \u2014 exit 1 listing all three files and their versions, with scripts/bundle-macos.sh --check turning that into exit 2 before any build. CI/verify.sh python predicate now matches the three manifests (checked: tauri.conf.json / ui/package.json / pyproject.toml alone -> python=true, README.md -> false), so the check stays one of the same three path-scoped jobs."
     }
   ]
 }
