@@ -37,7 +37,8 @@
         "A test pins both modes from the same config resolution (agora on vs off) using an injected env/stub, so the direct path is proven untouched by the deeper integration, and no `dependsOn` on agora is introduced (the contract is consumed by reference).",
         "Gate green: `python3 -m pytest -q tests/` passes; `npm run build` in ui/ and `cargo build` in src-tauri/ pass if either is touched, otherwise unaffected."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "tests/test_llm.py grew a pinning section (9 tests): DIRECT_WIRE asserts the whole direct request per provider (url, exact header dict, payload, timeout, describe()) and the direct 429/URLError strings verbatim; one env resolves agora-off vs agora-on side by side (same provider/model/key/timeout, only endpoint+wire_format+headers differ); AGORA_ROUTE/AGORA_API_KEY/AGORA_FALLBACK_MODELS with AGORA_BASE_URL unset give a call byte-identical to the same env without them; building a client in either mode makes zero requests; no module imports agora and pyproject/ui-package.json/Cargo.toml name it nowhere (no dependsOn added). Separately verified untouched vs main: drove `git show main:praxis/llm.py` and HEAD's through the same stub over 6 direct configs + 4 config-error cases comparing endpoint/wire/key/headers/payload/text/describe and all four error strings -> DIFFS: 0. Observed: .venv/bin/python -m pytest -q tests/ = 812 passed, 1 warning (40 in tests/test_llm.py); node scripts/check-doc-links.mjs --ratchet --base main = 0 dead vs 0 on main. ui/ and src-tauri/ untouched."
     }
   ]
 }
