@@ -1,0 +1,45 @@
+{
+  "name": null,
+  "project": "praxis",
+  "category": "fix",
+  "branchName": "chief/71-embed-python-interpreter",
+  "baseBranch": "main",
+  "description": "A shipped Praxis `.app` is the shell only: `src-tauri/src/library.rs` discovers the Python construction core (`curriculum.py` + `launcher/`) by walking up from the binary and the cwd, and finds an interpreter via `PRAXIS_PYTHON` / `.venv` / `python3` — nothing is embedded, so a `.app` moved away from a checkout-with-the-launch-extra reports `LauncherStatus::failed` (CLAUDE.md \"Bundling\"). This tasklist makes a truly standalone bundle: embed a Python interpreter plus the launch extra into the bundle so `library.rs` can start the launcher without a checkout or venv beside it, preferring the embedded runtime while keeping the existing discovery fallbacks. It is a change to the discovery ORDER and the bundle contents, not a rewrite of how the core is started. Scope: `src-tauri/src/library.rs` (interpreter discovery), the bundle config + `docs/reference/packaging.md`, and `tests/` where discovery order can be exercised. The dev flow (`.venv` + `npm run dev`) stays unchanged.",
+  "parked": false,
+  "dependsOn": [],
+  "touches": [
+    "src-tauri/",
+    "tests/"
+  ],
+  "iters": 7,
+  "warmup": [
+    "echo 'library.rs discovers curriculum.py + launcher/ by walking up, and the interpreter via PRAXIS_PYTHON / .venv / python3; embedding must be an added, preferred discovery step, not a rewrite — see CLAUDE.md \"Bundling\".'",
+    "grep -n 'PRAXIS_PYTHON\\|\\.venv\\|python3\\|LauncherStatus\\|walk\\|discover' src-tauri/src/library.rs | head",
+    "sed -n '1,60p' docs/reference/packaging.md"
+  ],
+  "userStories": [
+    {
+      "id": "US-1",
+      "title": "Embed an interpreter + the launch extra, preferred by discovery",
+      "acceptanceCriteria": [
+        "The bundle embeds a Python interpreter and the launch extra, and `src-tauri/src/library.rs` prefers the embedded interpreter while keeping the existing `PRAXIS_PYTHON` / `.venv` / `python3` fallbacks — the discovery ORDER gains a step, it is not replaced, and the core (`curriculum.py` + `launcher/`) is still found by the same walk-up.",
+        "Embedding is optional at build time: the dev flow (`.venv` + `npm run dev` / `cargo run --no-default-features`) is unchanged, and a build without the embed still walks up to a checkout's venv exactly as today.",
+        "Gate green: `cargo build` in src-tauri/ passes, `python3 -m pytest -q tests/` passes (including any test that exercises the discovery order), and `npm run build` in ui/ passes."
+      ],
+      "passes": true,
+      "notes": "cargo build green; cargo test 4 passed (discovery order); npm run build green; pytest 794 passed, 0 failed. Embed run for real: 295M staged, CPython 3.12.13 + the launch extra + 6 core entries, and the launcher served GET /healthz 200 and GET /api/library 200 (real seed domains) from that payload with cwd=/tmp."
+    },
+    {
+      "id": "US-2",
+      "title": "A moved-away .app runs the whole loop from the embedded runtime",
+      "acceptanceCriteria": [
+        "A bundle relocated away from any checkout starts the launcher from the embedded interpreter and reaches `LauncherStatus` ready (not `failed`), and the full define -> scaffold -> construct -> gate loop runs against it — demonstrated and recorded in the progress log the way CLAUDE.md \"Build order\" checks a real page reached the backend (a launcher access-log request, not just a titled window).",
+        "docs/reference/packaging.md is updated: what the embedded bundle contains, the discovery order (embedded first, then `PRAXIS_PYTHON` / `.venv` / `python3`), and how to build with and without the embed.",
+        "Gate green: `cargo build` in src-tauri/, `npm run build` in ui/, and `python3 -m pytest -q tests/` all pass."
+      ],
+      "passes": true,
+      "notes": "Built the embedded bundle (296M staged, CPython 3.12.13; Praxis.app 304M with 295M praxis-runtime), copied it to /private/tmp with no checkout above it and PRAXIS_ROOT/PRAXIS_PYTHON unset: the launcher child is the bundle's own Contents/Resources/praxis-runtime/python/bin/python3, LauncherStatus reached ready (com.apple.WebKit.Networking opened 3 connections to the launcher port, and App.tsx only fetches the library when state === 'ready'), and the whole loop ran against it — GET /api/library 200 (14 domains/245 topics), POST /api/subjects 201, scaffold 200 created=1, POST /api/construct 202 -> constructed, badge complete, 15941 chars, 6 checks, GET /api/study 200 (1 open / 5 locked serving 0 checks), POST /api/study 200 passed=True unlocking the next section, and 423 for a locked check. Found and fixed a real defect: through a symlinked path (/tmp) Tauri's resource_dir() errors and the bundle silently lost its runtime — library::bundle_resources() is the fallback, re-verified from /tmp. Gate: cargo build green, cargo test 5 passed, npm run build green, pytest 794 passed, 0 failed. docs/reference/packaging.md rewritten (contents, discovery order, building with and without the embed)."
+    }
+  ],
+  "mergedToMain": "6993db2"
+}
