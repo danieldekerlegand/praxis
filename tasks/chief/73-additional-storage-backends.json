@@ -37,7 +37,8 @@
         "The `writable()` 503 middleware in `launcher/app.py` gates every non-GET write for the new backend exactly as for the others (`/api/storage` exempt because it is the fix), and if the backend mirrors + syncs, the sync never deletes at either end and merges by content digest \u2014 proved by a loopback fake for its protocol the way `tests/mocks3.py` serves S3, wiping the mirror and reading the work back in a second process.",
         "Gate green: `python3 -m pytest -q tests/` passes (backend + launcher API with the launch extra), `npm run build` in ui/ and `cargo build` in src-tauri/ pass if touched."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "python3 -m pytest -q tests/: 834 passed, 0 failed (43 in test_storage_backends.py, 9 of them new; 49 in test_launcher_api.py, 3 new). npm run build in ui/: green (tsc --noEmit + vite build, 42 modules). Verified: describe() gives webdav its four fields with url required and password secret, the password is absent from the whole describe() JSON and reported value \"\" / set true, and a blank password re-selecting folder Team kept the stored one; a chmod 0o500 mirror 503s all four write endpoints with \"storage is unavailable \u2014 \u2026 is not writable\" while GET /api/library stays 200 and POST /api/storage back to app is exempt and fixes it; offline share still takes POST /api/subjects (201, file in the mirror) and only the sync 503s; second sync moved 0, side-that-changed won both ways, dav.deletes == [] after clearing each end, and 4 files pulled back into a wiped mirror then read in a second process."
     }
   ]
 }
