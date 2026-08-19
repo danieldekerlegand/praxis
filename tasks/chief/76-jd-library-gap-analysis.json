@@ -28,7 +28,8 @@
         "The index normalizes topic titles/slugs for matching in the same lenient spirit as the rest of the JD funnel (case/punctuation-insensitive, alias-tolerant) so a requirement phrased differently than the topic title can still match.",
         "Gate green: python3 -m pytest -q tests/ passes, including a test that asserts the index is built from curriculum.DOMAINS and that its domain/topic counts match the shipped library (guarding against a stale copy)."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "praxis/library_index.py reads curriculum.DOMAINS at call time (module import, never `from curriculum import DOMAINS`); a test appends a Domain at runtime and the corpus grows, which no hand-copied list could pass. Observed: 14 domains, 245 topics (90 recommended) = exactly the .ipynb files under notebooks/, asserted both against the filesystem and against literals. One normalizer (match_key) runs on topic titles and requirement phrases alike: case/punctuation-insensitive, stopwords dropped, plurals folded, alias table for short forms (K8s==Kubernetes, MCP==Model Context Protocol, clingo->ASP notebook). Gate: python3 -m pytest -q tests/ = 909 passed, 1 warning (24 of them new in tests/test_library_index.py)."
     },
     {
       "id": "US-2",
