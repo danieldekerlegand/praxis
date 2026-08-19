@@ -16,7 +16,11 @@ What is asserted rather than described:
      sentence and the evidence is band 76's citations, real notebooks off the index;
   4. a `partial` is scoped to the uncovered part: the goal names the adjacent notebook
      it must start past;
-  5. no model is reached — a fresh interpreter with no key configured suggests without
+  5. **restraint**: a proposal is re-asked of the *live* index before it survives, so a
+     requirement a notebook, a `recommended` neighbour or a whole domain answers for
+     yields no suggestion at all — even when the analysis snapshot it arrived on says
+     otherwise — and a posting that asks for one thing three ways gets one tutorial;
+  6. no model is reached — a fresh interpreter with no key configured suggests without
      importing `praxis.llm`.
 """
 
@@ -32,6 +36,7 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+import curriculum  # noqa: E402
 from praxis import gap, library_index as lib, suggest  # noqa: E402
 from praxis.curriculum_gen import generate_curriculum  # noqa: E402
 from praxis.suggest import SuggestError  # noqa: E402
@@ -110,6 +115,7 @@ def test_the_document_records_the_library_the_suggestions_were_taken_against(
     assert suggested["version"] == suggest.SUGGEST_VERSION
     assert suggested["library"] == analysis["library"]
     assert suggested["count"] == sum(suggested["counts"].values())
+    assert suggested["droppedCount"] == sum(suggested["dropCounts"].values())
     assert suggested["suggested"]
 
 
@@ -143,9 +149,12 @@ def test_the_rationale_is_the_gap_analysis_sentence(suggested, analysis):
         assert row["evidence"] == source["evidence"]
 
 
-def test_a_partial_is_scoped_to_the_part_the_library_does_not_cover(suggested):
+def test_a_partial_is_scoped_to_the_part_the_library_does_not_cover(suggested, index):
     (k8s,) = [s for s in suggested["suggestions"] if s["title"] == "Kubernetes"]
     assert k8s["coverage"] == "partial"
+    # it survived the dedup pass because nothing shipped *is* it — the adjacency the
+    # goal is told to start past is not a reason to teach that notebook again
+    assert index.lookup("Kubernetes") == ()
     assert "Kubernetes Jobsets" in k8s["goal"]
     assert "rather than covering it again" in k8s["goal"]
     assert "start past that material, not repeat it" in k8s["rationale"]
@@ -182,6 +191,145 @@ def test_there_is_nothing_to_suggest_without_requirements(payload, index):
 def test_a_row_with_no_gap_analysis_cannot_be_given_a_rationale():
     with pytest.raises(SuggestError, match="no gap analysis"):
         suggest.suggest_requirement({"name": "Terraform", "coverage": "missing"})
+
+
+# --- restraint: dedup against the shipped library -----------------------------
+
+
+def stale_analysis(*names: str, coverage: str = "missing") -> dict:
+    """Band 76's document as it would read if taken *before* the library had these.
+
+    The snapshot is wrong on purpose, which is the only way to test the dedup pass at
+    all: every requirement here already carries the verdict that would let it through,
+    so a suggestion surviving means the library was never re-asked.
+    """
+    return {
+        "jd": "stale-posting",
+        "title": "Stale Posting",
+        "requirements": [
+            {
+                "name": name,
+                "kind": "tool",
+                "importance": "required",
+                "quote": f"You will use {name} daily.",
+                "coverage": coverage,
+                "why": f"nothing in the library addresses {name}",
+                "evidence": [],
+            }
+            for name in names
+        ],
+    }
+
+
+def test_a_requirement_a_shipped_notebook_is_yields_no_suggestion(index):
+    doc = suggest.suggest(stale_analysis("MLflow"), index=index)
+
+    assert doc["suggestions"] == [] and doc["count"] == 0
+    (dropped,) = doc["dropped"]
+    assert dropped["reason"] == "shipped"
+    assert [c["rel"] for c in dropped["evidence"]] == ["02-ai-ml-tooling/mlflow.ipynb"]
+    assert "the library already teaches MLflow" in dropped["why"]
+
+
+def test_a_requirement_a_recommended_neighbour_is_yields_no_suggestion(index):
+    """§2 of gap-analysis.md: a recommended topic is already scaffolded in
+    `curriculum.py`, so building a second tutorial for it is the redundancy the whole
+    funnel exists to avoid. It counts as library, not as a gap."""
+    doc = suggest.suggest(stale_analysis("Optuna"), index=index)
+
+    assert doc["suggestions"] == [] and doc["count"] == 0
+    (dropped,) = doc["dropped"]
+    assert dropped["reason"] == "recommended"
+    assert all(cite["recommended"] for cite in dropped["evidence"])
+    assert "already scaffolded" in dropped["why"]
+
+
+def test_a_requirement_a_whole_domain_is_named_for_yields_no_suggestion(index):
+    doc = suggest.suggest(stale_analysis("Model Evaluation"), index=index)
+
+    assert doc["suggestions"] == [] and doc["count"] == 0
+    (dropped,) = doc["dropped"]
+    assert dropped["reason"] == "domain"
+    assert len(dropped["evidence"]) > 1
+    assert "a whole domain" in dropped["why"]
+
+
+def test_a_genuinely_missing_requirement_survives_the_same_pass(index):
+    doc = suggest.suggest(
+        stale_analysis("MLflow", "Terraform", "Optuna", "Model Evaluation"), index=index
+    )
+
+    assert [s["title"] for s in doc["suggestions"]] == ["Terraform"]
+    assert [d["reason"] for d in doc["dropped"]] == ["shipped", "recommended", "domain"]
+    assert doc["count"] == 1 and doc["droppedCount"] == 3
+    assert doc["dropCounts"] == {
+        "shipped": 1, "recommended": 1, "domain": 1, "duplicate": 0,
+    }
+
+
+def test_one_ask_spelled_three_ways_is_one_tutorial(index):
+    """A posting repeats itself; a curriculum should not. The earliest spelling wins,
+    because the posting's own order is the only priority either band has."""
+    doc = suggest.suggest(
+        stale_analysis(
+            "Kubernetes", "Advanced Kubernetes experience", "Kubernetes operators"
+        ),
+        index=index,
+    )
+
+    assert [s["title"] for s in doc["suggestions"]] == ["Kubernetes"]
+    assert [d["title"] for d in doc["dropped"]] == [
+        "Advanced Kubernetes experience", "Kubernetes operators",
+    ]
+    assert {d["reason"] for d in doc["dropped"]} == {"duplicate"}
+    assert {d["duplicateOf"] for d in doc["dropped"]} == {"kubernetes"}
+
+
+def test_two_genuinely_different_asks_are_not_collapsed(index):
+    doc = suggest.suggest(stale_analysis("Terraform", "Incident response"), index=index)
+
+    assert [s["title"] for s in doc["suggestions"]] == ["Terraform", "Incident response"]
+    assert doc["dropped"] == []
+
+
+def test_the_dedup_is_against_the_live_index_not_the_analysis_snapshot(monkeypatch):
+    """The anti-fabrication claim of the band, and the reason `dedupe` re-classifies
+    rather than reading the verdict it was handed: a topic scaffolded *since* the
+    analysis was taken still stops the re-tutorial."""
+    analysis = stale_analysis("Wombat-Oriented Design")
+    assert suggest.suggest(analysis, index=lib.library_index(refresh=True))["count"] == 1
+
+    extra = curriculum.Domain(
+        "99-brand-new", "Brand New", "added at runtime",
+        (curriculum.T("wombat-oriented-design", "Wombat-Oriented Design"),),
+    )
+    monkeypatch.setattr(curriculum, "DOMAINS", curriculum.DOMAINS + [extra])
+    lib.library_index(refresh=True)
+    try:
+        doc = suggest.suggest(analysis)  # no index of its own: the live library
+
+        assert doc["suggestions"] == [] and doc["count"] == 0
+        (dropped,) = doc["dropped"]
+        assert dropped["reason"] == "shipped"
+        assert dropped["evidence"][0]["rel"] == (
+            "99-brand-new/wombat-oriented-design.ipynb"
+        )
+    finally:
+        monkeypatch.undo()
+        lib.library_index(refresh=True)  # leave the cache holding the real library
+
+
+def test_a_drop_is_recorded_whole_so_a_reviewer_can_undo_it(index):
+    """Restraint is shown, not silent: band 78 gets the goal it would have offered and
+    the sentence saying why it did not."""
+    doc = suggest.suggest(stale_analysis("MLflow"), index=index)
+
+    (dropped,) = doc["dropped"]
+    assert dropped["title"] == "MLflow"
+    assert dropped["goal"].startswith("I want to")
+    assert dropped["requirement"]["name"] == "MLflow"
+    assert dropped["rationale"]
+    assert dropped["reason"] in suggest.DROP_REASONS
 
 
 # --- no model -----------------------------------------------------------------

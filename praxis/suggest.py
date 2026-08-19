@@ -29,7 +29,25 @@ Three properties keep a suggestion honest, and each is a test:
   - **A `covered` requirement is not suggestable at all.** `SUGGESTABLE` is the two
     other verdicts, and `suggest_requirement` returns None for anything else, so the
     restraint the roadmap asks for is structural rather than a filter someone can
-    forget. Dedup against the live index is band 77's second half (US-2).
+    forget.
+
+Restraint is the hard half, though, and the verdict alone does not carry it. Band 76's
+document is a *snapshot*: it was taken against the library as it stood, and between
+then and a suggestion surviving, a curriculum can have been scaffolded, a domain added,
+a recommended neighbour promoted. So every proposal is asked again, and asked of the
+**live** index — `dedupe()` re-runs `gap.classify` over `curriculum.DOMAINS` as it is
+now, and anything the library turns out to answer for is dropped:
+
+  - a notebook **is** it (`shipped`), or every notebook that is it is a `recommended`
+    neighbour already scaffolded in `curriculum.py` (`recommended`), or a whole
+    **domain** is named for it (`domain`) — the three ways band 76 says `covered`;
+  - or this same posting already proposed it under another name (`duplicate`): a
+    posting that asks for "Kubernetes", "K8s experience" and "Kubernetes operators"
+    wants one tutorial, not three.
+
+Nothing is deleted quietly. A dropped proposal keeps its goal and its reason on the
+document's `dropped` list, so band 78's review surface can show the restraint — and
+un-drop one — rather than being handed a shorter list with no account of it.
 
 A `partial` is the interesting case and the reason the goal is composed rather than
 templated. The library touching a requirement is exactly what must *not* be re-taught:
@@ -50,13 +68,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from curriculum import slugify  # noqa: E402
 from praxis import gap  # noqa: E402
-from praxis.library_index import LibraryIndex  # noqa: E402
+from praxis.library_index import (  # noqa: E402
+    LibraryIndex,
+    library_index,
+    match_tokens,
+)
 
 SUGGEST_VERSION = 1
 
 #: The verdicts that are a gap. `covered` is deliberately not here — see the module
 #: docstring: restraint is the shape of this band, not a filter over its output.
 SUGGESTABLE = ("missing", "partial")
+
+#: Why a proposal did not survive `dedupe()`. The first three are the three ways band 76
+#: says `covered`, re-asked of the live index; the fourth is the posting arguing with
+#: itself. A drop is always one of these — there is no unexplained shortening.
+DROP_REASONS = ("shipped", "recommended", "domain", "duplicate")
 
 #: How a goal opens, by the kind band 75 gave the requirement. A learner types a goal in
 #: the first person, so a suggestion does too — the string is indistinguishable from one
@@ -228,6 +255,98 @@ def suggest_requirement(row: object) -> dict | None:
     }
 
 
+# --- restraint: the library, then the posting itself --------------------------
+
+
+def dedupe_key(row: dict) -> str:
+    """One proposal's identity, as the phrase it would be a tutorial *about*.
+
+    `gap.phrases` is the same pair of forms the classifier matched with, so the key is
+    the requirement stripped of the words a posting wraps it in — "Advanced Kubernetes
+    experience", "Kubernetes tooling" and "Kubernetes" are one key, and therefore one
+    tutorial. Using the classifier's own normalizer is what keeps this from becoming a
+    second opinion about what two requirements have in common.
+    """
+    tried = gap.phrases(_text(row.get("title")) or _text(row.get("name")))
+    return tried[-1] if tried else ""
+
+
+def _reason(verdict: dict) -> str:
+    """Which of the three `covered` verdicts this is, as a drop reason."""
+    evidence = list(verdict.get("evidence") or ())
+    if any(cite.get("match") == "domain" for cite in evidence):
+        return "domain"
+    if evidence and all(cite.get("recommended") for cite in evidence):
+        return "recommended"
+    return "shipped"
+
+
+def collides(proposal: dict, *, index: LibraryIndex | None = None) -> dict | None:
+    """Does the library, as it stands *now*, already teach this? The drop, or None.
+
+    The verdict on the proposal came off a snapshot; this asks `gap.classify` again over
+    the live index, so a topic scaffolded since the analysis was taken still stops the
+    re-tutorial. The reason and its sentence are band 76's — nothing here is a fresh
+    claim about what ships.
+    """
+    index = index if index is not None else library_index()
+    verdict = gap.classify(_text(proposal.get("title")), index=index)
+    if verdict["coverage"] != "covered":
+        return None
+    return {
+        "reason": _reason(verdict),
+        "why": verdict["why"],
+        "evidence": list(verdict["evidence"]),
+    }
+
+
+def _duplicate(proposal: dict, kept: list[dict]) -> dict | None:
+    """Has this posting already proposed the same tutorial under another name?
+
+    Equal keys are the same ask spelled differently. A key whose words *contain* another
+    kept proposal's (or are contained by them) is the same ask at a different grain —
+    "Kubernetes" and "Kubernetes operators" are one curriculum, and the curriculum
+    generator is given the whole subject anyway. The earlier proposal wins, because the
+    posting's own order is the only priority either band has.
+    """
+    key = dedupe_key(proposal)
+    tokens = match_tokens(key)
+    if not tokens:
+        return None
+    for other in kept:
+        theirs = match_tokens(dedupe_key(other))
+        if theirs and (tokens <= theirs or theirs <= tokens):
+            return {
+                "reason": "duplicate",
+                "why": f"the posting already asks for this as {other['title']} — "
+                       f"one tutorial covers both",
+                "evidence": [],
+                "duplicateOf": other["id"],
+            }
+    return None
+
+
+def dedupe(
+    proposals: list[dict], *, index: LibraryIndex | None = None
+) -> tuple[list[dict], list[dict]]:
+    """Hold the shipped library in mind, then the posting's own other asks.
+
+    Returns `(kept, dropped)`. Two questions in that order: does the library already
+    answer for this, and — only if it does not — has this posting already proposed it.
+    A dropped proposal is returned whole, goal included, so band 78 can show what
+    restraint cost rather than being handed a shorter list with no account of it.
+    """
+    kept: list[dict] = []
+    dropped: list[dict] = []
+    for proposal in proposals:
+        drop = collides(proposal, index=index) or _duplicate(proposal, kept)
+        if drop is None:
+            kept.append(proposal)
+        else:
+            dropped.append({**proposal, **drop})
+    return kept, dropped
+
+
 # --- a whole posting ----------------------------------------------------------
 
 
@@ -255,17 +374,21 @@ def _analysis(source: object, *, index: LibraryIndex | None = None) -> dict:
 
 
 def suggest(source: object, *, index: LibraryIndex | None = None) -> dict:
-    """Every gap in a posting as a proposed subject. The document band 78 reviews.
+    """Every gap in a posting as a proposed subject, deduplicated. Band 78's document.
 
     Takes band 76's analysis (or anything `_analysis` can turn into one) and returns the
-    suggestions in the order the posting raised them, each carrying its goal string, its
-    source requirement and its gap rationale. A `covered` requirement contributes
-    nothing — it is not in the output and it is not counted as dropped, because it was
-    never a candidate.
+    surviving suggestions in the order the posting raised them, each carrying its goal
+    string, its source requirement and its gap rationale. A `covered` requirement
+    contributes nothing — it is not in the output and it is not counted as dropped,
+    because it was never a candidate. A proposal the *live* library turns out to answer
+    for, or that this posting has already made under another name, is on `dropped` with
+    the reason; `counts` and `count` are over what survived.
     """
+    index = index if index is not None else library_index()
     analysis = _analysis(source, index=index)
     rows = [r for r in analysis.get("requirements", ()) if isinstance(r, dict)]
-    suggestions = [s for s in (suggest_requirement(row) for row in rows) if s]
+    proposals = [s for s in (suggest_requirement(row) for row in rows) if s]
+    suggestions, dropped = dedupe(proposals, index=index)
     return {
         "version": SUGGEST_VERSION,
         "jd": _text(analysis.get("jd")),
@@ -277,6 +400,11 @@ def suggest(source: object, *, index: LibraryIndex | None = None) -> dict:
             for name in SUGGESTABLE
         },
         "count": len(suggestions),
+        "dropCounts": {
+            name: sum(1 for d in dropped if d["reason"] == name) for name in DROP_REASONS
+        },
+        "dropped": dropped,
+        "droppedCount": len(dropped),
         "suggestions": suggestions,
     }
 
@@ -287,11 +415,14 @@ def _main(argv: list[str]) -> int:  # pragma: no cover - a convenience CLI
         return 2
     doc = suggest(list(argv))
     print(f"{doc['count']} suggestions from {len(argv)} requirements "
-          f"({doc['counts']['missing']} missing, {doc['counts']['partial']} partial)\n")
+          f"({doc['counts']['missing']} missing, {doc['counts']['partial']} partial), "
+          f"{doc['droppedCount']} dropped\n")
     for row in doc["suggestions"]:
         print(f"  {row['title']}  [{row['coverage']}]")
         print(f"      why:  {row['rationale']}")
         print(f"      goal: {row['goal']}\n")
+    for row in doc["dropped"]:
+        print(f"  - {row['title']}  [{row['reason']}]  {row['why']}")
     return 0
 
 
