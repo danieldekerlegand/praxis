@@ -203,7 +203,8 @@ def gate_for(doc: dict | None, outcomes: dict[str, dict], check_id: str) -> Sect
     """The section gate a check belongs to — how "may they answer this?" is decided."""
     return next(
         (g for g in section_gates(doc, outcomes)
-         if any(_check_key(c) == str(check_id) for c in g.checks)),
+         if any(_check_key(c) == str(check_id) or str(c.get("id", "")) == str(check_id)
+                for c in g.checks)),
         None,
     )
 

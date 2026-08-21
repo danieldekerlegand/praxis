@@ -813,7 +813,11 @@ def learner_check(check: dict, outcome: dict | None = None) -> dict:
     gives the answer away) only after the check has been graded.
     """
     view = {
-        "id": str(check.get("grade_id") or check.get("id", "")),
+        # Keep the sidecar id as the wire-level lookup alias for existing clients;
+        # expose nbgrader's durable identity separately so outcomes remain keyed by
+        # grade_id without breaking learners holding an older check id.
+        "id": str(check.get("id", "")),
+        "grade_id": str(check.get("grade_id") or check.get("id", "")),
         "section": str(check.get("section", "")),
         "kind": str(check.get("kind", "")),
         "prompt": str(check.get("prompt", "")),

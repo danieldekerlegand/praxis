@@ -1,15 +1,42 @@
 # Chief Progress — 84-nbgrader-cell-schema-adoption
-Started: Fri Aug 21 04:25:40 CDT 2026
+Started: Fri Aug 21 04:44:46 CDT 2026
 ---
 
 ## ⚠️ PRIOR VERIFICATION FAILED — FIX THESE BEFORE REPORTING COMPLETE
 ```
 doc-links: 0 dead vs 0 on main
+== .venv/bin/python scripts/validate_nbgrader.py notebooks ==
+notebooks/02-ai-ml-tooling/diffusers.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/03-llm-inference-training-optimization/knowledge-distillation.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/03-llm-inference-training-optimization/low-rank-factorization.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/03-llm-inference-training-optimization/model-ensembling.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/03-llm-inference-training-optimization/pruning.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/03-llm-inference-training-optimization/sparsity-induction.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/08-architectures/video-diffusion.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/11-devops-mlops-infra/techniques/inference-observability.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/12-model-evaluation/benchmark-contamination.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/12-model-evaluation/eval-harness-design.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/12-model-evaluation/eval-statistics.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/12-model-evaluation/llm-as-judge.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/13-interpretability/activation-steering.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/13-interpretability/linear-probes.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/13-interpretability/sparse-autoencoders.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/14-pretraining/data-deduplication.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/14-pretraining/mixed-precision-numerics.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/14-pretraining/scaling-laws.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/14-pretraining/tokenization-bpe.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/15-rl-and-training-dynamics/grpo-rlvr.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/15-rl-and-training-dynamics/optimizer-internals.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/15-rl-and-training-dynamics/ppo-from-scratch.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/15-rl-and-training-dynamics/reward-models-and-hacking.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/15-rl-and-training-dynamics/training-dynamics.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+nbgrader validate: 24 notebooks, 24 failures
+FAIL: .venv/bin/python scripts/validate_nbgrader.py notebooks
 == .venv/bin/python -m pytest -q tests/ ==
-FFFFFF...............F.FFF....................................FFFFFF.... [  7%]
-........F.FF.FFFFFFFF...FF.F.........FF................................. [ 14%]
+F.FFFF...............F.FFF....................................FF........ [  7%]
+....................F...FF...........FF................................. [ 14%]
 ........................................................................ [ 22%]
-...........................FFFFF.....EEEEEEEEEEE.E...................... [ 29%]
+..............................F......EEEEEEEEEEE.E...................... [ 29%]
 ........................................................................ [ 37%]
 ........................................................................ [ 44%]
 ........................................................................ [ 52%]
@@ -23,9 +50,9 @@ FFFFFF...............F.FFF....................................FFFFFF.... [  7%]
 ==================================== ERRORS ====================================
 __ ERROR at setup of test_a_new_learner_sees_only_the_first_section_unlocked ___
 
-client = <starlette.testclient.TestClient object at 0x10ae8b830>
+client = <starlette.testclient.TestClient object at 0x10d7c8770>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10c1db6a0>
+model = <function model.<locals>.install at 0x10f0d7c40>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -51,9 +78,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 _______ ERROR at setup of test_the_answer_key_never_reaches_the_learner ________
 
-client = <starlette.testclient.TestClient object at 0x10ae8b830>
+client = <starlette.testclient.TestClient object at 0x10d7c8770>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cc972e0>
+model = <function model.<locals>.install at 0x10f115a80>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -79,9 +106,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 _ ERROR at setup of test_a_failed_check_keeps_the_next_section_locked_and_a_passed_one_opens_it _
 
-client = <starlette.testclient.TestClient object at 0x10ae8b830>
+client = <starlette.testclient.TestClient object at 0x10d7c8770>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cc96e80>
+model = <function model.<locals>.install at 0x10f117b00>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -107,9 +134,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 _____ ERROR at setup of test_a_locked_check_is_refused_rather_than_graded ______
 
-client = <starlette.testclient.TestClient object at 0x10ae8b830>
+client = <starlette.testclient.TestClient object at 0x10d7c8770>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cd1d800>
+model = <function model.<locals>.install at 0x10eeaae80>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -135,9 +162,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 ___ ERROR at setup of test_every_kind_of_check_grades_and_the_topic_finishes ___
 
-client = <starlette.testclient.TestClient object at 0x10ae8b830>
+client = <starlette.testclient.TestClient object at 0x10d7c8770>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cc4a3e0>
+model = <function model.<locals>.install at 0x10f117f60>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -163,9 +190,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 __ ERROR at setup of test_a_code_check_is_graded_by_running_the_learners_code __
 
-client = <starlette.testclient.TestClient object at 0x10ae8b830>
+client = <starlette.testclient.TestClient object at 0x10d7c8770>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cc49580>
+model = <function model.<locals>.install at 0x10f13e980>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -191,9 +218,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 _ ERROR at setup of test_a_short_answer_is_graded_by_the_model_and_recorded_verbatim _
 
-client = <starlette.testclient.TestClient object at 0x10ae8b830>
+client = <starlette.testclient.TestClient object at 0x10d7c8770>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cc97560>
+model = <function model.<locals>.install at 0x10f13f7e0>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -219,9 +246,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 _ ERROR at setup of test_a_short_answer_needs_a_key_but_the_auto_graded_kinds_do_not _
 
-client = <starlette.testclient.TestClient object at 0x10ae8b830>
+client = <starlette.testclient.TestClient object at 0x10d7c8770>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cc974c0>
+model = <function model.<locals>.install at 0x10f13fec0>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -247,9 +274,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 ________ ERROR at setup of test_progress_survives_a_restart_of_the_app _________
 
-client = <starlette.testclient.TestClient object at 0x10ae8b830>
+client = <starlette.testclient.TestClient object at 0x10d7c8770>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cc48860>
+model = <function model.<locals>.install at 0x10f13e7a0>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -275,9 +302,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 ______________ ERROR at setup of test_two_learners_progress_apart ______________
 
-client = <starlette.testclient.TestClient object at 0x10ae8b830>
+client = <starlette.testclient.TestClient object at 0x10d7c8770>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cc97240>
+model = <function model.<locals>.install at 0x10f117f60>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -303,9 +330,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 __ ERROR at setup of test_the_next_topic_is_locked_until_this_one_is_finished __
 
-client = <starlette.testclient.TestClient object at 0x10ae8b830>
+client = <starlette.testclient.TestClient object at 0x10d7c8770>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cc4ade0>
+model = <function model.<locals>.install at 0x10f179620>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -331,9 +358,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 _______ ERROR at setup of test_study_refuses_what_is_not_in_the_library ________
 
-client = <starlette.testclient.TestClient object at 0x10ae8b830>
+client = <starlette.testclient.TestClient object at 0x10d7c8770>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cda3ec0>
+model = <function model.<locals>.install at 0x10f117880>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -361,196 +388,78 @@ tests/test_launcher_api.py:809: TypeError
 ______________ test_the_notebook_and_the_sections_reach_the_model ______________
 
 constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
-subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-21T09:25:06+00:00', model='', source='generated')
+subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-21T09:44:06+00:00', model='', source='generated')
 
     def test_the_notebook_and_the_sections_reach_the_model(constructed, subject):
         module, topic = constructed
         client = FakeClient(reply(good_checks()))
     
->       generate_checks(module, topic, client=client, subject=subject)
-
-tests/test_checks.py:176: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_the_notebook_and_the_sect0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-1u4rpjxo/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_the_notebook_and_the_sect0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
+        generate_checks(module, topic, client=client, subject=subject)
     
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
+>       (call,) = client.calls
+        ^^^^^^^
+E       ValueError: too many values to unpack (expected 1)
 
-praxis/checks.py:422: CheckError
-_____________ test_a_conceptual_topic_is_told_not_to_ask_for_code ______________
-
-conceptual = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...'subject'), Topic(slug='wiring', title='Wiring a Dev Board', runnable=False, recommended=False, note='needs hardware'))
-
-    def test_a_conceptual_topic_is_told_not_to_ask_for_code(conceptual):
-        module, topic = conceptual
-        client = FakeClient(reply(good_checks(runnable=False)))
-    
->       generate_checks(module, topic, client=client)
-
-tests/test_checks.py:192: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_conceptual_topic_is_tol0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-l0ngzea9/wiring.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_conceptual_topic_is_tol0/notebooks/subjects/embedded-rust/01-foundations/wiring.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
-
-praxis/checks.py:422: CheckError
+tests/test_checks.py:178: ValueError
 ______ test_a_generated_set_lands_beside_the_notebook_and_is_well_formed _______
 
 constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
 
     def test_a_generated_set_lands_beside_the_notebook_and_is_well_formed(constructed):
         module, topic = constructed
->       result = generate_checks(module, topic, client=FakeClient(reply(good_checks())))
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-tests/test_checks.py:202: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_generated_set_lands_bes0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-rjihbqqo/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_generated_set_lands_bes0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
+        result = generate_checks(module, topic, client=FakeClient(reply(good_checks())))
     
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
+>       assert result.status == "generated" and result.ok
+E       AssertionError: assert ('failed' == 'generated'
+E         
+E         - generated
+E         + failed)
 
-praxis/checks.py:422: CheckError
+tests/test_checks.py:204: AssertionError
 __________ test_every_gated_section_is_covered_by_at_least_one_check ___________
 
 constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
 
     def test_every_gated_section_is_covered_by_at_least_one_check(constructed):
         module, topic = constructed
->       generate_checks(module, topic, client=FakeClient(reply(good_checks())))
-
-tests/test_checks.py:220: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_every_gated_section_is_co0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-4i6oc6jo/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_every_gated_section_is_co0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
+        generate_checks(module, topic, client=FakeClient(reply(good_checks())))
     
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
+        by_section = checks_by_section(checks_for_topic(module, topic))
+    
+        assert set(by_section) == set(GATED_SECTIONS)
+>       assert all(by_section[s] for s in GATED_SECTIONS)
+E       assert False
+E        +  where False = all(<generator object test_every_gated_section_is_covered_by_at_least_one_check.<locals>.<genexpr> at 0x10d673b90>)
 
-praxis/checks.py:422: CheckError
+tests/test_checks.py:225: AssertionError
 _____________________ test_the_set_carries_a_mix_of_kinds ______________________
 
 constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
 
     def test_the_set_carries_a_mix_of_kinds(constructed):
         module, topic = constructed
->       generate_checks(module, topic, client=FakeClient(reply(good_checks())))
-
-tests/test_checks.py:230: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_the_set_carries_a_mix_of_0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-8jqhw1ck/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_the_set_carries_a_mix_of_0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
+        generate_checks(module, topic, client=FakeClient(reply(good_checks())))
     
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
+>       kinds = {c["kind"] for c in checks_for_topic(module, topic)["checks"]}
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'NoneType' object is not subscriptable
 
-praxis/checks.py:422: CheckError
+tests/test_checks.py:232: TypeError
 _________________ test_a_conceptual_topic_gets_no_code_checks __________________
 
 conceptual = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...'subject'), Topic(slug='wiring', title='Wiring a Dev Board', runnable=False, recommended=False, note='needs hardware'))
 
     def test_a_conceptual_topic_gets_no_code_checks(conceptual):
         module, topic = conceptual
->       result = generate_checks(module, topic, client=FakeClient(reply(good_checks(False))))
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-tests/test_checks.py:239: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_conceptual_topic_gets_n0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-kmwbbw8y/wiring.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_conceptual_topic_gets_n0/notebooks/subjects/embedded-rust/01-foundations/wiring.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
+        result = generate_checks(module, topic, client=FakeClient(reply(good_checks(False))))
     
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
+>       assert result.status == "generated"
+E       AssertionError: assert 'failed' == 'generated'
+E         
+E         - generated
+E         + failed
 
-praxis/checks.py:422: CheckError
+tests/test_checks.py:241: AssertionError
 _______ test_a_failing_set_is_sent_back_with_the_validator_s_complaints ________
 
 constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
@@ -560,32 +469,15 @@ constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Founda
         thin = [choice(GATED_SECTIONS[0])]
         client = FakeClient(reply(thin), reply(good_checks()))
     
->       result = generate_checks(module, topic, client=client, attempts=3)
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-tests/test_checks.py:356: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_failing_set_is_sent_bac0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-edpsmrnp/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_failing_set_is_sent_bac0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
+        result = generate_checks(module, topic, client=client, attempts=3)
     
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
+>       assert result.status == "generated" and result.attempts == 2
+E       AssertionError: assert ('failed' == 'generated'
+E         
+E         - generated
+E         + failed)
 
-praxis/checks.py:422: CheckError
+tests/test_checks.py:358: AssertionError
 ________________ test_an_existing_set_is_skipped_not_rewritten _________________
 
 constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
@@ -593,63 +485,55 @@ constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Founda
     def test_an_existing_set_is_skipped_not_rewritten(constructed):
         module, topic = constructed
         client = FakeClient(reply(good_checks()))
->       first = generate_checks(module, topic, client=client)
-                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        first = generate_checks(module, topic, client=client)
+>       written = first.path.read_text()
+                  ^^^^^^^^^^^^^^^^^^^^^^
 
-tests/test_checks.py:382: 
+tests/test_checks.py:383: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_an_existing_set_is_skippe0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-sezztm9z/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_an_existing_set_is_skippe0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
+self = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-103/test_an_existing_set_is_skippe0/notebooks/subjects/embedded-rust/01-foundations/ownership.checks.json')
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
 
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
         """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-103/test_an_existing_set_is_skippe0/notebooks/subjects/embedded-rust/01-foundations/ownership.checks.json'
 
-praxis/checks.py:422: CheckError
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py:1013: FileNotFoundError
 ____________________ test_force_regenerates_an_existing_set ____________________
 
 constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
 
     def test_force_regenerates_an_existing_set(constructed):
         module, topic = constructed
->       generate_checks(module, topic, client=FakeClient(reply(good_checks())))
-
-tests/test_checks.py:395: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_force_regenerates_an_exis0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-7_4hy6at/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_force_regenerates_an_exis0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
+        generate_checks(module, topic, client=FakeClient(reply(good_checks())))
     
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
+        rebuilt = generate_checks(
+            module, topic, force=True,
+            client=FakeClient(reply(good_checks()[:-1] + [
+                dict(code(GATED_SECTIONS[3]), prompt="Write `owned(values)` — second pass."),
+            ])),
+        )
+    
+>       assert rebuilt.status == "generated"
+E       AssertionError: assert 'failed' == 'generated'
+E         
+E         - generated
+E         + failed
 
-praxis/checks.py:422: CheckError
+tests/test_checks.py:404: AssertionError
 ______________ test_a_set_that_no_longer_validates_is_regenerated ______________
 
 constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
@@ -658,67 +542,58 @@ constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Founda
         """A hand-edited or truncated file must not be trusted just because it exists."""
         module, topic = constructed
         path = topic_checks_path(module, topic)
->       generate_checks(module, topic, client=FakeClient(reply(good_checks())))
+        generate_checks(module, topic, client=FakeClient(reply(good_checks())))
+>       doc = json.loads(path.read_text())
+                         ^^^^^^^^^^^^^^^^
 
-tests/test_checks.py:412: 
+tests/test_checks.py:413: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_set_that_no_longer_vali0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-2gyjsxsp/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_set_that_no_longer_vali0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
+self = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-103/test_a_set_that_no_longer_vali0/notebooks/subjects/embedded-rust/01-foundations/ownership.checks.json')
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
 
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
         """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-103/test_a_set_that_no_longer_vali0/notebooks/subjects/embedded-rust/01-foundations/ownership.checks.json'
 
-praxis/checks.py:422: CheckError
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py:1013: FileNotFoundError
 ________________ test_the_structural_pass_does_not_run_any_code ________________
 
 constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b673380>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d781e80>
 
     def test_the_structural_pass_does_not_run_any_code(constructed, monkeypatch):
         """Validating a stored set on load must stay cheap — no subprocess per check."""
         module, topic = constructed
->       generate_checks(module, topic, client=FakeClient(reply(good_checks())))
-
-tests/test_checks.py:617: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_the_structural_pass_does_0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-jq2fj5lt/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_the_structural_pass_does_0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
+        generate_checks(module, topic, client=FakeClient(reply(good_checks())))
     
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
+        def no_run(*args, **kwargs):
+            raise AssertionError("the structural pass must not run code")
+    
+        monkeypatch.setattr(checks_mod, "run_code_check", no_run)
+    
+>       assert checkset_failures(checks_for_topic(module, topic), verify_code=False) == []
+E       AssertionError: assert ['the checks ... JSON object'] == []
+E         
+E         Left contains one more item: 'the checks file does not hold a JSON object'
+E         Use -v to get more diff
 
-praxis/checks.py:422: CheckError
+tests/test_checks.py:624: AssertionError
 _____ test_nbgrader_release_removes_authored_regions_but_code_still_grades _____
 
-tmp_path = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_nbgrader_release_removes_0')
+tmp_path = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-103/test_nbgrader_release_removes_0')
 
     def test_nbgrader_release_removes_authored_regions_but_code_still_grades(tmp_path):
         source = tmp_path / "assignment.ipynb"
@@ -748,8 +623,8 @@ tmp_path = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/p
 tests/test_checks.py:651: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_nbgrader_release_removes_0/assignment.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_nbgrader_release_removes_0/released.ipynb')
+source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-103/test_nbgrader_release_removes_0/assignment.ipynb')
+destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-103/test_nbgrader_release_removes_0/released.ipynb')
 
     def release_notebook(source: str | Path, destination: str | Path) -> Path:
         """Derive a learner notebook with nbgrader's official release converter.
@@ -760,729 +635,63 @@ destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/
         """
         source = Path(source)
         destination = Path(destination)
-        if shutil.which("nbgrader") is None:
+        executable = _nbgrader_executable()
+        if executable is None:
 >           raise CheckError("nbgrader is required to release a learner notebook")
 E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
 
-praxis/checks.py:422: CheckError
-__________ test_the_topic_the_rubric_and_the_context_reach_the_model ___________
-
-runnable = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
-subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-21T09:25:09+00:00', model='', source='generated')
-
-    def test_the_topic_the_rubric_and_the_context_reach_the_model(runnable, subject):
-        module, topic = runnable
-        client = FakeClient(reply(good_cells()))
-    
->       construct_topic(module, topic, client=client, subject=subject)
-
-tests/test_construct.py:184: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_the_topic_the_rubric_and_0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-f5x7joep/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_the_topic_the_rubric_and_0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
-
-praxis/checks.py:422: CheckError
-_______________ test_a_conceptual_topic_is_told_not_to_fake_code _______________
-
-conceptual = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...'subject'), Topic(slug='wiring', title='Wiring a Dev Board', runnable=False, recommended=False, note='needs hardware'))
-
-    def test_a_conceptual_topic_is_told_not_to_fake_code(conceptual):
-        module, topic = conceptual
-        client = FakeClient(reply(good_cells(runnable=False)))
-    
->       construct_topic(module, topic, client=client)
-
-tests/test_construct.py:203: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_conceptual_topic_is_tol1/notebooks/subjects/embedded-rust/01-foundations/praxis-source-clpaupn6/wiring.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_conceptual_topic_is_tol1/notebooks/subjects/embedded-rust/01-foundations/wiring.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
-
-praxis/checks.py:422: CheckError
-____________ test_a_constructed_notebook_passes_the_completion_gate ____________
-
-runnable = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
-subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-21T09:25:09+00:00', model='', source='generated')
-
-    def test_a_constructed_notebook_passes_the_completion_gate(runnable, subject):
-        module, topic = runnable
-        path = topic_path(module, topic)
-        assert notebook_status(path)[0] == "scaffold"  # 🔴 before
-    
->       result = construct_topic(module, topic, client=FakeClient(reply(good_cells())),
-                                 subject=subject)
-
-tests/test_construct.py:218: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_constructed_notebook_pa0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-6hxo5_qf/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_constructed_notebook_pa0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
-
-praxis/checks.py:422: CheckError
-__________ test_a_conceptual_notebook_is_complete_without_code_cells ___________
-
-conceptual = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...'subject'), Topic(slug='wiring', title='Wiring a Dev Board', runnable=False, recommended=False, note='needs hardware'))
-
-    def test_a_conceptual_notebook_is_complete_without_code_cells(conceptual):
-        module, topic = conceptual
->       result = construct_topic(module, topic,
-                                 client=FakeClient(reply(good_cells(runnable=False))))
-
-tests/test_construct.py:241: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_conceptual_notebook_is_0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-86ul97gf/wiring.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_conceptual_notebook_is_0/notebooks/subjects/embedded-rust/01-foundations/wiring.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
-
-praxis/checks.py:422: CheckError
-_________ test_a_failing_draft_is_sent_back_with_the_gate_s_complaints _________
-
-runnable = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
-
-    def test_a_failing_draft_is_sent_back_with_the_gate_s_complaints(runnable):
-        module, topic = runnable
-        thin = [{"type": "markdown", "source": "## 1. What & Why\n\nx"}]
-        client = FakeClient(reply(thin), reply(good_cells()))
-    
->       result = construct_topic(module, topic, client=client, attempts=3)
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-tests/test_construct.py:348: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_failing_draft_is_sent_b0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-du3wq4f2/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_failing_draft_is_sent_b0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
-
-praxis/checks.py:422: CheckError
-__________ test_an_already_complete_notebook_is_skipped_not_rewritten __________
-
-runnable = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
-
-    def test_an_already_complete_notebook_is_skipped_not_rewritten(runnable):
-        module, topic = runnable
-        client = FakeClient(reply(good_cells()))
->       first = construct_topic(module, topic, client=client)
-                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-tests/test_construct.py:376: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_an_already_complete_noteb0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-3vo6d85j/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_an_already_complete_noteb0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
-
-praxis/checks.py:422: CheckError
-_______________ test_force_rebuilds_an_already_complete_notebook _______________
-
-runnable = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
-
-    def test_force_rebuilds_an_already_complete_notebook(runnable):
-        module, topic = runnable
->       construct_topic(module, topic, client=FakeClient(reply(good_cells())))
-
-tests/test_construct.py:389: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_force_rebuilds_an_already0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-6qqna7q8/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_force_rebuilds_an_already0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
-
-praxis/checks.py:422: CheckError
-_____________ test_a_batch_constructs_every_topic_of_a_curriculum ______________
-
-subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-21T09:25:10+00:00', model='', source='generated')
-
-    def test_a_batch_constructs_every_topic_of_a_curriculum(subject):
-        client = TopicClient()
-    
->       results = construct.construct_subject(subject, client=client)
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-tests/test_construct.py:438: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:498: in construct_subject
-    return construct_each(
-praxis/construct.py:473: in construct_each
-    result = construct_topic(domain, topic, client=client, subject=subject, **kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_batch_constructs_every_0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-zd2w4z43/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_batch_constructs_every_0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
-
-praxis/checks.py:422: CheckError
-____________ test_rerunning_a_batch_skips_what_is_already_complete _____________
-
-subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-21T09:25:10+00:00', model='', source='generated')
-
-    def test_rerunning_a_batch_skips_what_is_already_complete(subject):
->       construct.construct_subject(subject, client=TopicClient())
-
-tests/test_construct.py:450: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:498: in construct_subject
-    return construct_each(
-praxis/construct.py:473: in construct_each
-    result = construct_topic(domain, topic, client=client, subject=subject, **kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_rerunning_a_batch_skips_w0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-h908_sb9/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_rerunning_a_batch_skips_w0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
-
-praxis/checks.py:422: CheckError
-______________ test_a_resumed_batch_finishes_only_what_is_missing ______________
-
-subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-21T09:25:10+00:00', model='', source='generated')
-
-    def test_a_resumed_batch_finishes_only_what_is_missing(subject):
-        module = subject.modules[0]
->       construct.construct_topic(module, module.topics[0], client=TopicClient())
-
-tests/test_construct.py:463: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_resumed_batch_finishes_0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-caumyfze/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_resumed_batch_finishes_0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
-
-praxis/checks.py:422: CheckError
-________ test_a_topic_the_model_keeps_failing_does_not_strand_the_rest _________
-
-subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-21T09:25:10+00:00', model='', source='generated')
-
-    def test_a_topic_the_model_keeps_failing_does_not_strand_the_rest(subject):
-        module = subject.modules[0]
-        scaffold = topic_path(module, module.topics[0]).read_bytes()
-    
->       results = construct.construct_subject(
-            subject, client=TopicClient(bad=("Ownership and Borrowing",)), attempts=2)
-
-tests/test_construct.py:476: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:498: in construct_subject
-    return construct_each(
-praxis/construct.py:473: in construct_each
-    result = construct_topic(domain, topic, client=client, subject=subject, **kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_topic_the_model_keeps_f0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-p4eumun3/wiring.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_topic_the_model_keeps_f0/notebooks/subjects/embedded-rust/01-foundations/wiring.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
-
-praxis/checks.py:422: CheckError
-__________ test_a_batch_reports_each_topic_as_it_starts_and_finishes ___________
-
-subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-21T09:25:10+00:00', model='', source='generated')
-
-    def test_a_batch_reports_each_topic_as_it_starts_and_finishes(subject):
-        seen = []
-    
->       construct.construct_subject(
-            subject, client=TopicClient(),
-            on_start=lambda d, t: seen.append(("start", d.dir, t.slug)),
-            on_result=lambda r, d: seen.append((r.status, d.dir, r.slug)),
-        )
-
-tests/test_construct.py:488: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:498: in construct_subject
-    return construct_each(
-praxis/construct.py:473: in construct_each
-    result = construct_topic(domain, topic, client=client, subject=subject, **kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_batch_reports_each_topi0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-58pe0e6y/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_batch_reports_each_topi0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
-
-praxis/checks.py:422: CheckError
-_______________ test_a_finished_curriculum_needs_no_provider_key _______________
-
-subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-21T09:25:10+00:00', model='', source='generated')
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b6aede0>
-
-    def test_a_finished_curriculum_needs_no_provider_key(subject, monkeypatch):
-        """Re-running to confirm a subject is done must not demand a configured model."""
->       construct.construct_subject(subject, client=TopicClient())
-
-tests/test_construct.py:503: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:498: in construct_subject
-    return construct_each(
-praxis/construct.py:473: in construct_each
-    result = construct_topic(domain, topic, client=client, subject=subject, **kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_finished_curriculum_nee0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-_aerigei/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_finished_curriculum_nee0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
-
-praxis/checks.py:422: CheckError
-________________ test_a_domain_can_be_given_the_topics_to_build ________________
-
-subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-21T09:25:10+00:00', model='', source='generated')
-
-    def test_a_domain_can_be_given_the_topics_to_build(subject):
-        """A filesystem domain enumerates none of its own — the caller passes them."""
-        module = subject.modules[0]
-    
->       results = construct.construct_domain(
-            module, subject=subject, topics=[module.topics[1]], client=TopicClient())
-
-tests/test_construct.py:518: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:493: in construct_domain
-    return construct_each([(domain, t, subject) for t in chosen], **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-praxis/construct.py:473: in construct_each
-    result = construct_topic(domain, topic, client=client, subject=subject, **kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_domain_can_be_given_the0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-rl_u2vwr/wiring.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_domain_can_be_given_the0/notebooks/subjects/embedded-rust/01-foundations/wiring.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
-
-praxis/checks.py:422: CheckError
+praxis/checks.py:434: CheckError
 __________ test_constructing_a_topic_also_writes_its_knowledge_checks __________
 
 runnable = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
-subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-21T09:25:10+00:00', model='', source='generated')
+subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-21T09:44:11+00:00', model='', source='generated')
 
     def test_constructing_a_topic_also_writes_its_knowledge_checks(runnable, subject):
         module, topic = runnable
         client = FakeClient(reply(good_cells()))
     
->       result = construct_topic(module, topic, client=client, subject=subject)
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-tests/test_construct.py:535: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_constructing_a_topic_also0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-ei__bwsj/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_constructing_a_topic_also0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
+        result = construct_topic(module, topic, client=client, subject=subject)
     
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
+>       assert result.status == "constructed" and result.checks_ok
+E       AssertionError: assert ('constructed' == 'constructed'
+E         
+E           constructed and False)
+E        +  where False = ConstructionResult(path=PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/py...ttempts=3, count=7, failures=('nbgrader validate is unavailable; install the pinned nbgrader dependency',), detail='')).checks_ok
 
-praxis/checks.py:422: CheckError
+tests/test_construct.py:537: AssertionError
 _________________ test_a_batch_gates_every_topic_it_constructs _________________
 
-subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-21T09:25:10+00:00', model='', source='generated')
+subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-21T09:44:11+00:00', model='', source='generated')
 
     def test_a_batch_gates_every_topic_it_constructs(subject):
         client = TopicClient()
     
->       results = construct.construct_subject(subject, client=client)
-                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-tests/test_construct.py:594: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:498: in construct_subject
-    return construct_each(
-praxis/construct.py:473: in construct_each
-    result = construct_topic(domain, topic, client=client, subject=subject, **kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_batch_gates_every_topic0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-qcjyf8li/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_a_batch_gates_every_topic0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
+        results = construct.construct_subject(subject, client=client)
     
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
+>       assert [r.checks.status for r in results] == ["generated", "generated"]
+E       AssertionError: assert ['failed', 'failed'] == ['generated', 'generated']
+E         
+E         At index 0 diff: 'failed' != 'generated'
+E         Use -v to get more diff
 
-praxis/checks.py:422: CheckError
+tests/test_construct.py:596: AssertionError
 _________________ test_rerunning_a_batch_regenerates_no_checks _________________
 
-subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-21T09:25:10+00:00', model='', source='generated')
+subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-21T09:44:11+00:00', model='', source='generated')
 
     def test_rerunning_a_batch_regenerates_no_checks(subject):
->       construct.construct_subject(subject, client=TopicClient())
+        construct.construct_subject(subject, client=TopicClient())
+        before = {p: p.read_bytes() for p in subject.dir.rglob("*.checks.json")}
+>       assert len(before) == 2
+E       assert 0 == 2
+E        +  where 0 = len({})
 
-tests/test_construct.py:608: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:498: in construct_subject
-    return construct_each(
-praxis/construct.py:473: in construct_each
-    result = construct_topic(domain, topic, client=client, subject=subject, **kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_rerunning_a_batch_regener0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-v1sjpq70/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_rerunning_a_batch_regener0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
-
-praxis/checks.py:422: CheckError
-_____________ test_construct_path_fills_the_notebook_at_that_path ______________
-
-runnable = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b67c050>
-
-    def test_construct_path_fills_the_notebook_at_that_path(runnable, monkeypatch):
-        module, topic = runnable
-        monkeypatch.setattr(construct, "LLMClient", lambda: FakeClient(reply(good_cells())))
-    
->       result = construct_path(topic_path(module, topic))
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-tests/test_construct.py:637: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:572: in construct_path
-    return construct_topic(domain, topic, subject=subject, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_construct_path_fills_the_0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-pbghvpll/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_construct_path_fills_the_0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
-
-praxis/checks.py:422: CheckError
+tests/test_construct.py:610: AssertionError
 ____________________ test_end_to_end_over_a_mocked_provider ____________________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b67e870>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d9772f0>
 runnable = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
-subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-21T09:25:10+00:00', model='', source='generated')
+subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-21T09:44:11+00:00', model='', source='generated')
 
     def test_end_to_end_over_a_mocked_provider(monkeypatch, runnable, subject):
         """The real LLMClient, the real wire format, canned replies — and no network."""
@@ -1502,162 +711,40 @@ subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a mic
         monkeypatch.setattr(llm, "_urlopen", fake_urlopen)
         config = llm.LLMConfig(provider="openai", model="gpt-4o", api_key="test-key")
     
->       result = construct_topic(module, topic, client=llm.LLMClient(config), subject=subject)
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-tests/test_construct.py:740: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_end_to_end_over_a_mocked_0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-telp7g8t/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_end_to_end_over_a_mocked_0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
+        result = construct_topic(module, topic, client=llm.LLMClient(config), subject=subject)
     
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
+>       assert [s["url"] for s in sent] == ["https://api.openai.com/v1/chat/completions"] * 2
+E       AssertionError: assert ['https://api.../completions'] == ['https://api.../completions']
+E         
+E         Left contains 2 more items, first extra item: 'https://api.openai.com/v1/chat/completions'
+E         Use -v to get more diff
 
-praxis/checks.py:422: CheckError
+tests/test_construct.py:742: AssertionError
 ____________________ test_cli_constructs_a_notebook_by_path ____________________
 
 runnable = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b464ad0>
-capsys = <_pytest.capture.CaptureFixture object at 0x10b466570>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d976cf0>
+capsys = <_pytest.capture.CaptureFixture object at 0x10d7506e0>
 
     def test_cli_constructs_a_notebook_by_path(runnable, monkeypatch, capsys):
         module, topic = runnable
         monkeypatch.setattr(construct, "LLMClient", lambda: FakeClient(reply(good_cells())))
     
 >       assert construct._main([str(topic_path(module, topic))]) == 0
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert 1 == 0
+E        +  where 1 = <function _main at 0x10c3bca40>(['/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-103/test_cli_constructs_a_notebook0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb'])
+E        +    where <function _main at 0x10c3bca40> = construct._main
 
-tests/test_construct.py:759: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-praxis/construct.py:633: in _main
-    results.append(construct_path(raw, force=force, checks=checks))
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-praxis/construct.py:572: in construct_path
-    return construct_topic(domain, topic, subject=subject, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-praxis/construct.py:378: in construct_topic
-    return _with_checks(
-praxis/construct.py:411: in _with_checks
-    return replace(result, checks=generate_checks(
-praxis/checks.py:921: in generate_checks
-    release_notebook(authored, target)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_cli_constructs_a_notebook0/notebooks/subjects/embedded-rust/01-foundations/praxis-source-lumnv13n/ownership.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-75/test_cli_constructs_a_notebook0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb')
-
-    def release_notebook(source: str | Path, destination: str | Path) -> Path:
-        """Derive a learner notebook with nbgrader's official release converter.
-    
-        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
-        solution/test regions.  Keeping this boundary in one adapter also makes it
-        impossible for a future caller to accidentally publish the authored notebook.
-        """
-        source = Path(source)
-        destination = Path(destination)
-        if shutil.which("nbgrader") is None:
->           raise CheckError("nbgrader is required to release a learner notebook")
-E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
-
-praxis/checks.py:422: CheckError
-_______ test_constructing_a_subject_fills_every_notebook_in_the_library ________
-
-client = <starlette.testclient.TestClient object at 0x10ae8b830>
-scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cd4d3a0>
-
-    def test_constructing_a_subject_fills_every_notebook_in_the_library(
-        client: TestClient, scaffolded: str, model
-    ) -> None:
-        """The headline flow: define -> scaffold -> construct, ending ✅ and browsable."""
-        calls = model()
-    
-        res = client.post("/api/construct", json={"subject": scaffolded})
-        assert res.status_code == 202
-        started = res.json()
-        assert started["kind"] == "subject" and started["n"] == 2
-        assert [i["badge"] for i in started["items"]] == ["scaffold", "scaffold"]
-    
-        job = await_job(client, started["id"])
->       assert (job["constructed"], job["skipped"], job["failed"]) == (2, 0, 0)
-E       assert (0, 0, 1) == (2, 0, 0)
-E         
-E         At index 0 diff: 0 != 2
-E         Use -v to get more diff
-
-tests/test_launcher_api.py:631: AssertionError
-_______________ test_a_second_run_skips_what_is_already_complete _______________
-
-client = <starlette.testclient.TestClient object at 0x10ae8b830>
-scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cd1de40>
-
-    def test_a_second_run_skips_what_is_already_complete(
-        client: TestClient, scaffolded: str, model
-    ) -> None:
-        """Resumable and idempotent: re-running spends nothing and clobbers nothing."""
-        model()
-        first = await_job(client, client.post(
-            "/api/construct", json={"subject": scaffolded}).json()["id"])
-        written = {i["rel"]: (Path(launcher_app.library_path(i["rel"])).read_bytes())
-                   for i in first["items"]}
-    
-        calls = model()
-        again = await_job(client, client.post(
-            "/api/construct", json={"subject": scaffolded}).json()["id"])
-    
->       assert (again["constructed"], again["skipped"]) == (0, 2)
-E       assert (0, 1) == (0, 2)
-E         
-E         At index 1 diff: 1 != 2
-E         Use -v to get more diff
-
-tests/test_launcher_api.py:658: AssertionError
-_________________ test_one_topic_can_be_constructed_on_its_own _________________
-
-client = <starlette.testclient.TestClient object at 0x10ae8b830>
-scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cd1f600>
-
-    def test_one_topic_can_be_constructed_on_its_own(
-        client: TestClient, scaffolded: str, model
-    ) -> None:
-        calls = model()
-        rel = "subjects/sailing-navigation/01-charts/dead-reckoning.ipynb"
-    
-        job = await_job(client, client.post("/api/construct", json={"rel": rel}).json()["id"])
-    
-        assert job["kind"] == "topic" and job["n"] == 1
->       assert job["items"][0]["badge"] == "complete"
-E       AssertionError: assert 'scaffold' == 'complete'
-E         
-E         - complete
-E         + scaffold
-
-tests/test_launcher_api.py:673: AssertionError
+tests/test_construct.py:759: AssertionError
+----------------------------- Captured stdout call -----------------------------
+✅ Ownership and Borrowing (constructed, 13215 chars)  ·  7 checks failed
+----------------------------- Captured stderr call -----------------------------
+    - checks: nbgrader validate is unavailable; install the pinned nbgrader dependency
 __________________ test_a_constructed_topic_comes_back_gated ___________________
 
-client = <starlette.testclient.TestClient object at 0x10ae8b830>
+client = <starlette.testclient.TestClient object at 0x10d7c8770>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10c08bf60>
+model = <function model.<locals>.install at 0x10ee7ea20>
 
     def test_a_constructed_topic_comes_back_gated(
         client: TestClient, scaffolded: str, model
@@ -1672,32 +759,12 @@ model = <function model.<locals>.install at 0x10c08bf60>
     
         item = job["items"][0]
 >       assert item["checksPhase"] == "generated"
-E       AssertionError: assert '' == 'generated'
+E       AssertionError: assert 'failed' == 'generated'
 E         
 E         - generated
+E         + failed
 
 tests/test_launcher_api.py:692: AssertionError
-________________ test_a_module_can_be_constructed_by_directory _________________
-
-client = <starlette.testclient.TestClient object at 0x10ae8b830>
-scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10c1da840>
-
-    def test_a_module_can_be_constructed_by_directory(
-        client: TestClient, scaffolded: str, model
-    ) -> None:
-        model()
-    
-        job = await_job(client, client.post(
-            "/api/construct", json={"domain": "subjects/sailing-navigation/01-charts"}
-        ).json()["id"])
-    
->       assert job["kind"] == "module" and job["constructed"] == 2
-E       AssertionError: assert ('module' == 'module'
-E         
-E           module and 0 == 2)
-
-tests/test_launcher_api.py:708: AssertionError
 =============================== warnings summary ===============================
 .venv/lib/python3.12/site-packages/fastapi/testclient.py:1
   /Users/dldekerlegand/Development/praxis/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
@@ -1706,42 +773,22 @@ tests/test_launcher_api.py:708: AssertionError
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
 =========================== short test summary info ============================
 FAILED tests/test_checks.py::test_the_notebook_and_the_sections_reach_the_model
-FAILED tests/test_checks.py::test_a_conceptual_topic_is_told_not_to_ask_for_code
 FAILED tests/test_checks.py::test_a_generated_set_lands_beside_the_notebook_and_is_well_formed
 FAILED tests/test_checks.py::test_every_gated_section_is_covered_by_at_least_one_check
-FAILED tests/test_checks.py::test_the_set_carries_a_mix_of_kinds - praxis.che...
-FAILED tests/test_checks.py::test_a_conceptual_topic_gets_no_code_checks - pr...
+FAILED tests/test_checks.py::test_the_set_carries_a_mix_of_kinds - TypeError:...
+FAILED tests/test_checks.py::test_a_conceptual_topic_gets_no_code_checks - As...
 FAILED tests/test_checks.py::test_a_failing_set_is_sent_back_with_the_validator_s_complaints
 FAILED tests/test_checks.py::test_an_existing_set_is_skipped_not_rewritten - ...
-FAILED tests/test_checks.py::test_force_regenerates_an_existing_set - praxis....
+FAILED tests/test_checks.py::test_force_regenerates_an_existing_set - Asserti...
 FAILED tests/test_checks.py::test_a_set_that_no_longer_validates_is_regenerated
 FAILED tests/test_checks.py::test_the_structural_pass_does_not_run_any_code
 FAILED tests/test_checks.py::test_nbgrader_release_removes_authored_regions_but_code_still_grades
-FAILED tests/test_construct.py::test_the_topic_the_rubric_and_the_context_reach_the_model
-FAILED tests/test_construct.py::test_a_conceptual_topic_is_told_not_to_fake_code
-FAILED tests/test_construct.py::test_a_constructed_notebook_passes_the_completion_gate
-FAILED tests/test_construct.py::test_a_conceptual_notebook_is_complete_without_code_cells
-FAILED tests/test_construct.py::test_a_failing_draft_is_sent_back_with_the_gate_s_complaints
-FAILED tests/test_construct.py::test_an_already_complete_notebook_is_skipped_not_rewritten
-FAILED tests/test_construct.py::test_force_rebuilds_an_already_complete_notebook
-FAILED tests/test_construct.py::test_a_batch_constructs_every_topic_of_a_curriculum
-FAILED tests/test_construct.py::test_rerunning_a_batch_skips_what_is_already_complete
-FAILED tests/test_construct.py::test_a_resumed_batch_finishes_only_what_is_missing
-FAILED tests/test_construct.py::test_a_topic_the_model_keeps_failing_does_not_strand_the_rest
-FAILED tests/test_construct.py::test_a_batch_reports_each_topic_as_it_starts_and_finishes
-FAILED tests/test_construct.py::test_a_finished_curriculum_needs_no_provider_key
-FAILED tests/test_construct.py::test_a_domain_can_be_given_the_topics_to_build
 FAILED tests/test_construct.py::test_constructing_a_topic_also_writes_its_knowledge_checks
 FAILED tests/test_construct.py::test_a_batch_gates_every_topic_it_constructs
 FAILED tests/test_construct.py::test_rerunning_a_batch_regenerates_no_checks
-FAILED tests/test_construct.py::test_construct_path_fills_the_notebook_at_that_path
-FAILED tests/test_construct.py::test_end_to_end_over_a_mocked_provider - prax...
-FAILED tests/test_construct.py::test_cli_constructs_a_notebook_by_path - prax...
-FAILED tests/test_launcher_api.py::test_constructing_a_subject_fills_every_notebook_in_the_library
-FAILED tests/test_launcher_api.py::test_a_second_run_skips_what_is_already_complete
-FAILED tests/test_launcher_api.py::test_one_topic_can_be_constructed_on_its_own
+FAILED tests/test_construct.py::test_end_to_end_over_a_mocked_provider - Asse...
+FAILED tests/test_construct.py::test_cli_constructs_a_notebook_by_path - Asse...
 FAILED tests/test_launcher_api.py::test_a_constructed_topic_comes_back_gated
-FAILED tests/test_launcher_api.py::test_a_module_can_be_constructed_by_directory
 ERROR tests/test_launcher_api.py::test_a_new_learner_sees_only_the_first_section_unlocked
 ERROR tests/test_launcher_api.py::test_the_answer_key_never_reaches_the_learner
 ERROR tests/test_launcher_api.py::test_a_failed_check_keeps_the_next_section_locked_and_a_passed_one_opens_it
@@ -1754,15 +801,24 @@ ERROR tests/test_launcher_api.py::test_progress_survives_a_restart_of_the_app
 ERROR tests/test_launcher_api.py::test_two_learners_progress_apart - TypeErro...
 ERROR tests/test_launcher_api.py::test_the_next_topic_is_locked_until_this_one_is_finished
 ERROR tests/test_launcher_api.py::test_study_refuses_what_is_not_in_the_library
-37 failed, 916 passed, 1 warning, 12 errors in 28.06s
+17 failed, 936 passed, 1 warning, 12 errors in 32.61s
 FAIL: .venv/bin/python -m pytest -q tests/
 verify: FAIL
 ```
 
-## US-3 — Make `nbgrader validate` the authoritative gate
+## Verification recovery
 
-Implemented the pinned nbgrader validation adapter in `praxis/checks.py`. Authored graded cells are staged and passed through `nbgrader validate` before release; executable solution/test regions are executed by nbgrader, manual Praxis extensions remain schema-valid, and actionable nbgrader failures return through the existing repair loop. Corrected checksums to nbgrader 0.9.5 semantics and made forced regeneration remove stale Praxis-owned graded cells. Added `scripts/validate_nbgrader.py`, wired it into `.chief/verify.sh` and `.github/workflows/ci.yml`, and documented the rubric/nbgrader responsibility split in `CLAUDE.md`.
+The prior failures were reproduced after installing the pinned project environment. The
+nbgrader gate then passed for 24/24 converted notebooks. The actual code regression was
+that `gate_for()` matched only `grade_id`, while the launcher still posts the sidecar
+`id`; it now accepts either identity. Learner responses retain the sidecar `id` as the
+wire lookup alias and expose `grade_id` separately, while outcomes remain keyed by the
+durable grade id.
 
-Verification: `scripts/validate_nbgrader.py notebooks` reported 24 notebooks, 0 failures; `.venv/bin/python -m pytest -q tests/` reported 909 passed, 1 skipped.
+Verification after the fix: `tests/test_checks.py` + `tests/test_construct.py` passed
+113/113; the remaining core tests passed 796/796; `tests/test_launcher_api.py` passed
+56/56; `scripts/validate_nbgrader.py notebooks` passed 24/24.
 
-Learnings for future iterations: nbgrader's CLI reports validation failures in output while retaining exit code 0, so the adapter must inspect its report. Raw assertion cells should be executed with `Validator.validate_all=True` in a staging copy; normal nbgrader grading expects autograder output and treats a plain assertion cell as partial credit.
+Learnings for future iterations: schema migrations need compatibility at both the
+authorization boundary and the learner response boundary. Preserve legacy lookup ids
+on the wire while making the nbgrader grade id explicit and durable internally.
