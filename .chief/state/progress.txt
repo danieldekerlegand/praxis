@@ -1,0 +1,15 @@
+# Chief Progress — 78-jd-suggestion-review-surface
+Started: Thu Aug 20 22:35:37 CDT 2026
+---
+
+## Codebase Patterns
+
+- JD review state belongs under the active storage backend, alongside imported JDs and subjects; launcher mutations should use the central writable middleware and delegate accepted goals to `generate_and_save`.
+
+## US-1 — Serve and mutate the suggestion set over the launcher
+
+- Added persisted review state in `praxis/suggestion_review.py` and `storage.suggestions_dir()`.
+- Added launcher routes to build/list suggestions for an imported JD, edit/drop them, and accept them through the existing subject-generation path; added an accept/drop API smoke test.
+- Verification: `uv run --with '.[launch,dev]' pytest -q` → 964 passed, 0 failed (one existing Starlette/httpx deprecation warning).
+
+Learnings for future iterations: keep the review surface as a thin persisted adapter around `praxis.suggest`; accepted suggestions must disappear from active review only after `generate_and_save` succeeds, while the returned slug is the handoff to scaffold/construct.
