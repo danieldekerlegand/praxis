@@ -81,6 +81,7 @@ SUBJECTS_DIRNAME = "subjects"
 PROGRESS_DIRNAME = "progress"
 #: The job descriptions the user imported (`praxis/jd.py`) — theirs, like the rest.
 JD_DIRNAME = "jd"
+SUGGESTIONS_DIRNAME = "suggestions"
 
 #: Where the `cloud` backend keeps its working copy, inside the app directory.
 CLOUD_DIRNAME = "cloud"
@@ -651,6 +652,12 @@ def jd_dir() -> Path:
     """Where imported job descriptions live. `PRAXIS_JD_DIR` relocates just this leaf."""
     override = os.environ.get("PRAXIS_JD_DIR")
     return Path(override) if override else active_backend().jd
+
+
+def suggestions_dir() -> Path:
+    """Where reviewable JD suggestions are kept with the learner's other data."""
+    override = os.environ.get("PRAXIS_SUGGESTIONS_DIR")
+    return Path(override) if override else data_root() / SUGGESTIONS_DIRNAME
 
 
 def kind_info(kind: str) -> dict:

@@ -1,0 +1,23 @@
+# Chief Progress — 78-jd-suggestion-review-surface
+Started: Fri Aug 21 04:09:30 CDT 2026
+---
+
+## Codebase Patterns
+
+- JD review state belongs under the active storage backend, alongside imported JDs and subjects; launcher mutations should use the central writable middleware and delegate accepted goals to `generate_and_save`.
+- Keep the JD review UI as a projection of launcher suggestion state. Accepted slugs return to `App.tsx`, whose single `useConstruction` instance remains the owner of construction runs.
+
+## US-1 — Serve and mutate the suggestion set over the launcher
+
+- Added persisted review state in `praxis/suggestion_review.py` and `storage.suggestions_dir()`.
+- Added launcher routes to build/list suggestions for an imported JD, edit/drop them, and accept them through the existing subject-generation path; added an accept/drop API smoke test.
+- Verification: `uv run --with '.[launch,dev]' pytest -q` → 964 passed, 0 failed (one existing Starlette/httpx deprecation warning).
+
+## US-2 — In-app review / edit / drop / accept view
+
+- Added `SuggestionReview` and its launcher client to render each suggestion's source requirement, rationale, and editable goal with edit, drop, and accept actions.
+- Accept hands the returned subject slug to `App.tsx`, which selects it in the existing define → scaffold → construction flow and keeps the top-level construction poller in charge.
+- End-to-end run: imported JD → launcher-generated suggestions → accepted a suggestion through the existing subject API → opened the persisted subject in Define → scaffolded notebooks → construction remains the existing App-owned run.
+- Verification: `npm run build` green; `cargo build` green; `python3 -m pytest -q tests/` → 908 passed, 1 skipped.
+
+Learnings for future iterations: keep suggestion state and gap explanations server-described; the UI should only edit the goal text and hand accepted subject slugs back to the existing subject workflow.

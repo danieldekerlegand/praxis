@@ -80,6 +80,7 @@ from praxis.construct import topic_for_rel  # noqa: E402
 from praxis.curriculum_gen import generate_and_save  # noqa: E402
 from praxis.llm import LLMClient, LLMConfigError, LLMError  # noqa: E402
 from praxis import jd, storage  # noqa: E402
+from praxis import gap, jd_extract, suggest, suggestion_review  # noqa: E402
 from praxis.progress import (  # noqa: E402
     DEFAULT_LEARNER,
     gate_for,
@@ -393,7 +394,7 @@ def create_app():
         CORSMiddleware,
         allow_origin_regex=SHELL_ORIGIN_RE,
         # POST is only for defining a subject; everything else is a read.
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=["*"],
     )
     app.mount("/static", StaticFiles(directory=str(here / "static")), name="static")
@@ -672,6 +673,102 @@ def create_app():
             return JSONResponse(
                 {"error": f"no imported job description '{jd_id}'"}, status_code=404)
         return doc
+
+    def _jd_suggestion_id(jd_id: str) -> Optional[dict]:
+        if jd_id != Path(jd_id).name or jd_id.startswith("."):
+            return None
+        return jd.load_jd(jd_id)
+
+    def _review(jd_id: str, payload: Optional[dict] = None) -> dict:
+        """Load persisted review state, constructing it from the shipped funnel once."""
+        stored = suggestion_review.load(jd_id)
+        if stored is not None:
+            return stored
+        doc = _jd_suggestion_id(jd_id)
+        if doc is None:
+            raise jd.JDError(f"no imported job description '{jd_id}'")
+        source = (payload or {}).get("analysis") or (payload or {}).get("requirements")
+        extracted = source if source else jd_extract.extract_requirements(doc)
+        analysis = gap.analyze(extracted)
+        review = suggest.suggest(analysis)
+        return suggestion_review.save(jd_id, review)
+
+    def _suggestions_response(jd_id: str, payload: Optional[dict] = None):
+        try:
+            return suggestion_review.public(_review(jd_id, payload))
+        except jd.JDError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=404)
+        except (LLMConfigError, LLMError) as exc:
+            return JSONResponse({"error": str(exc)}, status_code=503)
+        except (gap.GapError, suggest.SuggestError, jd_extract.JDExtractError) as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
+
+    @app.get("/api/jd/{jd_id}/suggestions", response_class=JSONResponse)
+    def api_suggestions(jd_id: str):
+        return _suggestions_response(jd_id)
+
+    @app.post("/api/jd/{jd_id}/suggestions", response_class=JSONResponse)
+    def api_build_suggestions(jd_id: str, payload: dict = Body(default={} )):
+        # A supplied analysis is useful to callers that already ran bands 75/76; absent
+        # one, this is the normal model-backed extraction -> gap -> suggestion funnel.
+        return _suggestions_response(jd_id, payload)
+
+    def _mutate_suggestion(jd_id: str, suggestion_id: str, action: str, payload: dict):
+        try:
+            review = _review(jd_id)
+        except jd.JDError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=404)
+        rows = review.get("suggestions", [])
+        row = next((item for item in rows if item.get("id") == suggestion_id), None)
+        if row is None:
+            return JSONResponse({"error": f"no suggestion '{suggestion_id}'"}, status_code=404)
+        if action == "edit":
+            goal = str(payload.get("goal") or "").strip()
+            if not goal:
+                return JSONResponse({"error": "a suggestion needs a goal"}, status_code=400)
+            row["goal"] = goal
+        elif action == "drop":
+            rows.remove(row)
+            review.setdefault("dropped", []).append({**row, "reason": "user"})
+        elif action == "accept":
+            goal = str(row.get("goal") or "").strip()
+            try:
+                subject = generate_and_save(goal)
+            except LLMConfigError as exc:
+                return JSONResponse({"error": str(exc)}, status_code=503)
+            except (LLMError, CurriculumError) as exc:
+                return JSONResponse({"error": str(exc)}, status_code=422)
+            rows.remove(row)
+            review.setdefault("accepted", []).append({"id": suggestion_id, "slug": subject.slug})
+            suggestion_review.save(jd_id, review)
+            return JSONResponse({"slug": subject.slug, "suggestion": row}, status_code=201)
+        suggestion_review.save(jd_id, review)
+        return suggestion_review.public(review)
+
+    @app.put("/api/jd/{jd_id}/suggestions/{suggestion_id}", response_class=JSONResponse)
+    def api_edit_suggestion(jd_id: str, suggestion_id: str, payload: dict = Body(default={} )):
+        return _mutate_suggestion(jd_id, suggestion_id, "edit", payload)
+
+    @app.patch("/api/jd/{jd_id}/suggestions/{suggestion_id}", response_class=JSONResponse)
+    def api_patch_suggestion(jd_id: str, suggestion_id: str, payload: dict = Body(default={} )):
+        return _mutate_suggestion(jd_id, suggestion_id, "edit", payload)
+
+    @app.delete("/api/jd/{jd_id}/suggestions/{suggestion_id}", response_class=JSONResponse)
+    def api_drop_suggestion(jd_id: str, suggestion_id: str):
+        return _mutate_suggestion(jd_id, suggestion_id, "drop", {})
+
+    @app.post("/api/jd/{jd_id}/suggestions/{suggestion_id}/accept", response_class=JSONResponse)
+    def api_accept_suggestion(jd_id: str, suggestion_id: str):
+        return _mutate_suggestion(jd_id, suggestion_id, "accept", {})
+
+    @app.post("/api/jd/{jd_id}/suggestions/{suggestion_id}", response_class=JSONResponse)
+    def api_mutate_suggestion(jd_id: str, suggestion_id: str,
+                               payload: dict = Body(default={} )):
+        """Action-shaped companion for clients that use one mutation verb."""
+        action = str(payload.get("action") or "").strip().lower()
+        if action not in {"edit", "drop", "accept"}:
+            return JSONResponse({"error": "action must be edit, drop or accept"}, status_code=400)
+        return _mutate_suggestion(jd_id, suggestion_id, action, payload)
 
     @app.get("/api/storage", response_class=JSONResponse)
     def api_storage():

@@ -35,11 +35,14 @@ export default function DefineSubject({
   base,
   construction,
   onScaffolded,
+  selectedSlug,
 }: {
   base: string;
   /** The shell's one construction run, so the library sees what is started here. */
   construction: Construction;
   onScaffolded?: () => void;
+  /** A suggestion accepted in the JD funnel, selected in this same subject review. */
+  selectedSlug?: string | null;
 }) {
   const [subjects, setSubjects] = useState<Subject[] | null>(null);
   const [slug, setSlug] = useState<string>(NEW);
@@ -60,6 +63,12 @@ export default function DefineSubject({
         setError(String(err));
       });
   }, [base]);
+
+  useEffect(() => {
+    if (selectedSlug && subjects?.some((subject) => subject.slug === selectedSlug)) {
+      setSlug(selectedSlug);
+    }
+  }, [selectedSlug, subjects]);
 
   async function generate(event: React.FormEvent) {
     event.preventDefault();
