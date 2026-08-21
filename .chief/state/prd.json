@@ -42,7 +42,8 @@
         "The surface holds no suggestion or unlock logic of its own \u2014 it renders whatever the launcher describes and calls back, mirroring how KnowledgeChecks.tsx renders whatever the gate says.",
         "Gate green: npm run build in ui/ and cargo build in src-tauri/ pass, python3 -m pytest -q tests/ covers the accept->subject path, and the progress log documents an end-to-end JD -> suggestion -> accept -> scaffolded notebooks run."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "UI review surface wired to launcher suggestions: npm run build green; cargo build green; python3 -m pytest -q tests/: 908 passed, 1 skipped. Accepted suggestions route to the existing subject review, scaffold, and App-owned construction poller."
     }
   ]
 }

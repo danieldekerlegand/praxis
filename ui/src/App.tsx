@@ -53,6 +53,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [activeDir, setActiveDir] = useState<string | null>(null);
   const [reading, setReading] = useState<Reading | null>(null);
+  const [acceptedSubject, setAcceptedSubject] = useState<string | null>(null);
 
   useEffect(() => {
     appInfo().then(setInfo).catch(() => setInfo(null));
@@ -168,13 +169,20 @@ export default function App() {
       ) : view === "jd" && status.url ? (
         // Importing a posting writes nothing into the library — it is the front of the
         // JD funnel, not a curriculum — so nothing here has to be dropped afterwards.
-        <ImportJD base={status.url} />
+        <ImportJD
+          base={status.url}
+          onAccepted={(slug) => {
+            setAcceptedSubject(slug);
+            setView("subjects");
+          }}
+        />
       ) : view === "subjects" && status.url ? (
         // Scaffolding a subject writes notebooks; drop the library so the effect above
         // refetches it and the new module shows up in the sidebar with live badges.
         <DefineSubject
           base={status.url}
           construction={construction}
+          selectedSlug={acceptedSubject}
           onScaffolded={() => setLibrary(null)}
         />
       ) : library && active ? (

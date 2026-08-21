@@ -8,6 +8,7 @@ import {
   type JD,
   type JDSummary,
 } from "./jd";
+import SuggestionReview from "./SuggestionReview";
 
 /** What the file picker offers — exactly the suffixes `praxis.jd.KINDS` can read. */
 const ACCEPT = ".txt,.md,.markdown,.pdf,.docx";
@@ -35,7 +36,7 @@ const NEW = ""; // the sidebar entry for "nothing selected" — show the import 
  * back, and the text below is then re-read with `GET /api/jd/<id>`. So the confirmation
  * is the document that actually landed on the backend, not an echo of what was sent.
  */
-export default function ImportJD({ base }: { base: string }) {
+export default function ImportJD({ base, onAccepted }: { base: string; onAccepted: (slug: string) => void }) {
   const [jds, setJds] = useState<JDSummary[] | null>(null);
   const [id, setId] = useState<string>(NEW);
   const [doc, setDoc] = useState<JD | null>(null);
@@ -149,6 +150,7 @@ export default function ImportJD({ base }: { base: string }) {
               storage backend just now, so this is what was actually stored.
             </p>
             <pre className="jdtext">{doc.text}</pre>
+            <SuggestionReview base={base} jdId={doc.id} onAccepted={onAccepted} />
             {error && <p className="status error">{error}</p>}
           </>
         ) : (
