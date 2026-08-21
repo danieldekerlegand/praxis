@@ -98,6 +98,12 @@ with the grader's own sentences, and **never write a set that fails**. Sections 
 `GATED_SECTIONS`, derived from `rubric.RUBRIC_SECTIONS` minus Setup/Resources, so adding
 a rubric section adds a gate.
 
+The validation split is deliberate: `praxis/rubric.py` owns Praxis's eight sections,
+placeholder/resource/badge/size/code-shape rules; `nbgrader validate` owns nbgrader
+metadata well-formedness and execution of authored solution/test regions. The adapter
+`praxis.checks.nbgrader_validate()` is the authoritative write gate for graded cells.
+Do not add a parallel pytest implementation of nbgrader's validation rules.
+
 The one rule that carries the anti-fabrication weight: a `code` check's reference
 `solution` is **run against its own `test`** in a subprocess before the set may be
 written, so "auto-graded" can never mean "asserts nothing". That verification is the

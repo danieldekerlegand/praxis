@@ -59,7 +59,8 @@
         "A validate failure produces a message specific enough to act on and is fed back to the model as the repair prompt exactly as the grader's own sentences are today \u2014 the repair loop is preserved, only its source of truth changed.",
         "Gate green: `python3 -m pytest -q tests/` passes, `nbgrader validate` passes on the converted seed notebooks, and a test asserts a deliberately broken graded cell is rejected by `nbgrader validate` and never written."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "nbgrader validate gate passed for 24 converted seed notebooks; .venv/bin/python -m pytest -q tests/: 909 passed, 1 skipped. Broken authored graded cells are rejected before release and their nbgrader report is fed into the repair prompt."
     }
   ]
 }

@@ -103,6 +103,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -e '.[launch,dev]'
+      - run: python scripts/validate_nbgrader.py notebooks
       - run: python -m pytest -q tests/
 
   # macOS bundle, on demand. Not a PR gate: it is the release build, and it is the same

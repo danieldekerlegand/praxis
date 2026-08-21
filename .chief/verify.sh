@@ -45,6 +45,7 @@ if echo "$changed" | grep -qE '\.(py|ipynb)$|^notebooks/|^tests/|^scripts/|^pypr
   py=python3
   [ -x .venv/bin/python ] && py=.venv/bin/python
   if "$py" -c 'import pytest, nbformat' >/dev/null 2>&1; then
+    run "$py" scripts/validate_nbgrader.py notebooks
     run "$py" -m pytest -q tests/
   else
     echo "skip: pytest/nbformat not installed (create .venv: uv venv .venv && uv pip install --python .venv/bin/python pytest nbformat)"
