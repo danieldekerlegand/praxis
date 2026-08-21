@@ -32,6 +32,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import nbformat
+
 from curriculum import (
     DOMAINS,
     NOTEBOOKS_DIR,
@@ -129,11 +131,14 @@ def scaffold_notebook(domain: Domain, topic: Topic) -> dict:
         return f"{topic.slug}-{counter['n']:02d}"
 
     def md(text: str) -> dict:
-        return {"cell_type": "markdown", "id": _cid(), "metadata": {}, "source": [text]}
+        result = nbformat.v4.new_markdown_cell(source=text, id=_cid())
+        result["source"] = [text]
+        return result
 
     def code(text: str) -> dict:
-        return {"cell_type": "code", "id": _cid(), "execution_count": None,
-                "metadata": {}, "outputs": [], "source": [text]}
+        result = nbformat.v4.new_code_cell(source=text, id=_cid())
+        result["source"] = [text]
+        return result
 
     cells = [
         md(header),
@@ -158,9 +163,9 @@ def scaffold_notebook(domain: Domain, topic: Topic) -> dict:
         md("## 8. Resources\n\nTODO: official docs + 2-3 high-signal links (real URLs)."),
     ]
 
-    return {
-        "cells": cells,
-        "metadata": {
+    return nbformat.v4.new_notebook(
+        cells=cells,
+        metadata={
             "praxis": {
                 "status": "scaffold",
                 "domain": domain.dir,
@@ -172,9 +177,8 @@ def scaffold_notebook(domain: Domain, topic: Topic) -> dict:
             "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
             "language_info": {"name": "python"},
         },
-        "nbformat": 4,
-        "nbformat_minor": 5,
-    }
+        nbformat_minor=5,
+    )
 
 
 def scaffold_domain(domain: Domain) -> tuple[int, int]:
@@ -194,7 +198,7 @@ def scaffold_domain(domain: Domain) -> tuple[int, int]:
         if path.exists():
             skipped += 1
             continue
-        path.write_text(json.dumps(scaffold_notebook(domain, topic), indent=1))
+        nbformat.write(scaffold_notebook(domain, topic), str(path), split_lines=False)
         created += 1
     return created, skipped
 

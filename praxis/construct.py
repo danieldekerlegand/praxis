@@ -43,6 +43,8 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
+import nbformat
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from curriculum import (  # noqa: E402
@@ -273,10 +275,13 @@ def build_notebook(
         return f"{topic.slug}-{counter['n']:02d}"
 
     def cell(kind: str, source: str) -> dict:
-        base = {"cell_type": kind, "id": _cid(), "metadata": {}, "source": [source]}
+        cell_id = _cid()
         if kind == "code":
-            base |= {"execution_count": None, "outputs": []}
-        return base
+            result = nbformat.v4.new_code_cell(source=source, id=cell_id)
+        else:
+            result = nbformat.v4.new_markdown_cell(source=source, id=cell_id)
+        result["source"] = [source]
+        return result
 
     body = [cell("markdown", _header_cell(domain, topic))]
     body += [cell(c["kind"], c["source"]) for c in cells]
@@ -300,7 +305,7 @@ def build_notebook(
         or {"display_name": "Python 3", "language": "python", "name": "python3"},
         "language_info": meta.get("language_info") or {"name": "python"},
     }
-    return {"cells": body, "metadata": meta, "nbformat": 4, "nbformat_minor": 5}
+    return nbformat.v4.new_notebook(cells=body, metadata=meta, nbformat_minor=5)
 
 
 # --- constructing one notebook ---------------------------------------------
@@ -367,7 +372,7 @@ def construct_topic(
         if not failures:
             if write:
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(json.dumps(nb, indent=1))
+                nbformat.write(nb, str(path), split_lines=False)
             return _with_checks(
                 ConstructionResult(
                     path=path, slug=topic.slug, title=topic.title, status="constructed",
