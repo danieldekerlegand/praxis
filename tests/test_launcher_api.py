@@ -36,6 +36,7 @@ from curriculum import CurriculumError, save_subject, subject_from_dict  # noqa:
 from launcher.app import SHELL_ORIGIN_RE, _exit_with_parent, create_app  # noqa: E402
 from mockdav import MockDAV  # noqa: E402
 from praxis.llm import LLMConfigError, LLMError  # noqa: E402
+from praxis import suggestion_review  # noqa: E402
 
 CURRICULUM = {
     "title": "Sailing Navigation",
@@ -357,6 +358,42 @@ def test_a_subject_with_no_goal_is_refused_before_any_call(
     no_model(AssertionError("must not reach the model"))
     assert client.post("/api/subjects", json={"goal": "   "}).status_code == 400
     assert client.post("/api/subjects", json={}).status_code == 400
+
+
+def _seed_review(client: TestClient) -> str:
+    doc = client.post("/api/jd", json={
+        "text": "Terraform is required for this role. " * 4,
+    }).json()
+    suggestion_review.save(doc["id"], {
+        "jd": doc["id"], "title": doc["title"],
+        "suggestions": [
+            {"id": "terraform", "title": "Terraform", "goal": "learn Terraform",
+             "rationale": "nothing in the library addresses Terraform",
+             "requirement": {"name": "Terraform"}},
+            {"id": "kubernetes", "title": "Kubernetes", "goal": "learn Kubernetes",
+             "rationale": "nothing in the library addresses Kubernetes",
+             "requirement": {"name": "Kubernetes"}},
+        ], "dropped": [], "accepted": [],
+    })
+    return doc["id"]
+
+
+def test_suggestion_accept_uses_subject_pipeline_and_drop_removes_from_review(
+    client: TestClient, subjects_root: Path, no_model
+) -> None:
+    no_model(None)
+    jd_id = _seed_review(client)
+    accepted = client.post(f"/api/jd/{jd_id}/suggestions/terraform/accept")
+    assert accepted.status_code == 201
+    slug = accepted.json()["slug"]
+    assert client.get(f"/api/subjects/{slug}").status_code == 200
+    assert client.get(f"/api/jd/{jd_id}/suggestions").json()["count"] == 1
+
+    dropped = client.delete(f"/api/jd/{jd_id}/suggestions/kubernetes")
+    assert dropped.status_code == 200
+    remaining = client.get(f"/api/jd/{jd_id}/suggestions").json()
+    assert remaining["suggestions"] == []
+    assert remaining["dropped"][0]["reason"] == "user"
 
 
 @pytest.mark.parametrize(
