@@ -31,7 +31,8 @@
         "The audit is strictly read-only: it never writes or rewrites a notebook (the seed library stays held to gate_failures and stays green), and its output is a machine-readable report naming each rotted notebook, the specific dead URL or failing cell, and the grader's own sentence for it.",
         "Gate green: python3 -m pytest -q tests/ passes, including a test that the audit flags a fixture notebook with a dead URL and one with a non-compiling cell (against a stubbed HTTP layer \u2014 no live network in tests) and passes a healthy one."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "Added read-only praxis.audit JSON/CLI sweep using construction_failures, gate_failures, and compile checks; fixture tests cover dead URL, syntax failure, healthy, offline unchecked, and byte-identical input. Full pytest: 911 passed, 1 skipped."
     },
     {
       "id": "US-2",
