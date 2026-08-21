@@ -26,8 +26,8 @@
         "The path is now open for nbgrader's cell metadata (D10) without a second notebook writer.",
         "`nbformat` moves from declared-and-unused to declared-and-used \u2014 assert it is imported by the production writer."
       ],
-      "passes": false,
-      "notes": "Smallest change here, largest downstream unlock. Do it first."
+      "passes": true,
+      "notes": "Imported nbformat in both production writers; nbformat.v4 constructors and nbformat.write(split_lines=False) preserve the existing source-list output. Full pytest: 908 passed, 1 skipped."
     },
     {
       "id": "US-2",
