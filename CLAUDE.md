@@ -87,8 +87,10 @@ implemented there; it falls out of every target going through `construct_topic`.
 `praxis/checks.py` is the **fourth write**, and the reason `construct_topic` is not the
 end of the story: a notebook that passes the rubric is still ungated until the questions
 that unlock the next section exist. They live *beside* the notebook as
-`<slug>.checks.json` (`checks_path()`), never inside it — the answer key must not sit in
-a cell the learner is reading, and the seed library gains checks without being rewritten.
+`<slug>.checks.json` (`checks_path()`), while learner-facing graded regions carry the
+standard nbgrader cell metadata. The answer key must not sit in a cell the learner is
+reading; reference answers remain in the sidecar until release mechanics produce an
+assignment. `migrate_checks_to_nbgrader()` is the idempotent conversion pass for seeds.
 
 Everything about it is the constructor's shape one level up, deliberately: ask for JSON,
 normalize leniently (`checks_from_reply`), grade strictly (`checkset_failures`), repair

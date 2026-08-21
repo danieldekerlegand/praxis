@@ -27,7 +27,8 @@
       ],
       "answer": 0,
       "explanation": "Reduced memorisation, a valid train/test split, better loss per unit compute and less degenerate output all follow; the memorisation effect is the one with the clearest evidence and the largest practical stakes.",
-      "id": "data-deduplication-01"
+      "id": "data-deduplication-01",
+      "grade_id": "data-deduplication-e2a08e74429ab312"
     },
     {
       "section": "Mental Model",
@@ -35,7 +36,8 @@
       "prompt": "Explain the three-step MinHash + LSH pipeline and what each step accomplishes. State the probability identity that MinHash rests on.",
       "expected": "A correct answer must describe: (1) SHINGLING \u2014 represent each document as the set of its overlapping n-grams, turning document similarity into SET similarity measured by the Jaccard index; (2) MINHASH \u2014 hash every shingle and keep the minimum, repeated with k independent hash functions, giving a fixed-size signature; (3) LSH BANDING \u2014 split the signature into bands, hash each band, and only compare documents that collide in at least one band, turning comparison into a hash-table lookup. It must state the identity: P(two documents' min-hashes agree) = their JACCARD SIMILARITY, which is why the signature agreement rate estimates Jaccard.",
       "explanation": "Change of representation, then dimensionality reduction with a provable guarantee, then avoiding almost all comparisons.",
-      "id": "data-deduplication-02"
+      "id": "data-deduplication-02",
+      "grade_id": "data-deduplication-d1800329b12652fa"
     },
     {
       "section": "Key Concepts",
@@ -49,7 +51,8 @@
       ],
       "answer": 0,
       "explanation": "The approximate threshold is (1/b)^(1/r). More, shorter bands means documents collide more easily, so recall rises and so does the candidate count. The signature length b*r is what controls estimate accuracy.",
-      "id": "data-deduplication-03"
+      "id": "data-deduplication-03",
+      "grade_id": "data-deduplication-f199b49f531c285a"
     },
     {
       "section": "Worked Examples",
@@ -59,7 +62,8 @@
       "solution": "def shingles(text, n):\n    w = text.lower().split()\n    if len(w) < n:\n        return set()\n    return {' '.join(w[i:i + n]) for i in range(len(w) - n + 1)}\n\ndef jaccard(a, b):\n    u = a | b\n    if not u:\n        return 0.0\n    return len(a & b) / len(u)\n",
       "test": "assert jaccard(set(), set()) == 0.0, 'must not divide by zero'\nassert jaccard({1, 2}, {1, 2}) == 1.0\nassert jaccard({1, 2}, {3, 4}) == 0.0\nassert abs(jaccard({1, 2, 3}, {2, 3, 4}) - 0.5) < 1e-9\nt = 'the quick brown fox jumps'\nassert len(shingles(t, 3)) == 3, shingles(t, 3)\nassert shingles(t, 3) == shingles(t.upper(), 3), 'must lowercase'\nassert shingles('two words', 5) == set(), 'too short -> empty'\nassert jaccard(shingles(t, 3), shingles(t, 3)) == 1.0\nedited = 'the quick brown cat jumps'\nassert 0.0 < jaccard(shingles(t, 3), shingles(edited, 3)) < 1.0\n",
       "explanation": "Longer shingles are stricter: a single edited word destroys more of them. n=5 is a reasonable default for prose, while code and short documents want a smaller n.",
-      "id": "data-deduplication-04"
+      "id": "data-deduplication-04",
+      "grade_id": "data-deduplication-f16090bfc230e593"
     },
     {
       "section": "Gotchas",
@@ -73,7 +77,8 @@
       ],
       "answer": 0,
       "explanation": "The two methods target different things and are complementary. The repeated block still gets memorised, which is why substring-level dedup exists alongside document-level dedup.",
-      "id": "data-deduplication-05"
+      "id": "data-deduplication-05",
+      "grade_id": "data-deduplication-4572c4be5ed435a3"
     },
     {
       "section": "When to Use",
@@ -81,7 +86,16 @@
       "prompt": "Describe the discipline the notebook recommends around deduplication, including the judgement call that makes it more than a technical step.",
       "expected": "A correct answer must give the discipline: DEDUP BEFORE YOU TRAIN, DEDUP THE TRAINING SET AGAINST YOUR EVALUATION SETS, and RECORD WHAT WAS REMOVED \u2014 because the cost of getting it wrong is a model that memorises more than it should plus an evaluation that cannot be trusted. It must identify the judgement call: deduplication is LOSSY CURATION and some repetition is legitimate signal \u2014 common phrases should be common, and a few epochs of repeated data are nearly as good as fresh data \u2014 so deciding what counts as a duplicate is a modelling decision, not purely technical. A strong answer distinguishes dedup (removes repetition) from quality filtering (removes rubbish), noting a corpus can be perfectly deduplicated and worthless.",
       "explanation": "Dedup removes documents, not language; the threshold encodes a belief about what repetition is worth learning.",
-      "id": "data-deduplication-06"
+      "id": "data-deduplication-06",
+      "grade_id": "data-deduplication-71c4048434b11529"
     }
-  ]
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  }
 }

@@ -33,7 +33,8 @@
         "A migration path exists for the notebooks already on disk: the 24 seed notebooks that carry a `<slug>.checks.json` today are converted to the nbgrader schema by a documented, idempotent, re-runnable pass, and a converted notebook grades identically to the way it graded before (a test asserts equivalence on at least one real converted seed, not a fixture).",
         "Gate green: `python3 -m pytest -q tests/` passes, including a test that a constructed notebook's graded cells validate against nbgrader's schema and that the praxis extension round-trips without touching `metadata.nbgrader`."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "python3 -m pytest -q tests/: 908 passed, 1 skipped; migration converted 24 seed notebooks and verified 168 graded cells with unique stable grade_id values."
     },
     {
       "id": "US-2",

@@ -27,7 +27,8 @@
       ],
       "answer": 0,
       "explanation": "This is the notebook's central measurement: a 90%-sparse matrix of unchanged shape benchmarks at 1.00\u00d7 against dense, while a structurally pruned matrix of 1/10 the rows benchmarks over 7\u00d7. A dense kernel has no idea the zeros are there. Sparsity percentage is not a performance number.",
-      "id": "pruning-01"
+      "id": "pruning-01",
+      "grade_id": "pruning-1bdb601d370e38ab"
     },
     {
       "section": "Mental Model",
@@ -41,7 +42,8 @@
       ],
       "answer": 0,
       "explanation": "Unstructured pruning has complete freedom of choice, so at a given sparsity it can always find a lower-error solution than a method constrained to remove entire rows or channels. That freedom is exactly what makes it invisible to dense hardware \u2014 the shape never changes.",
-      "id": "pruning-02"
+      "id": "pruning-02",
+      "grade_id": "pruning-63a9164a904bfad6"
     },
     {
       "section": "Key Concepts",
@@ -49,7 +51,8 @@
       "prompt": "Explain what the 2:4 sparsity pattern is, why it exists at all given that unstructured pruning achieves lower error at the same 50% sparsity, and what hardware condition must hold for it to be worth using.",
       "expected": "A correct answer must state that 2:4 means exactly two of every contiguous group of four weights are zero, fixing sparsity at 50% by construction. It must explain that the constraint exists because NVIDIA sparse tensor cores (Ampere and later) can execute this specific pattern at roughly 2\u00d7 dense throughput, whereas unstructured sparsity yields no speedup on dense hardware \u2014 so 2:4 trades a modest amount of extra approximation error for a real wall-clock win. It must note the hardware condition: on pre-Ampere hardware (or without kernel support) 2:4 is pure accuracy loss for no benefit.",
       "explanation": "2:4 is the compromise the silicon was designed around: scattered zeros, but with a rule about how they may scatter, so the hardware can skip them.",
-      "id": "pruning-03"
+      "id": "pruning-03",
+      "grade_id": "pruning-6596d3bebb95a976"
     },
     {
       "section": "Worked Examples",
@@ -59,7 +62,8 @@
       "solution": "def prune_2of4(weights):\n    out = list(weights)\n    for g in range(0, len(weights), 4):\n        group = weights[g:g + 4]\n        keep = sorted(range(len(group)), key=lambda i: -abs(group[i]))[:2]\n        for i in range(len(group)):\n            if i not in keep:\n                out[g + i] = 0.0\n    return out\n",
       "test": "r = prune_2of4([1.0, -3.0, 0.5, 2.0, 0.1, 0.2, -0.3, 0.4])\nassert r == [0.0, -3.0, 0.0, 2.0, 0.0, 0.0, -0.3, 0.4], r\nassert sum(1 for v in r if v == 0.0) == 4, 'exactly half must be zero'\nr2 = prune_2of4([-5.0, -4.0, -3.0, -2.0])\nassert r2 == [-5.0, -4.0, 0.0, 0.0], r2\nsrc = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.02, 0.01]\nr3 = prune_2of4(src)\nassert sum(1 for v in r3 if v == 0.0) == 6, 'always exactly 50%'\nassert src == [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.02, 0.01]\n",
       "explanation": "Note the last assertion: the input list must not be mutated. Selecting by absolute value is what makes this magnitude pruning; the grouping is what makes it 2:4.",
-      "id": "pruning-04"
+      "id": "pruning-04",
+      "grade_id": "pruning-e2e87fed68a5fd35"
     },
     {
       "section": "Gotchas",
@@ -73,7 +77,8 @@
       ],
       "answer": 0,
       "explanation": "Global ranking pools weights across layers, so a layer whose weights are uniformly small in absolute terms looks entirely unimportant even when it is doing essential work. This is exactly what happens in the notebook's Example 1. Real recipes use global ranking with a per-layer floor.",
-      "id": "pruning-05"
+      "id": "pruning-05",
+      "grade_id": "pruning-6b16b7cae6bcc58a"
     },
     {
       "section": "When to Use",
@@ -81,7 +86,16 @@
       "prompt": "Describe the comparison you must run before concluding that pruning a large model to 50% was worthwhile, and explain why the obvious comparison is misleading.",
       "expected": "A correct answer must say that the pruned model should be compared against a DENSE model of the same final size (same parameter count or same latency), not against the original unpruned model. The obvious comparison \u2014 pruned versus original \u2014 only tells you how much accuracy you lost, not whether pruning was the right way to reach that size; very often simply training the smaller dense model outright matches or beats the pruned one, which is a central lesson of the lottery-ticket literature. Mentioning that you must also measure latency rather than sparsity percentage is a plus.",
       "explanation": "The baseline that matters is the alternative you would otherwise have shipped, which is a smaller dense model \u2014 not the model you started with.",
-      "id": "pruning-06"
+      "id": "pruning-06",
+      "grade_id": "pruning-303a849f28765853"
     }
-  ]
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  }
 }

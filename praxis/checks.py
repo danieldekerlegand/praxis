@@ -36,6 +36,7 @@ checks alongside the notebooks; `--no-checks` on that CLI turns it off.
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 import subprocess
 import sys
@@ -63,6 +64,15 @@ UNGATED_SECTIONS = ("Setup", "Resources")
 GATED_SECTIONS = tuple(s for s in RUBRIC_SECTIONS if s not in UNGATED_SECTIONS)
 
 KINDS = ("choice", "code", "short")
+
+# nbgrader's current notebook metadata format.  Version 3 is the format emitted by
+# nbgrader 0.9.x (the version used by the project); keeping this value here makes the
+# producer explicit instead of quietly inventing a second schema.
+NBGRADER_SCHEMA_VERSION = 3
+NBGRADER_METADATA_KEYS = (
+    "grade", "solution", "locked", "task", "grade_id", "points",
+    "schema_version", "checksum",
+)
 
 # What the model calls them when it isn't reading carefully.
 KIND_ALIASES = {
@@ -180,6 +190,11 @@ def _text(value: object) -> str:
     return value.strip() if isinstance(value, str) else ""
 
 
+def _stable_grade_id(slug: str, section: object, kind: object, prompt: object) -> str:
+    identity = "\x1f".join((slug, str(section), str(kind), str(prompt)))
+    return f"{slug}-" + hashlib.sha256(identity.encode()).hexdigest()[:16]
+
+
 def normalize_check(raw: dict, index: int, *, slug: str) -> dict | None:
     """One check in canonical shape, or None when there is nothing there to keep.
 
@@ -198,6 +213,12 @@ def normalize_check(raw: dict, index: int, *, slug: str) -> dict | None:
         "prompt": prompt,
         "explanation": _text(raw.get("explanation") or raw.get("rationale")),
     }
+    # ``id`` remains as a read-compatible alias for old progress records.  The
+    # content-derived grade_id is the durable identity used by new notebooks and
+    # outcomes, so inserting/reordering checks cannot retarget a learner's result.
+    check["grade_id"] = _stable_grade_id(
+        slug, check["section"], check["kind"], prompt
+    )
     if check["kind"] == "choice":
         options = raw.get("options") or raw.get("choices") or []
         check["options"] = [_text(o) for o in options] if isinstance(options, list) else []
@@ -260,8 +281,150 @@ def build_checkset(
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "generated_by": model,
         "sections": list(GATED_SECTIONS),
+        "praxis": {"extension": "checks", "version": 1,
+                    "kinds": ["choice", "short"]},
         "checks": checks,
     }
+
+
+def _checksum(source: str) -> str:
+    """The md5 content checksum used by nbgrader's format."""
+    return hashlib.md5(source.encode("utf-8")).hexdigest()
+
+
+def nbgrader_metadata(
+    *, kind: str, grade_id: str, source: str, points: float = 1
+) -> dict:
+    """Return the complete nbgrader cell schema for a Praxis graded region.
+
+    ``choice`` and ``short`` are manually graded answers from nbgrader's point of
+    view.  A code answer is an autograded answer; its hidden test is represented by
+    a separate locked autograder-test cell when a release is produced.
+    """
+    autograded = kind == "code"
+    return {
+        "grade": True,
+        "solution": True,
+        "locked": False,
+        "task": False,
+        "grade_id": grade_id,
+        "points": points,
+        "schema_version": NBGRADER_SCHEMA_VERSION,
+        "checksum": _checksum(source),
+        "cell_type": "code" if autograded else "markdown",
+    }
+
+
+def source_metadata(*, grade_id: str, source: str, cell_type: str = "markdown") -> dict:
+    """Metadata for a non-graded/read-only cell, in the same nbgrader schema."""
+    return {
+        "grade": False,
+        "solution": False,
+        "locked": False,
+        "task": False,
+        "grade_id": grade_id,
+        "schema_version": NBGRADER_SCHEMA_VERSION,
+        "checksum": _checksum(source),
+        "cell_type": cell_type,
+    }
+
+
+def autograder_tests_metadata(*, grade_id: str, source: str) -> dict:
+    """The standard locked autograder-tests cell kind for a code check."""
+    return {
+        "grade": True,
+        "solution": False,
+        "locked": True,
+        "task": False,
+        "grade_id": grade_id,
+        "points": 0,
+        "schema_version": NBGRADER_SCHEMA_VERSION,
+        "checksum": _checksum(source),
+        "cell_type": "code",
+    }
+
+
+def annotate_notebook(nb: dict, checks: list[dict] | tuple[dict, ...] = ()) -> dict:
+    """Add nbgrader metadata and learner-visible graded cells in place.
+
+    The check answers remain in the sidecar.  Only prompts and a starter are put in
+    the notebook, so this producer can be consumed by nbgrader without exposing keys.
+    Calling this repeatedly is idempotent (cells are replaced by grade_id).
+    """
+    cells = nb.setdefault("cells", [])
+    for index, cell in enumerate(cells, 1):
+        metadata = cell.setdefault("metadata", {})
+        metadata.setdefault("nbgrader", source_metadata(
+            grade_id=f"source-{index:04d}",
+            source="".join(cell.get("source", [])),
+            cell_type=cell.get("cell_type", "markdown"),
+        ))
+    for check in checks:
+        grade_id = str(check.get("grade_id") or check.get("id", ""))
+        kind = str(check.get("kind", ""))
+        source = str(check.get("starter", "")) if kind == "code" else str(check.get("prompt", ""))
+        cell_type = "code" if kind == "code" else "markdown"
+        cell = {
+            "cell_type": cell_type,
+            "id": grade_id,
+            "metadata": {
+                "nbgrader": nbgrader_metadata(
+                    kind=kind, grade_id=grade_id, source=source,
+                ),
+                # Explicitly namespaced: nbgrader consumers ignore this extension.
+                "praxis": {"extension": "checks", "kind": kind,
+                            "grade_id": grade_id},
+            },
+            "source": [source],
+        }
+        if cell_type == "code":
+            cell.update(execution_count=None, outputs=[])
+        cells[:] = [c for c in cells if c.get("id") != grade_id]
+        cells.append(cell)
+        if kind == "code" and check.get("test"):
+            test_id = f"{grade_id}-tests"
+            test_source = str(check["test"])
+            cells[:] = [c for c in cells if c.get("id") != test_id]
+            cells.append({
+                "cell_type": "code", "id": test_id,
+                "metadata": {"nbgrader": autograder_tests_metadata(
+                    grade_id=test_id, source=test_source,
+                )},
+                "source": [test_source], "execution_count": None, "outputs": [],
+            })
+    return nb
+
+
+def migrate_checks_to_nbgrader(root: str | Path) -> int:
+    """Idempotently migrate ``*.checks.json`` sidecars below *root*.
+
+    This is deliberately a filesystem pass rather than an import-time migration: it
+    can be reviewed, rerun safely, and used for the seed library or a user subject.
+    """
+    root = Path(root)
+    converted = 0
+    for sidecar in sorted(root.rglob(f"*{CHECKS_SUFFIX}")):
+        notebook = sidecar.with_name(sidecar.name[:-len(CHECKS_SUFFIX)] + ".ipynb")
+        doc = load_checks(sidecar)
+        if not notebook.is_file() or not doc or not isinstance(doc.get("checks"), list):
+            continue
+        nb = _read_notebook(notebook)
+        if nb is None:
+            continue
+        # Upgrade legacy sidecars without changing their grading payload.
+        for check in doc["checks"]:
+            if isinstance(check, dict):
+                check.setdefault("grade_id", _stable_grade_id(
+                    str(doc.get("slug") or notebook.stem), check.get("section", ""),
+                    check.get("kind", ""), check.get("prompt", ""),
+                ))
+        doc.setdefault("praxis", {"extension": "checks", "version": 1,
+                                   "kinds": ["choice", "short"]})
+        annotate_notebook(nb, doc["checks"])
+        sidecar.write_text(json.dumps(doc, indent=2) + "\n")
+        notebook.write_text(json.dumps(nb, indent=1) + "\n")
+        converted += 1
+    return converted
 
 
 # --- the grader over a set --------------------------------------------------
@@ -418,6 +581,7 @@ class CheckOutcome:
     detail: str = ""
     graded_by: str = "auto"   # "auto" for the two auto-graded kinds, else the model
     graded: str = ""
+    grade_id: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -429,6 +593,7 @@ class CheckOutcome:
             "detail": self.detail,
             "graded_by": self.graded_by,
             "graded": self.graded,
+            "grade_id": self.grade_id,
         }
 
 
@@ -438,6 +603,8 @@ def _now() -> str:
 
 def _outcome(check: dict, answer: object, passed: bool, detail: str, by: str) -> CheckOutcome:
     return CheckOutcome(
+        # Keep check_id compatible with pre-migration progress files.  New persistence
+        # uses the explicit grade_id field below as its key.
         check_id=str(check.get("id", "")),
         kind=str(check.get("kind", "")),
         section=str(check.get("section", "")),
@@ -446,6 +613,7 @@ def _outcome(check: dict, answer: object, passed: bool, detail: str, by: str) ->
         detail=detail,
         graded_by=by,
         graded=_now(),
+        grade_id=str(check.get("grade_id") or check.get("id", "")),
     )
 
 
@@ -507,7 +675,7 @@ def learner_check(check: dict, outcome: dict | None = None) -> dict:
     gives the answer away) only after the check has been graded.
     """
     view = {
-        "id": str(check.get("id", "")),
+        "id": str(check.get("grade_id") or check.get("id", "")),
         "section": str(check.get("section", "")),
         "kind": str(check.get("kind", "")),
         "prompt": str(check.get("prompt", "")),
@@ -638,6 +806,7 @@ def generate_checks(
     attempts: int = DEFAULT_ATTEMPTS,
     force: bool = False,
     write: bool = True,
+    annotate: bool = True,
 ) -> ChecksResult:
     """Write the checks for one topic. Never writes a set that isn't gradable.
 
@@ -686,6 +855,11 @@ def generate_checks(
         failures = checkset_failures(doc)
         if not failures:
             if write:
+                # The sidecar remains the answer-key store; the notebook receives only
+                # learner-visible regions plus standard nbgrader metadata.
+                if annotate:
+                    annotate_notebook(nb, checks)
+                    topic_path(domain, topic).write_text(json.dumps(nb, indent=1) + "\n")
                 save_checks(path, doc)
             return ChecksResult(
                 path=path, slug=topic.slug, title=topic.title, status="generated",

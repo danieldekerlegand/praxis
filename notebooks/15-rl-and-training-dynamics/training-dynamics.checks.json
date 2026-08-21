@@ -27,7 +27,8 @@
       ],
       "answer": 0,
       "explanation": "By the time the loss moves, the cause is several hundred steps behind you \u2014 and the leading indicators cost almost nothing to log but cannot be added retrospectively to a failed run.",
-      "id": "training-dynamics-01"
+      "id": "training-dynamics-01",
+      "grade_id": "training-dynamics-15c378f63d94ab9f"
     },
     {
       "section": "Mental Model",
@@ -35,7 +36,8 @@
       "prompt": "Training is framed as a vehicle on an unknown road with a lagging speedometer. Explain what warmup and gradient clipping correspond to, and why a non-recovering loss spike is fatal in a way a bad evaluation result is not.",
       "expected": "A correct answer must map WARMUP to accelerating gently because you do not yet know the road \u2014 specifically, at initialisation the curvature estimate (Adam's second moment) is based on almost no data, so full speed immediately is how runs die early. It must map GRADIENT CLIPPING to a SPEED LIMITER that does not prevent meeting a cliff but caps how far a single bad reading can throw you. On the spike it must explain the AUTOREGRESSIVE asymmetry: the next gradient is computed FROM WHERE YOU NOW ARE, so there is no restoring force pulling the run back \u2014 unlike an evaluation result, which is a measurement that does not change the thing being measured.",
       "explanation": "The autoregressive point is what makes training instability categorically different from noisy measurement.",
-      "id": "training-dynamics-02"
+      "id": "training-dynamics-02",
+      "grade_id": "training-dynamics-248c6195bf7ca393"
     },
     {
       "section": "Key Concepts",
@@ -49,7 +51,8 @@
       ],
       "answer": 0,
       "explanation": "Identical gradients and a single learning rate produce wildly different effective step sizes across layers of different weight scale. A layer whose ratio is far from the others is either not learning or about to destabilise.",
-      "id": "training-dynamics-03"
+      "id": "training-dynamics-03",
+      "grade_id": "training-dynamics-685de9424a79e72a"
     },
     {
       "section": "Worked Examples",
@@ -59,7 +62,8 @@
       "solution": "def clip_by_global_norm(grads, max_norm):\n    g = list(grads)\n    norm = sum(x * x for x in g) ** 0.5\n    if norm <= max_norm or norm == 0:\n        return (g, False)\n    scale = max_norm / norm\n    return ([x * scale for x in g], True)\n",
       "test": "g, c = clip_by_global_norm([3.0, 4.0], 10.0)\nassert c is False and g == [3.0, 4.0], 'under the threshold -> untouched'\ng, c = clip_by_global_norm([3.0, 4.0], 5.0)\nassert c is False, 'exactly at the threshold is not clipped'\ng, c = clip_by_global_norm([30.0, 40.0], 5.0)\nassert c is True\nassert abs(sum(x*x for x in g) ** 0.5 - 5.0) < 1e-9, 'norm must equal max_norm'\nassert abs(g[0] / g[1] - 30.0 / 40.0) < 1e-9, 'DIRECTION must be preserved'\ng, c = clip_by_global_norm([0.0, 0.0], 1.0)\nassert c is False and g == [0.0, 0.0], 'zero gradient must not divide by zero'\n",
       "explanation": "Clipping rescales without changing direction, which is why it distorts the update only when it binds. Set the threshold well above the steady-state norm and it is nearly free insurance; set it near the median and you are silently rescaling every step.",
-      "id": "training-dynamics-04"
+      "id": "training-dynamics-04",
+      "grade_id": "training-dynamics-625f34040cd41110"
     },
     {
       "section": "Gotchas",
@@ -73,7 +77,8 @@
       ],
       "answer": 0,
       "explanation": "The checkpoint immediately before a spike may already be in the damaged region, so restarting there usually reproduces the failure. Note that resetting optimiser state mid-run is itself a large silent perturbation.",
-      "id": "training-dynamics-05"
+      "id": "training-dynamics-05",
+      "grade_id": "training-dynamics-0285bb8b85789f82"
     },
     {
       "section": "When to Use",
@@ -81,7 +86,16 @@
       "prompt": "What is the single most valuable habit for a large training run, and why can it not be applied retrospectively?",
       "expected": "A correct answer must name LOGGING THE LEADING INDICATORS FROM STEP 0 \u2014 gradient norm, per-layer update-to-weight ratio, and activation statistics \u2014 and explain that these cost almost nothing to record but are IMPOSSIBLE TO RECOVER after a run has died, since they are properties of the training trajectory rather than of the final checkpoint. A run that crashes at step 80,000 with only a loss curve is one you will have to repeat. A strong answer adds that thresholds should be TRAILING statistics rather than constants (because early training has a large transient), and may mention determinism plus data-order logging so a suspect batch can be replayed to distinguish a bad batch from a bad step.",
       "explanation": "Everything else in the notebook is diagnosis; this is the one thing that must be decided before the failure happens.",
-      "id": "training-dynamics-06"
+      "id": "training-dynamics-06",
+      "grade_id": "training-dynamics-acaf63e1a85c6f78"
     }
-  ]
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  }
 }

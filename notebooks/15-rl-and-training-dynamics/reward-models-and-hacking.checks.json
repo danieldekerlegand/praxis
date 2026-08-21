@@ -27,7 +27,8 @@
       ],
       "answer": 0,
       "explanation": "P(A\u227bB) = sigma(r(A) \u2212 r(B)) is unchanged by adding a constant to every reward, which is why reward-model scores are always normalised and never compared across models or runs.",
-      "id": "reward-models-and-hacking-01"
+      "id": "reward-models-and-hacking-01",
+      "grade_id": "reward-models-and-hacking-18771f026b021d90"
     },
     {
       "section": "Mental Model",
@@ -35,7 +36,8 @@
       "prompt": "A reward model is described as 'a map drawn from one traveller's journey'. Use that framing to explain why the KL penalty is the right thing to penalise, and what the signature of over-optimisation looks like.",
       "expected": "A correct answer must explain that the reward model is accurate on the routes the ANNOTATORS ACTUALLY WALKED and is guesswork off them, and that RL is a SEARCH for the highest point on the map with no knowledge of the map's edges \u2014 so it will find and climb spurious peaks in unsurveyed terrain. It must then justify the KL penalty: KL TO THE REFERENCE POLICY IS THE DISTANCE FROM SURVEYED GROUND, so penalising it is penalising reliance on regions where the map is unreliable \u2014 not because moving is bad, but because the map's validity decays with distance. It must name the signature: reward-model score RISING SMOOTHLY while true quality (human evaluation) FALLS, so monitoring only the proxy makes it look like uninterrupted progress.",
       "explanation": "The map framing makes both the control and the diagnostic obvious: penalise distance, and never trust the map's own opinion of how well you are doing.",
-      "id": "reward-models-and-hacking-02"
+      "id": "reward-models-and-hacking-02",
+      "grade_id": "reward-models-and-hacking-e4c5296a8da42911"
     },
     {
       "section": "Key Concepts",
@@ -49,7 +51,8 @@
       ],
       "answer": 0,
       "explanation": "The notebook's sweep shows both failure directions: beta=0 lands far past the peak with true reward below where it started, and a large beta stops before the early gains are realised.",
-      "id": "reward-models-and-hacking-03"
+      "id": "reward-models-and-hacking-03",
+      "grade_id": "reward-models-and-hacking-a25b156500c4de60"
     },
     {
       "section": "Worked Examples",
@@ -59,7 +62,8 @@
       "solution": "import math\n\ndef bt_probability(r_a, r_b):\n    d = r_a - r_b\n    if d >= 0:\n        return 1.0 / (1.0 + math.exp(-d))\n    e = math.exp(d)\n    return e / (1.0 + e)\n\ndef bt_loglik(r_a, r_b, a_won):\n    p = bt_probability(r_a, r_b)\n    p = min(max(p, 1e-12), 1 - 1e-12)\n    return math.log(p) if a_won else math.log(1 - p)\n",
       "test": "assert abs(bt_probability(0.0, 0.0) - 0.5) < 1e-12, 'equal rewards -> coin flip'\nassert bt_probability(5.0, 0.0) > 0.99\nassert bt_probability(0.0, 5.0) < 0.01\nassert abs(bt_probability(3.0, 1.0) - bt_probability(103.0, 101.0)) < 1e-9, \\\n    'shift invariance: only the DIFFERENCE matters'\nassert abs(bt_probability(800.0, 0.0) - 1.0) < 1e-9, 'must not overflow'\nassert abs(bt_probability(-800.0, 0.0)) < 1e-9, 'must not overflow'\nassert bt_loglik(2.0, 0.0, True) > bt_loglik(2.0, 0.0, False)\nassert bt_loglik(0.0, 0.0, True) < 0.0\n",
       "explanation": "The shift-invariance assertion is the identifiability point made executable: adding 100 to both rewards changes nothing, which is why absolute reward-model scores carry no information.",
-      "id": "reward-models-and-hacking-04"
+      "id": "reward-models-and-hacking-04",
+      "grade_id": "reward-models-and-hacking-4d2c56b6ef4306b9"
     },
     {
       "section": "Gotchas",
@@ -73,7 +77,8 @@
       ],
       "answer": 0,
       "explanation": "Partial observability is the mechanism. Given the full set of true quality features, a fitted model correctly assigns length zero weight even when it correlates; it is the UNSEEN dimensions that length ends up proxying for.",
-      "id": "reward-models-and-hacking-05"
+      "id": "reward-models-and-hacking-05",
+      "grade_id": "reward-models-and-hacking-6033f917992eb0b8"
     },
     {
       "section": "When to Use",
@@ -81,7 +86,16 @@
       "prompt": "Name the cheapest habit for detecting reward hacking you have not anticipated, and explain why it beats adding more metrics.",
       "expected": "A correct answer must name READING THE HIGHEST-SCORING SAMPLES \u2014 human review of what the policy is actually producing at the top of the reward distribution. It must explain why this beats more metrics: reward hacking is usually OBVIOUS the moment a human looks at the output and INVISIBLE in every metric, because the metrics you would add are themselves proxies chosen in advance, and hacking is by definition the exploitation of a gap you did not anticipate. A strong answer connects this to the over-optimisation signature (proxy score rising while quality falls) and notes that automated controls \u2014 KL penalties, reward-model ensembles, iterated annotation \u2014 manage the problem rather than eliminating it, so a human in the loop remains necessary.",
       "explanation": "You cannot write a metric for a failure mode you have not thought of; looking at the output requires no such foresight.",
-      "id": "reward-models-and-hacking-06"
+      "id": "reward-models-and-hacking-06",
+      "grade_id": "reward-models-and-hacking-aad4403fdbb25dc0"
     }
-  ]
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  }
 }

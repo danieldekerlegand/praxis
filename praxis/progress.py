@@ -123,13 +123,23 @@ def record_outcome(learner: str, rel: str, outcome: CheckOutcome) -> dict:
     entry = topics.setdefault(str(rel), {"outcomes": {}})
     if not isinstance(entry.get("outcomes"), dict):
         entry["outcomes"] = {}
-    entry["outcomes"][outcome.check_id] = outcome.to_dict()
+    entry["outcomes"][getattr(outcome, "grade_id", "") or outcome.check_id] = outcome.to_dict()
     entry["updated"] = _now()
     save_progress(doc)
     return doc
 
 
 # --- the gate over one notebook ---------------------------------------------
+
+
+def _check_key(check: dict) -> str:
+    """Use nbgrader's durable identity, with an alias for pre-migration sets."""
+    return str(check.get("grade_id") or check.get("id", ""))
+
+
+def _outcome_for(outcomes: dict[str, dict], check: dict) -> dict | None:
+    """Read new grade_id records and old sidecar-id records during migration."""
+    return outcomes.get(_check_key(check)) or outcomes.get(str(check.get("id", "")))
 
 
 @dataclass(frozen=True)
@@ -163,7 +173,7 @@ class SectionGate:
             "passed": self.passed,
             "n": self.n,
             "checks": [] if self.locked else [
-                learner_check(c, outcomes.get(str(c.get("id", "")))) for c in self.checks
+                learner_check(c, _outcome_for(outcomes, c)) for c in self.checks
             ],
         }
 
@@ -182,7 +192,7 @@ def section_gates(doc: dict | None, outcomes: dict[str, dict]) -> list[SectionGa
     for section in GATED_SECTIONS:
         checks = tuple(by_section.get(section, ()))
         passed = sum(1 for c in checks
-                     if (outcomes.get(str(c.get("id", ""))) or {}).get("passed"))
+                     if (_outcome_for(outcomes, c) or {}).get("passed"))
         gate = SectionGate(section=section, checks=checks, locked=not open_, passed=passed)
         gates.append(gate)
         open_ = open_ and gate.complete
@@ -193,7 +203,7 @@ def gate_for(doc: dict | None, outcomes: dict[str, dict], check_id: str) -> Sect
     """The section gate a check belongs to — how "may they answer this?" is decided."""
     return next(
         (g for g in section_gates(doc, outcomes)
-         if any(str(c.get("id", "")) == str(check_id) for c in g.checks)),
+         if any(_check_key(c) == str(check_id) for c in g.checks)),
         None,
     )
 
