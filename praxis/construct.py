@@ -305,9 +305,9 @@ def build_notebook(
         or {"display_name": "Python 3", "language": "python", "name": "python3"},
         "language_info": meta.get("language_info") or {"name": "python"},
     }
-    return annotate_notebook(
+    return nbformat.from_dict(annotate_notebook(
         {"cells": body, "metadata": meta, "nbformat": 4, "nbformat_minor": 5}
-    )
+    ))
 
 
 # --- constructing one notebook ---------------------------------------------

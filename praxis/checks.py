@@ -38,8 +38,10 @@ from __future__ import annotations
 import json
 import hashlib
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -362,7 +364,15 @@ def annotate_notebook(nb: dict, checks: list[dict] | tuple[dict, ...] = ()) -> d
     for check in checks:
         grade_id = str(check.get("grade_id") or check.get("id", ""))
         kind = str(check.get("kind", ""))
-        source = str(check.get("starter", "")) if kind == "code" else str(check.get("prompt", ""))
+        if kind == "code":
+            source = (
+                f"{check.get('starter', '')}\n"
+                "### BEGIN SOLUTION\n"
+                f"{check.get('solution', '')}\n"
+                "### END SOLUTION"
+            )
+        else:
+            source = str(check.get("prompt", ""))
         cell_type = "code" if kind == "code" else "markdown"
         cell = {
             "cell_type": cell_type,
@@ -383,7 +393,11 @@ def annotate_notebook(nb: dict, checks: list[dict] | tuple[dict, ...] = ()) -> d
         cells.append(cell)
         if kind == "code" and check.get("test"):
             test_id = f"{grade_id}-tests"
-            test_source = str(check["test"])
+            test_source = (
+                "### BEGIN HIDDEN TESTS\n"
+                f"{check['test']}\n"
+                "### END HIDDEN TESTS"
+            )
             cells[:] = [c for c in cells if c.get("id") != test_id]
             cells.append({
                 "cell_type": "code", "id": test_id,
@@ -393,6 +407,46 @@ def annotate_notebook(nb: dict, checks: list[dict] | tuple[dict, ...] = ()) -> d
                 "source": [test_source], "execution_count": None, "outputs": [],
             })
     return nb
+
+
+def release_notebook(source: str | Path, destination: str | Path) -> Path:
+    """Derive a learner notebook with nbgrader's official release converter.
+
+    Praxis owns the authored check payload, but it does not parse or strip nbgrader's
+    solution/test regions.  Keeping this boundary in one adapter also makes it
+    impossible for a future caller to accidentally publish the authored notebook.
+    """
+    source = Path(source)
+    destination = Path(destination)
+    if shutil.which("nbgrader") is None:
+        raise CheckError("nbgrader is required to release a learner notebook")
+    with tempfile.TemporaryDirectory(prefix="nbgrader-", dir=source.parent) as root:
+        root = Path(root)
+        course = root / "course"
+        authored = course / "source" / "assignment" / source.name
+        released = course / "release" / "." / "assignment" / source.name
+        authored.parent.mkdir(parents=True)
+        shutil.copy2(source, authored)
+        proc = subprocess.run(
+            ["nbgrader", "generate_assignment", "--no-db", "--force",
+             "--course-dir", str(course), "assignment"],
+            capture_output=True, text=True, check=False,
+        )
+        if proc.returncode:
+            detail = (proc.stderr or proc.stdout).strip().splitlines()[-4:]
+            raise CheckError("nbgrader generate_assignment failed: " + " | ".join(detail or ["unknown error"]))
+        if not released.is_file():
+            raise CheckError("nbgrader generate_assignment produced no release notebook")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        # nbgrader's exporter may split source into physical lines. Preserve the
+        # repository's canonical one-string-per-cell representation; this changes
+        # serialization only, never the released content or metadata.
+        released_nb = json.loads(released.read_text())
+        for cell in released_nb.get("cells", []):
+            if isinstance(cell.get("source"), list):
+                cell["source"] = ["".join(cell["source"])]
+        destination.write_text(json.dumps(released_nb, indent=1) + "\n")
+    return destination
 
 
 def migrate_checks_to_nbgrader(root: str | Path) -> int:
@@ -855,11 +909,16 @@ def generate_checks(
         failures = checkset_failures(doc)
         if not failures:
             if write:
-                # The sidecar remains the answer-key store; the notebook receives only
-                # learner-visible regions plus standard nbgrader metadata.
+                # Build the authored notebook in a staging file and publish only the
+                # notebook produced by nbgrader. The sidecar remains the answer-key
+                # store for Praxis's learner_check boundary.
                 if annotate:
                     annotate_notebook(nb, checks)
-                    topic_path(domain, topic).write_text(json.dumps(nb, indent=1) + "\n")
+                    target = topic_path(domain, topic)
+                    with tempfile.TemporaryDirectory(prefix="praxis-source-", dir=target.parent) as staging:
+                        authored = Path(staging) / target.name
+                        authored.write_text(json.dumps(nb, indent=1) + "\n")
+                        release_notebook(authored, target)
                 save_checks(path, doc)
             return ChecksResult(
                 path=path, slug=topic.slug, title=topic.title, status="generated",

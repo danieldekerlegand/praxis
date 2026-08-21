@@ -77,10 +77,13 @@ and can be rerun safely.
     `runnable: true` topics.
   - `short` — a written answer, graded by the model against the check's `expected`
     marking key, with the learner's answer recorded verbatim on the outcome.
-- **The answer key never lives in the notebook** — that is why the checks remain a
-  sibling file. Notebook cells carry only the learner prompt/starter and nbgrader
-  metadata; tests and reference solutions stay in the sidecar until release mechanics
-  produce an assignment.
+- **The answer key never reaches the learner artifact** — that is why the checks remain
+  a sibling file. The authored source temporarily carries nbgrader's standard
+  `### BEGIN SOLUTION` / `### END SOLUTION` and `### BEGIN HIDDEN TESTS` /
+  `### END HIDDEN TESTS` regions. `praxis.checks.release_notebook()` delegates their
+  removal to nbgrader's `generate_assignment`; Praxis does not implement a second
+  stripper. The published notebook is content-inspected before it is written, while
+  `learner_check()` remains the only API path that exposes a check prompt/starter.
 
 Hard requirements, the same shape as the notebook gate (`praxis.checks.checkset_failures`
 is the machine-checkable definition, and a set that fails it is never written):

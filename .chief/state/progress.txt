@@ -1,15 +1,32 @@
-# Chief Progress — 83-seed-library-refresh
-Started: Fri Aug 21 19:06:42 CDT 2026
+# Chief Progress — 78-jd-suggestion-review-surface
+Started: Fri Aug 21 04:09:30 CDT 2026
 ---
 
 ## Codebase Patterns
 
-- Promotion must remain a policy layer over `construct_topic`; the constructor and checks grader are the only accepted gates before documentation records a seed as covered.
+- JD review state belongs under the active storage backend, alongside imported JDs and subjects; launcher mutations should use the central writable middleware and delegate accepted goals to `generate_and_save`.
+- Keep the JD review UI as a projection of launcher suggestion state. Accepted slugs return to `App.tsx`, whose single `useConstruction` instance remains the owner of construction runs.
 
-## Iteration US-3
+## US-1 — Serve and mutate the suggestion set over the launcher
 
-Implemented `praxis.promote` with a repository-only promotion path for recommended topics. It requires the constructor result, `gate_failures`, the complete badge, and a valid checkset before moving a topic from gap-analysis §2 into its domain's §1 coverage section. Added `docs/explanation/domain-addition-policy.md`, reserving domain 06 and validating `DOMAINS` against numbered directories, plus focused promotion tests.
+- Added persisted review state in `praxis/suggestion_review.py` and `storage.suggestions_dir()`.
+- Added launcher routes to build/list suggestions for an imported JD, edit/drop them, and accept them through the existing subject-generation path; added an accept/drop API smoke test.
+- Verification: `uv run --with '.[launch,dev]' pytest -q` → 964 passed, 0 failed (one existing Starlette/httpx deprecation warning).
 
-Verification observed: `python3 -m pytest -q tests/` — 917 passed, 1 skipped; promotion/refresh tests — 6 passed.
+## US-2 — In-app review / edit / drop / accept view
 
-Learnings for future iterations: the manifest includes a filesystem-backed legacy domain, so numbering validation must compare only top-level numbered directories while allowing nested legacy notebooks.
+- Added `SuggestionReview` and its launcher client to render each suggestion's source requirement, rationale, and editable goal with edit, drop, and accept actions.
+- Accept hands the returned subject slug to `App.tsx`, which selects it in the existing define → scaffold → construction flow and keeps the top-level construction poller in charge.
+- End-to-end run: imported JD → launcher-generated suggestions → accepted a suggestion through the existing subject API → opened the persisted subject in Define → scaffolded notebooks → construction remains the existing App-owned run.
+- Verification: `npm run build` green; `cargo build` green; `python3 -m pytest -q tests/` → 908 passed, 1 skipped.
+
+Learnings for future iterations: keep suggestion state and gap explanations server-described; the UI should only edit the goal text and hand accepted subject slugs back to the existing subject workflow.
+
+## US-2 — Adopt nbgrader hidden-test and solution-region mechanics
+
+- Rebased the branch onto `main`, preserving the existing nbformat construction path and US-1 metadata annotation.
+- Added `release_notebook()` in `praxis/checks.py`, which stages authored notebooks and delegates solution/hidden-test removal to `nbgrader generate_assignment`; code checks now author the standard delimiters, and published notebooks are serialization-normalized without altering content.
+- Kept `learner_check()`, locked-section withholding, the 423 server gate, and subprocess execution of reference solutions intact. Added a real release/content-boundary test and pinned nbgrader 0.9.5 with a refreshed lockfile.
+- Verification: `uv run --extra dev pytest -q tests/` → 909 passed, 1 skipped.
+
+Learnings for future iterations: nbgrader validates its cell metadata during release, so every authored graded cell must carry the complete metadata/checksum shape; use nbgrader’s converter as the only region-removal implementation and keep Praxis’s sidecar/API boundary separate.

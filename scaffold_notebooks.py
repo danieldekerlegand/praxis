@@ -183,7 +183,7 @@ def scaffold_notebook(domain: Domain, topic: Topic) -> dict:
     # Keep every scaffold cell consumable by nbgrader.  These are read-only/source
     # cells for now; constructor-generated checks add the graded regions later.
     from praxis.checks import annotate_notebook
-    return annotate_notebook(notebook)
+    return nbformat.from_dict(annotate_notebook(notebook))
 
 
 def scaffold_domain(domain: Domain) -> tuple[int, int]:

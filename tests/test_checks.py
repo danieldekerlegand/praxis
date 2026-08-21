@@ -38,6 +38,7 @@ from praxis.checks import (  # noqa: E402
     grade,
     load_checks,
     needs_checks,
+    release_notebook,
     run_code_check,
     topic_checks_path,
 )
@@ -622,3 +623,39 @@ def test_the_structural_pass_does_not_run_any_code(constructed, monkeypatch):
 
     assert checkset_failures(checks_for_topic(module, topic), verify_code=False) == []
     assert not needs_checks(module, topic)
+
+
+def test_nbgrader_release_removes_authored_regions_but_code_still_grades(tmp_path):
+    source = tmp_path / "assignment.ipynb"
+    released = tmp_path / "released.ipynb"
+    source.write_text(json.dumps({
+        "cells": [
+            {"cell_type": "code", "metadata": {"nbgrader": checks_mod.nbgrader_metadata(
+                kind="code", grade_id="answer-01", source="def add(a, b):\n",
+            )}, "source": [
+                "def add(a, b):\n",
+                "    ### BEGIN SOLUTION\n",
+                "    return a + b\n",
+                "    ### END SOLUTION\n",
+            ], "execution_count": None, "outputs": []},
+            {"cell_type": "code", "metadata": {"nbgrader": checks_mod.autograder_tests_metadata(
+                grade_id="answer-01-tests", source="assert add(2, 3) == 5\n",
+            )}, "source": [
+                "### BEGIN HIDDEN TESTS\n",
+                "assert add(2, 3) == 5\n",
+                "### END HIDDEN TESTS\n",
+            ], "execution_count": None, "outputs": []},
+        ], "metadata": {}, "nbformat": 4, "nbformat_minor": 5,
+    }))
+
+    release_notebook(source, released)
+    text = released.read_text()
+    assert "BEGIN SOLUTION" not in text
+    assert "END SOLUTION" not in text
+    assert "BEGIN HIDDEN TESTS" not in text
+    assert "return a + b" not in text
+    assert "add(2, 3)" not in text
+    assert run_code_check({"test": "assert add(2, 3) == 5"},
+                          "def add(a, b):\n    return a + b")[0]
+    assert not run_code_check({"test": "assert add(2, 3) == 5"},
+                              "def add(a, b):\n    return a - b")[0]

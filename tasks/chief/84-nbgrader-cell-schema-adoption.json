@@ -46,7 +46,8 @@
         "The load-bearing anti-fabrication rule is preserved under the new format: a code check's reference `solution` is still executed against its own `test` before the graded cells may be written (today's `verify_code=True` subprocess run), so 'auto-graded' can still never mean 'asserts nothing'; a set failing it is still never written.",
         "Gate green: `python3 -m pytest -q tests/` passes, including a test that a hidden-test region is present in the source notebook, absent from the released one, and still enforced when the learner's answer is graded."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "uv run --extra dev pytest -q tests/: 909 passed, 1 skipped; nbgrader release test verified solution and hidden-test regions are absent from the learner artifact and code grading still distinguishes correct from incorrect answers."
     },
     {
       "id": "US-3",
