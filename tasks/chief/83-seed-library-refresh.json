@@ -42,7 +42,8 @@
         "A refresh is a repo-maintenance operation, not an in-app write: notebooks/ ships with the app and is never written at runtime, so the regenerate path runs from the repo (CLI/maintenance entry point) and its output lands as a reviewable diff; a regeneration whose result fails the grader writes nothing and leaves the existing seed in place.",
         "Gate green: python3 -m pytest -q tests/ passes, including a test that a flagged notebook is untouched by default, that force-regenerating a fixture notebook goes through the shipped grader (a failing regeneration leaves the original byte-identical), and that an un-flagged \u2705 notebook is never a regeneration target."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "Added documented FLAGGED-FOR-HUMAN / FORCE-REGENERATE policy and repo-only praxis.refresh CLI/API; forced candidates delegate to construct_path with force=True and the shipped construction grader writes only passing content. Full pytest: 914 passed, 1 skipped; refresh tests: 6 passed."
     },
     {
       "id": "US-3",
