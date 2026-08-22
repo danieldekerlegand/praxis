@@ -46,7 +46,7 @@
         "The bundle degrades honestly when the Python core is absent (the existing `LauncherStatus::failed` discipline): the browsing/learning path still works, and the construction UI reports why it cannot run rather than failing silently.",
         "Gate green: `cargo build` and `npm run build` pass, `python3 -m pytest -q tests/` passes, and `make`/`tauri build` produces a bundle whose learner path is demonstrated on a machine with no praxis venv (recorded in `progress.txt`)."
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-3",

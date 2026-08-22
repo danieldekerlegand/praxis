@@ -26,6 +26,7 @@ from pathlib import Path
 
 import pytest
 
+from curriculum import DOMAINS
 from praxis import lite
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -222,6 +223,51 @@ def test_manifest_declares_the_dependency_set_and_the_pins(tmp_path):
     assert manifest["counts"] == {"total": 2, lite.AVAILABLE: 1, lite.UNAVAILABLE: 1}
     heavy = next(t for t in manifest["tutorials"] if t["rel"].endswith("heavy.ipynb"))
     assert heavy["status"] == lite.UNAVAILABLE and heavy["missing"] == ["torch"]
+
+
+def test_the_manifest_carries_what_a_shell_with_no_python_needs(tmp_path):
+    """A domain name and a topic title, so the site can be BROWSED without the launcher.
+
+    The site is static and travels into a bundle whose Python core may be missing
+    entirely; `ui/src/LiteLibrary.tsx` draws its library out of this document, so the
+    labels have to be in it rather than fetched from `/api/library`.
+    """
+    titles = ["Gated Topic", "Heavy Topic"]
+    sources = [lite.Source(rel, path, "01-demo", title)
+               for (rel, path), title in zip(library(tmp_path), titles)]
+    report = lite.stage_contents(tmp_path / "contents", sources)
+    manifest = json.loads(lite.write_manifest(report, tmp_path / lite.MANIFEST_NAME).read_text())
+
+    assert manifest["domains"] == [
+        {"dir": "01-demo", "name": "Demo", "title": "01-demo", "blurb": ""},
+    ]
+    # Both verdicts are labelled — the unavailable one is what the shell has to explain.
+    assert [(t["domain"], t["title"], t["status"]) for t in manifest["tutorials"]] == [
+        ("01-demo", "Gated Topic", lite.AVAILABLE),
+        ("01-demo", "Heavy Topic", lite.UNAVAILABLE),
+    ]
+
+
+def test_every_seed_domain_reaches_the_manifest_with_its_real_title():
+    """The fallback above is for a directory nothing declares; the seed library is not it."""
+    rows = lite.domain_rows(source.domain for source in lite.library_index())
+    assert len(rows) == len(DOMAINS)
+    for row, domain in zip(rows, DOMAINS):
+        assert row["dir"] == domain.dir
+        assert row["title"] == domain.title and row["blurb"] == domain.blurb
+
+
+def test_the_labels_are_the_launchers_own_rule():
+    """`domain_label` / `topic_title` restate `launcher.app`'s, because the site is built
+    with an interpreter that has no FastAPI. Restated means pinned, not guessed."""
+    app = pytest.importorskip("launcher.app", reason="the launch extra is not installed")
+    from curriculum import DOMAINS
+
+    for domain in DOMAINS:
+        assert lite.domain_label(domain) == app._short(domain)
+    titles = {row["rel"]: row["title"] for row in app._topics_for(DOMAINS[0])}
+    for source in lite.library_index([DOMAINS[0]]):
+        assert source.title == titles[source.rel], source.rel
 
 
 def test_library_sources_uses_the_same_rel_as_the_launcher():

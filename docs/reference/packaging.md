@@ -16,7 +16,8 @@ A bundle also carries the **JupyterLite site** a learner runs tutorials in — s
 JupyterLab on a Pyodide kernel, so reading and running a notebook needs no local Python at
 all. It is built by `scripts/build-jupyterlite.sh` into `src-tauri/resources/jupyterlite`
 (untracked, like the embedded runtime below) and `make bundle` depends on it. See
-[JupyterLite — the tutorial runtime in the browser](jupyterlite.md).
+[JupyterLite — the tutorial runtime in the browser](jupyterlite.md) and
+[The tutorial runtime in the bundle](#the-tutorial-runtime-in-the-bundle) below.
 
 ## Prerequisites
 
@@ -41,8 +42,17 @@ Run from the **repo root** — the CLI finds `src-tauri/` by walking up from the
 directory, so the `--prefix` only tells npm where the CLI lives:
 
 ```bash
-npm --prefix ui ci                      # once
-npm --prefix ui exec -- tauri build     # release build + bundle
+npm --prefix ui ci      # once
+make bundle             # JupyterLite site, then release build + bundle
+```
+
+`make bundle` is the command to use rather than the bare CLI: it builds the JupyterLite
+site first and adds the overlay config that copies it into the bundle
+([below](#the-tutorial-runtime-in-the-bundle)). The bare form still works and produces a
+shell with no in-browser runtime:
+
+```bash
+npm --prefix ui exec -- tauri build     # release build + bundle, site not included
 ```
 
 `tauri build` runs `beforeBuildCommand` (`npm --prefix ../ui run build`) itself, so the
@@ -144,6 +154,33 @@ No credential is in this repo, and none can be: `src-tauri/tauri.conf.json` sets
 variables come from repository secrets of the same names; an unset secret arrives as an
 empty variable, which is exactly the unsigned path — so a fork still gets a bundle rather
 than a failed job. Values are never echoed, only variable names.
+
+### The tutorial runtime in the bundle
+
+The site is what a **learner** runs a tutorial in, and it needs no Python at all — that is
+the whole first-run cost it deletes (README's step count: 7 steps and 2 terminals before,
+2 steps and 0 terminals now). It is 72 MB of static files, so it rides the same way the
+embedded interpreter does:
+
+| | |
+|---|---|
+| staged by | `scripts/build-jupyterlite.sh` → `src-tauri/resources/jupyterlite` (untracked) |
+| copied in by | `src-tauri/tauri.lite.conf.json`, an **overlay** — a `bundle.resources` entry naming a missing directory fails the build, so the main config must not name build output |
+| added by | `make bundle` / `make bundle-app`, and `scripts/bundle-macos.sh` when the site is staged (`bundle: lite 101/245 tutorials runnable in the browser …`) |
+| served by | `src-tauri/src/lite.rs`, read-only, on its own loopback port |
+| found via | `$PRAXIS_LITE_SITE`, then `<resources>/jupyterlite`, then a checkout's `src-tauri/resources/jupyterlite` |
+
+A bundle built without it opens a window whose *run* tab reports that this build carries
+no site, and everything else behaves as it did. A bundle built **with** it and no Python
+core is the interesting case, and it is the one the adoption is for: the library, the
+reader and the kernel all work, and the checks/progression/construction the Python core
+owns are named as unavailable rather than silently absent
+([JupyterLite](jupyterlite.md#in-the-app-who-serves-it-and-what-happens-without-python)).
+
+Two overlays compose — `tauri build --config src-tauri/tauri.lite.conf.json --config
+src-tauri/tauri.embedded.conf.json` — because Tauri merges configs in the order given and
+each names a different `bundle.resources` key; `scripts/bundle-macos.sh` adds whichever
+payloads are staged.
 
 ### The Python runtime in the bundle
 

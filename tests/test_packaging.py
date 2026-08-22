@@ -327,6 +327,99 @@ def test_the_discovery_order_gains_a_step_rather_than_losing_the_fallbacks():
     assert found == sorted(found), f"discovery order changed: {dict(zip(order, found))}"
 
 
+# --- the tutorial runtime a bundle carries -----------------------------------
+# The JupyterLite site is what makes a learner's first run one launch instead of two
+# terminals (docs/reference/jupyterlite.md), and like the embedded interpreter above it is
+# untracked build output riding in through an overlay config. Four files have to agree on
+# one directory name — the build script, the overlay, the shell that serves it, and the
+# Makefile target that passes the overlay — and nothing derives them from each other.
+
+LITE_CONFIG = ROOT / "src-tauri" / "tauri.lite.conf.json"
+LITE_RS = (ROOT / "src-tauri" / "src" / "lite.rs").read_text()
+MAKEFILE = (ROOT / "Makefile").read_text()
+
+
+def test_the_overlay_copies_the_site_where_the_shell_looks_for_it():
+    from praxis import lite
+
+    resources = json.loads(LITE_CONFIG.read_text())["bundle"]["resources"]
+    assert resources == {"resources/jupyterlite": "jupyterlite"}
+    source, target = next(iter(resources.items()))
+    assert (ROOT / "src-tauri" / source) == lite.SITE_DIR, "the build script stages elsewhere"
+    # lite.rs joins its resource dir with SITE_DIR, and reads the manifest inside it.
+    assert f'const SITE_DIR: &str = "{target}"' in LITE_RS
+    assert f'const MANIFEST: &str = "{lite.MANIFEST_NAME}"' in LITE_RS
+
+
+def test_the_site_stays_opt_in_like_every_other_payload():
+    """A `bundle.resources` key naming a missing directory fails the build outright, and
+    the site is 72 MB of build output — so the main config must not name it."""
+    assert "resources" not in json.loads((ROOT / "src-tauri" / "tauri.conf.json").read_text())["bundle"]
+
+
+def test_make_bundle_builds_the_site_and_ships_it():
+    """`make bundle` is the documented command precisely because it does both halves."""
+    for target in ("bundle:", "bundle-app:"):
+        line = next(l for l in MAKEFILE.splitlines() if l.startswith(target))
+        assert "build-lite" in line, f"{target} does not build the site first"
+    assert "LITE_CONFIG := --config src-tauri/tauri.lite.conf.json" in MAKEFILE
+    recipes = [l for l in MAKEFILE.splitlines() if l.startswith("\t") and "tauri build" in l]
+    assert recipes and all("$(LITE_CONFIG)" in l for l in recipes), recipes
+
+
+def test_a_release_reports_the_runtime_it_is_shipping():
+    """Two bundles with the same name behave very differently — one can run a notebook
+    with no Python and one cannot — so the release script says which it is making."""
+    from praxis import lite
+
+    result = check()
+    assert result.returncode == 0, result.stderr
+    line = next(l for l in result.stdout.splitlines() if l.startswith("bundle: lite "))
+    if (lite.SITE_DIR / lite.MANIFEST_NAME).is_file():
+        counts = json.loads((lite.SITE_DIR / lite.MANIFEST_NAME).read_text())["counts"]
+        assert f"{counts[lite.AVAILABLE]}/{counts['total']} tutorials runnable" in line
+        assert "src-tauri/tauri.lite.conf.json" in line
+    else:
+        assert "lite none" in line
+        assert "scripts/build-jupyterlite.sh" in line
+
+
+# --- the README's first run --------------------------------------------------
+# The friction being deleted was measured from this file: install Python, make a venv,
+# install the launch extra, run `praxis-lab`, run `praxis-launch` in a SECOND terminal,
+# open localhost:8000, pick a topic. Seven steps and two terminals before a learner reads
+# anything. The two-terminal path is still how the core is authored and debugged, so it
+# stays documented — but as the contributor path, and only there.
+
+README = (ROOT / "README.md").read_text()
+
+
+def test_the_learner_path_asks_a_learner_to_run_nothing():
+    learner = README[README.index("### If you are here to learn"):
+                     README.index("### If you are here to build")]
+    assert "```" not in learner, "a learner's first run has no commands in it"
+    assert "Praxis.app" in learner
+    assert "| steps | 7 | 2 |" in learner, "the step count before and after is recorded"
+
+
+def test_the_two_terminal_instructions_are_documented_once_as_the_contributor_path():
+    fenced = README.split("```")[1::2]   # the odd chunks are the code blocks
+    blocks = [b for b in fenced if "praxis-lab" in b and "praxis-launch" in b]
+    assert len(blocks) == 1, "the two-terminal block should exist exactly once"
+    contributor = README.index("### The contributor/authoring path")
+    assert README.index(blocks[0]) > contributor, "it is not labelled as the author's path"
+
+
+def test_construction_is_still_declared_to_need_the_core_and_a_key():
+    """The friction is deleted for learners, not pretended away for authors."""
+    building = README[README.index("### If you are here to build"):
+                      README.index("### The contributor/authoring path")]
+    assert "model-backed write" in building
+    assert "reading and answering need" in " ".join(building.split())
+    assert "constructing does" in building
+    assert "your own key" in building
+
+
 # --- the dependencies praxis deliberately does not have ----------------------
 # An adoption assessment that lives only in a scan note decays into a re-litigation.
 # jupyterquiz was assessed on 2026-08-22 and DECLINED — its rendering is inseparable from

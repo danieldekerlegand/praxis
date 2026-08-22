@@ -92,11 +92,18 @@ build-rust: ## cargo build (embeds whatever is in ui/dist right now)
 
 # tauri build runs beforeBuildCommand itself, so ui/dist cannot go stale here. It finds
 # src-tauri/ by walking up from the CWD — hence repo root, not ui/ (docs/reference/packaging.md).
+#
+# The site goes in through an OVERLAY config, not tauri.conf.json: a bundle.resources
+# entry naming a missing directory fails the build, and the site is untracked build
+# output — so the main config must not name it (same rule as the embedded runtime's
+# tauri.embedded.conf.json). `build-lite` above is what guarantees it is there.
+LITE_CONFIG := --config src-tauri/tauri.lite.conf.json
+
 bundle: build-lite | ui/node_modules ## Release desktop bundle (.app/.dmg, .msi/.exe, .deb/.AppImage)
-	$(NPM) --prefix ui exec -- tauri build
+	$(NPM) --prefix ui exec -- tauri build $(LITE_CONFIG)
 
 bundle-app: build-lite | ui/node_modules ## macOS .app only, skipping the DMG step
-	$(NPM) --prefix ui exec -- tauri build --bundles app
+	$(NPM) --prefix ui exec -- tauri build $(LITE_CONFIG) --bundles app
 
 ## ---------------------------------------------------------------- gates
 

@@ -242,10 +242,14 @@ class Tutorial:
     status: str
     packages: tuple[str, ...] = ()
     missing: tuple[str, ...] = ()
+    domain: str = ""
+    title: str = ""
 
     def to_dict(self) -> dict:
         return {
             "rel": self.rel,
+            "domain": self.domain,
+            "title": self.title,
             "status": self.status,
             "packages": list(self.packages),
             "missing": list(self.missing),
@@ -277,6 +281,7 @@ class StagingReport:
                 AVAILABLE: len(self.available),
                 UNAVAILABLE: len(self.unavailable),
             },
+            "domains": domain_rows(t.domain for t in self.tutorials),
             "tutorials": [t.to_dict() for t in sorted(self.tutorials, key=lambda t: t.rel)],
         }
 
@@ -286,15 +291,70 @@ class StagingReport:
                 f"{len(self.tutorials)} seed notebooks")
 
 
-def library_sources(domains: list[Domain] | None = None) -> list[tuple[str, Path]]:
-    """`(rel, path)` for every notebook of the seed library, in library order.
+@dataclass(frozen=True)
+class Source:
+    """One library notebook as the shell names it: its `rel`, its file, and its label."""
+
+    rel: str
+    path: Path
+    domain: str = ""
+    title: str = ""
+
+
+def domain_label(domain: Domain | str) -> str:
+    """The sidebar label `launcher.app._short` gives this domain (or bare directory).
+
+    Restated here rather than imported because the site is built with the *build*
+    interpreter (`.lite-venv`), and `launcher/app.py` needs FastAPI — this module has no
+    dependency beyond the standard library and `curriculum.py` on purpose. A test pins
+    the two against each other.
+    """
+    dir = domain if isinstance(domain, str) else domain.dir
+    leaf = dir.rsplit("/", 1)[-1]
+    head, _, rest = leaf.partition("-")
+    return (rest if head.isdigit() and rest else leaf).replace("-", " ").title()
+
+
+def topic_title(domain: Domain, stem: str) -> str:
+    """The title the launcher shows for `<stem>.ipynb` in this domain — its topic's, or
+    the file stem made human. Same rule as `launcher.app._topics_for`, same reason as
+    `domain_label`."""
+    for topic in domain.topics:
+        if topic.slug == stem:
+            return topic.title
+    return stem.replace("-", " ").title()
+
+
+def domain_rows(dirs) -> list[dict]:
+    """`{dir, name, title, blurb}` for each named domain, in library order.
+
+    The manifest carries these so a shell with no Python core can still draw a library:
+    the site is static, so what the browser can be told about it has to travel with it.
+    """
+    known = {domain.dir: domain for domain in DOMAINS}
+    order = list(known)
+    wanted = {d for d in dirs if d}
+    rows = []
+    for dir in sorted(wanted, key=lambda d: (order.index(d) if d in known else len(order), d)):
+        domain = known.get(dir)
+        rows.append({
+            "dir": dir,
+            "name": domain_label(domain or dir),
+            "title": domain.title if domain else dir,
+            "blurb": domain.blurb if domain else "",
+        })
+    return rows
+
+
+def library_index(domains: list[Domain] | None = None) -> list[Source]:
+    """Every notebook of the seed library, in library order, with its label.
 
     `rel` is the same string `/api/library` and `/render/<rel>` use, so a manifest entry
     names the topic the shell already knows. Generated subjects are excluded on purpose:
     they are the user's data, live outside the repo (`docs/reference/storage.md`), and a
     site is a build artifact of this checkout.
     """
-    sources: list[tuple[str, Path]] = []
+    sources: list[Source] = []
     for domain in domains if domains is not None else DOMAINS:
         base = domain_path(domain)
         if not base.is_dir():
@@ -302,13 +362,24 @@ def library_sources(domains: list[Domain] | None = None) -> list[tuple[str, Path
         for path in sorted(base.rglob("*.ipynb")):
             if ".ipynb_checkpoints" in path.parts:
                 continue
-            sources.append((f"{domain.dir}/{path.relative_to(base).as_posix()}", path))
+            rel = f"{domain.dir}/{path.relative_to(base).as_posix()}"
+            sources.append(Source(rel, path, domain.dir, topic_title(domain, path.stem)))
     return sources
+
+
+def library_sources(domains: list[Domain] | None = None) -> list[tuple[str, Path]]:
+    """[`library_index`] as the `(rel, path)` pairs `stage_contents` takes."""
+    return [(source.rel, source.path) for source in library_index(domains)]
+
+
+def _as_sources(sources) -> list[Source]:
+    """Accept either shape: `Source`s, or the bare `(rel, path)` pairs a caller stages."""
+    return [s if isinstance(s, Source) else Source(s[0], Path(s[1])) for s in sources]
 
 
 def stage_contents(
     dest: str | Path,
-    sources: list[tuple[str, Path]] | None = None,
+    sources: list[Source] | list[tuple[str, Path]] | None = None,
 ) -> StagingReport:
     """Write the browser-safe contents tree JupyterLite will build, and report it.
 
@@ -322,13 +393,15 @@ def stage_contents(
         shutil.rmtree(dest)
     dest.mkdir(parents=True)
     report = StagingReport()
-    for rel, path in (library_sources() if sources is None else sources):
+    for source in (library_index() if sources is None else _as_sources(sources)):
+        rel = source.rel
         try:
-            nb = json.loads(Path(path).read_text())
+            nb = json.loads(source.path.read_text())
         except (OSError, ValueError) as err:
             raise LiteError(f"{rel}: could not be read as a notebook ({err})") from err
         needs = requirements(nb)
-        report.tutorials.append(Tutorial(rel, needs.status, needs.packages, needs.missing))
+        report.tutorials.append(Tutorial(rel, needs.status, needs.packages, needs.missing,
+                                         source.domain, source.title))
         if not needs.available:
             continue
         released = browser_notebook(nb)
@@ -410,13 +483,14 @@ def refresh_index(
 def _plan_lines() -> list[str]:
     document = index_document()
     report = StagingReport()
-    for rel, path in library_sources():
+    for source in library_index():
         try:
-            nb = json.loads(path.read_text())
+            nb = json.loads(source.path.read_text())
         except (OSError, ValueError):
             continue
         needs = requirements(nb)
-        report.tutorials.append(Tutorial(rel, needs.status, needs.packages, needs.missing))
+        report.tutorials.append(Tutorial(source.rel, needs.status, needs.packages,
+                                         needs.missing, source.domain, source.title))
     return [
         f"lite: jupyterlite-core=={JUPYTERLITE_CORE} "
         f"jupyterlite-pyodide-kernel=={JUPYTERLITE_PYODIDE_KERNEL} "

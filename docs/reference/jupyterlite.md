@@ -118,6 +118,44 @@ from the browser's cache. Bundling Pyodide into the site (`jupyter lite build --
 <dist>`) is JupyterLite's own supported path for a fully offline site and adds ~250 MB;
 it is not taken here.
 
+## In the app: who serves it, and what happens without Python
+
+The bundle carries the site (`src-tauri/tauri.lite.conf.json`, an overlay for the same
+reason the embedded runtime's is one — a `bundle.resources` entry naming a missing
+directory fails every build that has not staged 72 MB first), and the shell serves it:
+`src-tauri/src/lite.rs` finds the directory, reads `praxis-lite.json`, and serves the tree
+read-only on a **second** loopback port. The webview iframes
+`http://127.0.0.1:<port>/lab/index.html?path=<rel>` — `rel` is the same string
+`/api/library` and `/render/<rel>` use, which is why the manifest can name topics the
+launcher already knows.
+
+It is `std::net` rather than a crate for the same reason `library::healthy` writes its own
+`GET /healthz`: one read-only GET/HEAD server over one directory. The rule worth knowing
+is the path rule — `..` is **refused rather than normalized**, and the *canonical* path is
+re-checked against the site root, because a symlink inside an asset tree is how a
+normalizing server still serves `/etc/passwd`. A missing asset is a 404 and an escape is a
+403, so the two stay distinguishable in a browser's network panel.
+
+Discovery mirrors the Python runtime's (see [Packaging Praxis](packaging.md)):
+`$PRAXIS_LITE_SITE`, then `<resources>/jupyterlite` for a bundle, then
+`src-tauri/resources/jupyterlite` above the binary or the cwd for a dev build.
+
+**The two backends come up independently, and that is the point.** The site is static and
+its kernel is the browser's, so it is serving before the window paints and keeps working
+when `launcher/app.py` cannot start at all. A shell in that state falls back to
+`ui/src/LiteLibrary.tsx`, which draws the library out of the manifest — the manifest
+carries each domain's name and each tutorial's title precisely so a shell with **no Python
+core** can still draw one — and names what it therefore cannot do:
+
+| | needs | why |
+|---|---|---|
+| browse the library, read a tutorial, **run its code** | nothing | static files, in-browser kernel |
+| knowledge checks, progression, live badges | the Python core | the gate's authority is server-side, deliberately |
+| defining a subject, constructing a tutorial | the Python core **and** a model key | it is a model-backed write, graded before it is written |
+
+That is the line the README draws for a reader and the app draws for a user: reading and
+running need nothing, constructing needs what it always needed.
+
 ## Related
 
 - [Packaging Praxis](packaging.md) — what a bundle carries and how it is built
