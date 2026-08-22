@@ -29,8 +29,15 @@ three full ones. `render()` therefore prints the domains first and the overall l
 No number here is ever stored. Every fraction is recomputed from what is on disk at the
 moment it is asked for, so the report cannot claim a gate the library does not have.
 
+In the app it is one more field on the view model, not a second source of truth:
+`build_model()` folds this report onto `/api/library` as `coverage` (and each domain's
+own fraction onto its row as `covered`), so a resumed backfill's new gates show up on
+the next library refetch with no extra scan and no extra poll. The UI renders those
+numbers and computes none of them.
+
 CLI:
     python3 -m praxis.coverage           the shipped library, per domain then overall
+    python3 -m praxis.coverage --json    the same report, as the app receives it
 """
 
 from __future__ import annotations
@@ -102,11 +109,15 @@ def library_report(learner: str | None = None) -> dict:
     The one place this module reaches up to the launcher, and it does it inside the
     function on purpose: the arithmetic above stays importable (and testable) with no
     launch extra installed, and the view model keeps living in exactly one place.
+
+    `build_model()` already folds this report onto the library it serves — the same key
+    `/api/library` carries — so the CLI below and the in-app tracker print one number
+    computed once, not two that agree by luck.
     """
     from launcher.app import build_model  # noqa: PLC0415  (the adapter, not a dependency)
     from praxis.progress import DEFAULT_LEARNER
 
-    return coverage_report(build_model(learner or DEFAULT_LEARNER)["domains"])
+    return build_model(learner or DEFAULT_LEARNER)["coverage"]
 
 
 def render(report: dict) -> str:

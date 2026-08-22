@@ -43,7 +43,7 @@
         "The UI renders whatever the launcher reports (overall + per-domain fractions) and holds no coverage logic of its own, mirroring how the library badges and KnowledgeChecks render server-supplied state.",
         "Gate green: npm run build in ui/ and cargo build in src-tauri/ pass, python3 -m pytest -q tests/ covers the coverage endpoint, and the progress log shows the coverage number before and after gating one fixture topic (no dependency on the 79 batch having run \u2014 the tracker ships first so those batches are visible)."
       ],
-      "passes": false
+      "passes": true
     }
   ]
 }

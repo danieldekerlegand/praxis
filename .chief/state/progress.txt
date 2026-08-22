@@ -69,3 +69,72 @@ Observed:
   a `coverage` key onto that response costs nothing extra, while a separate
   `GET /api/coverage` costs a second `build_model()` pass. Either satisfies US-2's
   first criterion; folding onto `/api/library` is cheaper and keeps one poll.
+
+---
+
+## US-2 — Surface the coverage in-app so a batch's progress is visible
+
+Files changed:
+- `launcher/app.py` — `build_model()` now folds `coverage_report(domains)` onto the model
+  as `coverage`, and each domain row gains `covered` (that domain's strict gated count)
+  so the sidebar needs no lookup. Docstrings for the module map and `/api/library` say so.
+- `praxis/coverage.py` — `library_report()` now *reads* `build_model()["coverage"]`
+  instead of recomputing it, so the CLI and the app print one number computed once.
+- `ui/src/library.ts` — `Coverage` / `DomainCoverage` types, `Library.coverage`,
+  `Domain.covered`.
+- `ui/src/App.tsx` — three render sites, no logic: a header legend
+  (`🔒 X/Y gated (P%) · in G of D domains`), a `🔒 n` per domain in the sidebar count
+  (dimmed at zero), and a per-domain coverage line under the blurb in the topic pane.
+- `launcher/templates/index.html` — the same three sites in the standalone browser.
+- `ui/src/app.css` + `launcher/static/app.css` — `.legend.coverage` and `.dgate`, added
+  to both (they stay in sync by rule).
+- `tests/test_launcher_api.py` — 3 new tests (see below).
+- `CLAUDE.md` — the in-app paragraph after the tracker paragraph.
+
+Observed:
+- `python3 -m pytest -q tests/`: **999 passed**, 0 failed (4:40) — 996 before, +3.
+- `npm run build` in `ui/`: green, `tsc --noEmit` clean, 46 modules, 326ms.
+- `cargo build` in `src-tauri/`: green, 22.87s.
+- `scripts/validate_nbgrader.py notebooks`: 24 notebooks, 0 failures.
+- Shipped library through `/api/library`: **24/245 gated (10%), in 8 of 14 domains**;
+  the HTML page renders the same line and `🔒 0 … 🔒 5` per domain in the sidebar.
+- **Before / after gating one fixture topic** (Peripherals, `backfill_domain(limit=1)`,
+  FakeClient — no model call):
+
+      BEFORE:  Foundations 1/4 25% · Peripherals 0/2 0%  →  1/6 (17%), 1 of 2 domains
+      AFTER:   Foundations 1/4 25% · Peripherals 1/2 50% →  2/6 (33%), 2 of 2 domains
+      sidebar rows after: [('Foundations', 1, 4), ('Peripherals', 1, 2)]
+
+New tests:
+- `test_the_library_carries_the_gated_coverage_it_reports` — the block recomputed from
+  the rows the response carries **equals** the block the response carries, and the
+  headline is the sum of the per-domain figures.
+- `test_each_domain_row_carries_the_fraction_the_sidebar_renders` — `covered` on the
+  domain row equals that domain's report line *and* the count of its own topic rows with
+  `gated and graded`. That is the anti-fabrication assertion at the API boundary.
+- `test_a_new_gate_shows_up_in_the_next_library_reads_coverage` — construct one topic
+  through `POST /api/construct`, and the next `/api/library` shows 0→1 for that module,
+  +1 overall, +1 `domainsGated`. No second scan, no second poll.
+
+### Learnings for future iterations
+
+- **Fold, don't add an endpoint.** A `GET /api/coverage` would have cost a second
+  `build_model()` pass over every notebook for a number the library response was already
+  one line from carrying. Folding also means the shell's *existing* refetch-after-write
+  paths (construction settles → `fetchLibrary`) update the tracker for free.
+- The direction of the dependency matters: `build_model()` imports `coverage_report` at
+  module level (fine — `praxis/coverage.py` imports nothing from `launcher` at module
+  level), and `library_report()` reads the folded key. Keep it that way; recomputing in
+  `library_report` would be a second call site of the same fold.
+- `zip(domains, coverage["domains"])` is safe because `coverage_report` is a list
+  comprehension over the same sequence — order-preserving by construction, and the API
+  test pins `dir`/`name` agreement so it stays that way.
+- Jinja lookup of a per-domain row is
+  `{% set cov = (coverage['domains'] | selectattr('dir','equalto', active.dir) | list | first) %}`
+  — `selectattr` on dict items works because Jinja's attribute lookup falls back to
+  subscript.
+- A quick before/after demo without polluting the suite: drop a throwaway
+  `tests/test_zz_*.py` that imports the fixtures from `tests/test_coverage.py`
+  (`from test_coverage import LIBRARY, library`), run it with `-s`, then delete it.
+- The worktree ships no `ui/node_modules` either — `npm install` in `ui/` first, or
+  `npm run build` dies on `tsc: command not found`.

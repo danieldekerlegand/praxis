@@ -148,6 +148,13 @@ figure** for the same reason breadth is the batch's default; the overall one is 
 never a separate count. `python3 -m praxis.coverage` prints it: 24/245 in 8 of 14 domains
 as the seed library ships.
 
+In the app it is a field, not an endpoint: `build_model()` folds the report onto
+`/api/library` as `coverage` and each domain's own fraction onto its row as `covered`, so
+a resumed backfill's new gates arrive on the next library refetch — no second scan, no
+second poll, and `library_report()` reads that same key rather than counting again. Both
+UIs render what the launcher counted (`ui/src/App.tsx`, `launcher/templates/index.html`)
+and neither holds coverage logic, the same rule `KnowledgeChecks.tsx` follows for locks.
+
 ## Progression: what the checks actually gate
 
 `praxis/progress.py` is the learner's side, and it is deliberately *only* bookkeeping and

@@ -145,6 +145,14 @@ export default function App() {
               {library.badge.partial} {library.counts.partial} · {library.badge.scaffold}{" "}
               {library.counts.scaffold} &nbsp;/&nbsp; {library.total} notebooks
             </div>
+            {/* What the launcher counted, printed as it counted it. The breadth figure is
+                beside the overall one on purpose: eleven empty domains hide behind a
+                healthy-looking total, and breadth is what a backfill batch moves. */}
+            <div className="legend coverage" title="a notebook is gated once it carries knowledge checks a learner must pass">
+              🔒 {library.coverage.gated}/{library.coverage.total} gated (
+              {library.coverage.pct}%) · in {library.coverage.domainsGated} of{" "}
+              {library.coverage.domainsTotal} domains
+            </div>
           </div>
         ) : (
           <div className="progress legend">the seed library</div>
@@ -200,6 +208,12 @@ export default function App() {
                 <span className="dname">{d.name}</span>
                 <span className="dcount">
                   {d.done}/{d.n}
+                  <span
+                    className={d.covered ? "dgate" : "dgate none"}
+                    title={`${d.covered} of ${d.n} gated`}
+                  >
+                    🔒 {d.covered}
+                  </span>
                 </span>
               </button>
             ))}
@@ -270,6 +284,16 @@ export default function App() {
             <main>
               <h1>{active.title}</h1>
               <p className="blurb">{active.blurb}</p>
+              {(() => {
+                const cov = library.coverage.domains.find((c) => c.dir === active.dir);
+                return cov ? (
+                  <p className="legend coverage">
+                    🔒 Gated coverage: {cov.gated}/{cov.total} tutorials in this domain
+                    carry knowledge checks ({cov.pct}%). The rest can be read, but they
+                    gate nothing yet.
+                  </p>
+                ) : null;
+              })()}
               {active.gated > 0 && (
                 <p className="legend">
                   🔒 Gated: {active.passed}/{active.gated} tutorials passed. Each one opens

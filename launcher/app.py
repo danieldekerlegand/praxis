@@ -7,7 +7,8 @@ in JupyterLab and to a rendered read-only HTML view.
 
 Serves the same library three ways off one view model (``build_model``):
     /             the standalone HTML browser
-    /api/library  the same model as JSON — what the Tauri shell's browser reads
+    /api/library  the same model as JSON — what the Tauri shell's browser reads,
+                  gated coverage (`praxis/coverage.py`) folded onto it
     /render/<rel> a read-only HTML render of one notebook (the shell iframes this)
 
 Browsing is read-only. The writes are the three steps of building a subject — generate a
@@ -85,6 +86,7 @@ from praxis.checks import (  # noqa: E402
     needs_checks,
 )
 from praxis.construct import topic_for_rel  # noqa: E402
+from praxis.coverage import coverage_report  # noqa: E402
 from praxis.curriculum_gen import generate_and_save  # noqa: E402
 from praxis.llm import LLMClient, LLMConfigError, LLMError  # noqa: E402
 from praxis import jd, storage  # noqa: E402
@@ -303,9 +305,19 @@ def build_model(learner: str = DEFAULT_LEARNER) -> dict:
             "passed": sum(1 for r in topics if r["gated"] and r["complete"]),
         })
     total = sum(d["n"] for d in domains)
+    # Gated coverage, off these very rows: how much of the library actually gates, per
+    # domain first. Folded in here rather than served from a second endpoint because a
+    # second endpoint would be a second `build_model()` pass over the same notebooks —
+    # and `praxis.coverage` counts the view model, so it has to be counted where the
+    # view model is built. `covered` is each domain's fraction on the row the sidebar
+    # already renders; `coverage` is the whole report, breadth included.
+    coverage = coverage_report(domains)
+    for domain, row in zip(domains, coverage["domains"]):
+        domain["covered"] = row["gated"]
     return {
         "domains": domains,
         "counts": counts,
+        "coverage": coverage,
         "total": total,
         "badge": BADGE,
         "lab_base": LAB_BASE,
@@ -449,10 +461,12 @@ def create_app():
 
     @app.get("/api/library", response_class=JSONResponse)
     def api_library():
-        """The whole library as JSON — domains, topics, live badges, counts.
+        """The whole library as JSON — domains, topics, live badges, counts, coverage.
 
         Same view model the HTML browser renders, so the shell's browser and this
-        app can never disagree about a badge. Recomputed per request.
+        app can never disagree about a badge. Recomputed per request, which is what
+        makes the `coverage` block a live tracker: a backfill batch's new gates are
+        in the next response, off the rows already being built rather than a rescan.
         """
         return build_model()
 
