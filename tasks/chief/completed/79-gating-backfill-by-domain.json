@@ -46,5 +46,6 @@
       "passes": true,
       "notes": "python3 -m pytest -q tests/: 934 passed, 1 skipped (16 in tests/test_backfill.py, 5 new for the batch); python3 scripts/validate_nbgrader.py notebooks: 24 notebooks, 0 failures. backfill_library() is a one-liner over construct_each; library_targets() interleaves the domains (depth=1 round robin) — the two-domain test's capped pass gated one topic in EACH domain (traits + gpio) and the full batch's re-run returned [] with zero client calls and byte-identical notebooks. Coverage against the real library: start 24/245, end 24/245 — unchanged, because no LLM key is configured here, so the batch's selection (221 targets across 10 of 14 domains) ran but no seed notebook was gated; the order and per-domain fractions are recorded in progress.txt."
     }
-  ]
+  ],
+  "mergedToMain": "f819be6"
 }
