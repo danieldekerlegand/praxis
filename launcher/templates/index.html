@@ -18,6 +18,12 @@
       {{ badge['scaffold'] }} {{ counts['scaffold'] }}
       &nbsp;/&nbsp; {{ total }} notebooks
     </div>
+    {# Gated coverage, straight off build_model()'s report — same numbers /api/library
+       hands the shell, so the two UIs cannot disagree about how much really gates. #}
+    <div class="legend coverage" title="a notebook is gated once it carries knowledge checks a learner must pass">
+      🔒 {{ coverage['gated'] }}/{{ coverage['total'] }} gated ({{ coverage['pct'] }}%)
+      · in {{ coverage['domainsGated'] }} of {{ coverage['domainsTotal'] }} domains
+    </div>
   </div>
   <div class="lab">live notebooks via <code>praxis-lab</code> → <a href="{{ lab_base }}/lab" target="_blank">{{ lab_base }}</a></div>
 </header>
@@ -27,7 +33,7 @@
     {% for d in domains %}
     <a class="domain {% if d.dir == active.dir %}active{% endif %}" href="/?domain={{ d.dir }}">
       <span class="dname">{{ d.name }}</span>
-      <span class="dcount">{{ d.done }}/{{ d.n }}</span>
+      <span class="dcount">{{ d.done }}/{{ d.n }}<span class="dgate {% if not d.covered %}none{% endif %}" title="{{ d.covered }} of {{ d.n }} gated">🔒 {{ d.covered }}</span></span>
     </a>
     {% endfor %}
   </nav>
@@ -35,6 +41,10 @@
   <main>
     <h1>{{ active.title }}</h1>
     <p class="blurb">{{ active.blurb }}</p>
+    {% set cov = (coverage['domains'] | selectattr('dir', 'equalto', active.dir) | list | first) %}
+    {% if cov %}
+    <p class="legend coverage">🔒 Gated coverage: {{ cov['gated'] }}/{{ cov['total'] }} tutorials in this domain carry knowledge checks ({{ cov['pct'] }}%). The rest can be read, but they gate nothing yet.</p>
+    {% endif %}
     <ul class="topics">
       {% for t in active.topics %}
       <li class="topic status-{{ t.status }}">

@@ -2,9 +2,9 @@
   "name": null,
   "project": "praxis",
   "category": "fix",
-  "branchName": "chief/79-gating-backfill-by-domain",
+  "branchName": "chief/80-gating-coverage-tracker",
   "baseBranch": "main",
-  "description": "Gating backfill program (79-band). Today the gate is real but sparse: only 24 of the 245 seed notebooks are gated, so 221 notebooks are browsable-but-ungated (a topic with no checks gates nothing, by design — praxis/progress.py). This band drives the remaining ~221 to gated by REUSING THE SHIPPED CHECK MACHINERY UNCHANGED — praxis/checks.py (checks_from_reply -> grade -> write) over GATED_SECTIONS, and the derived-unlock gate in progress.py — run in per-domain batches across the 14 domains rather than one sweep, with the anti-fabrication verification (the reference `solution` run against its own `test` in a subprocess) held as the quality bar it already enforces. It invents no new gating primitive; it runs the shipped one at scale. REVISED 2026-08-11 by decision D10 (rosetta/strategy/DECISIONS.md): the format this band writes at scale is nbgrader's cell-level schema, adopted in `84-nbgrader-cell-schema-adoption`, NOT the parallel `<slug>.checks.json` sidecar this band was originally written against — backfilling 221 notebooks into a format that is about to be retired would be the single most expensive way to discover the adoption. Hence the hard dependency on 84: the schema lands first, the backfill runs against it, and `nbgrader validate` is the bar every backfilled notebook must clear. PRIORITIZE BREADTH-FIRST, SHALLOW GATING: the differentiator is largely unshipped at 24/245, so coverage across all 14 domains beats depth in a few — a shallow but real gate on every domain moves the product further than an exhaustive one on three. Anti-fabrication: a checkset that fails the grader is never written (same rule as the constructor), and an already-gated notebook is skipped not rewritten — so a batch is resumable and idempotent exactly like construction; the coverage number only moves for notebooks that gained a real, validate-passing gate.",
+  "description": "Gating backfill program (80-band). A report of gated coverage \u2014 overall and per domain \u2014 so a backfill batch's progress is visible and resumable. The start line is the real one, and it is the honest headline of this whole program: 24 of 245 notebooks gated today, meaning praxis's differentiating gate is LARGELY UNSHIPPED until the backfill lands. The tracker is computed off the SAME _gated() view-model data the launcher already folds into /api/library's topic rows (gated/locked/passed/checks, from module_gates()), not a second scan, so the number the report shows and the number the app enforces cannot drift. It is surfaced in-app off that same data. This band adds the tracker only; it drives no notebooks (that is 79). It deliberately does NOT depend on 79: the tracker is what makes 79's batches visible, so it precedes or parallels them \u2014 and with the breadth-first ordering 79 adopts, the per-domain fractions are the number that matters, not the overall one. REVISED 2026-08-11 by decision D10 (rosetta/strategy/DECISIONS.md): 'gated' is now defined by 84's adopted nbgrader schema \u2014 a notebook carrying validate-passing nbgrader graded cells \u2014 not by the presence of a parallel `<slug>.checks.json` sidecar, hence the dependency on 84. Anti-fabrication: the count is derived from the real, on-disk gate signal (the same one the runtime gate uses), never a stored or asserted number, so it always reflects reality; a test pins the X/245 arithmetic against a fixture with a known gated subset.",
   "parked": false,
   "dependsOn": [
     "40-gated-progression",
@@ -12,39 +12,39 @@
   ],
   "touches": [
     "praxis/",
-    "notebooks/",
+    "launcher/",
+    "src-tauri/",
+    "ui/",
     "tests/"
   ],
-  "iters": 8,
+  "iters": 7,
   "warmup": [
-    "echo '--- the machinery to reuse, unchanged ---'; grep -n 'def checks_from_reply\\|def checkset_failures\\|def needs_checks\\|GATED_SECTIONS\\|verify_code' praxis/checks.py | head",
-    "echo '--- the one batch loop ---'; sed -n '443,500p' praxis/construct.py",
-    "echo '--- reality: 24 gated of 245 ---'; echo \"gated: $(find notebooks -name '*.checks.json' | wc -l)  total: $(find notebooks -name '*.ipynb' | wc -l)\""
+    "echo '--- the view-model data to reuse: _gated folds gated/locked/passed/checks into library rows ---'; grep -n 'def _gated\\|module_gates\\|gated\\|checks_path' launcher/app.py praxis/progress.py | head",
+    "echo '--- current coverage to reproduce ---'; echo \"gated: $(find notebooks -name '*.checks.json' | wc -l) / total: $(find notebooks -name '*.ipynb' | wc -l)\"",
+    "echo '--- how a library view model already reaches the UI ---'; grep -n 'api/library' launcher/app.py | head"
   ],
   "userStories": [
     {
       "id": "US-1",
-      "title": "Gate one domain's notebooks by reusing the shipped check machinery",
+      "title": "Compute gated coverage overall and per domain",
       "acceptanceCriteria": [
-        "A per-domain backfill drives every ungated ✅ notebook in one domain to gated by calling the shipped path — construct_topic(..., checks=True) / checks.py over GATED_SECTIONS — with NO rewrite of the gating primitive, writing 84's adopted NBGRADER CELL SCHEMA (graded/solution/locked cells with stable `grade_id`s, hidden tests via nbgrader's delimiters) and never a parallel checkset format.",
-        "It is idempotent: a notebook that is already gated is skipped not rewritten (the needs_checks() contract, re-expressed against the nbgrader schema), and a notebook that is not yet ✅ is left for construction rather than force-gated, so the batch is resumable exactly like construct_each.",
-        "The anti-fabrication bar is held: a gate is written only when `nbgrader validate` passes AND the reference solution actually runs against its own test in a subprocess; a notebook that fails is not written and stays ungated.",
-        "Gate green: python3 -m pytest -q tests/ passes and `nbgrader validate` passes on the backfilled notebooks, including a test that backfilling a domain fixture writes a valid, validate-passing gate for an ungated topic and skips an already-gated one."
+        "A coverage report computes gated coverage overall (X/245) and per domain (X/N per domain) off the same _gated()/module_gates() view-model signal the gate already uses \u2014 the on-disk presence of 84's validate-passing nbgrader graded cells on a notebook \u2014 never a stored or hand-maintained number.",
+        "The report reproduces the real starting line (24/245 overall) when run against the shipped library today, so the assertion is grounded in reality rather than a placeholder; the per-domain breakdown is presented as the PRIMARY figure, because breadth across the 14 domains is what 79 optimizes for and an overall fraction hides eleven empty domains behind three full ones.",
+        "Gate green: python3 -m pytest -q tests/ passes, including a test that pins the X/245 arithmetic against a fixture library with a known gated subset (asserting both the overall and a per-domain fraction)."
       ],
       "passes": true,
-      "notes": "python3 -m pytest -q tests/: 929 passed, 1 skipped (11 new in tests/test_backfill.py); python3 scripts/validate_nbgrader.py notebooks: 24 notebooks, 0 failures. The domain fixture backfill wrote a validate-passing gate for the ungated ✅ topic (6 graded cells, one per GATED_SECTION plus a code check, grade_ids matching the sidecar, reference solution absent from the released notebook), skipped the already-gated topic byte-for-byte, and left the scaffold for construction with zero model calls."
+      "notes": "python3 -m pytest -q tests/: 996 passed, 1 failed->fixed, final run 996 passed, 0 failed. scripts/validate_nbgrader.py notebooks: 24 notebooks, 0 failures. python3 -m praxis.coverage against the shipped library: 24/245 notebooks gated (10%), in 8 of 14 domains \u2014 per-domain: Symbolic AI 0/15, AI/ML Tooling 1/15, LLM Inference 5/33, Agentic AI 0/16, Speech Audio 0/22, Proprietary Coding AI 0/9, Architectures 1/23, Procedural Gen 0/16, Data Analysis 0/15, DevOps/MLOps 1/65, Model Evaluation 4/4, Interpretability 3/3, Pretraining 4/4, RL & Training Dynamics 5/5. tests/test_coverage.py: 6 tests \u2014 fixture library pins 1/6 overall with Foundations 1/4 and Peripherals 0/2, and gating one more topic moves it to 2/6; the shipped-library test pins the report against an independent on-disk scan rather than a magic 24, so it survives the backfill."
     },
     {
       "id": "US-2",
-      "title": "Batch the backfill across the 14 domains, resumably",
+      "title": "Surface the coverage in-app so a batch's progress is visible",
       "acceptanceCriteria": [
-        "A batch entry point runs the per-domain backfill across all 14 domains (a one-liner over the shipped construct_each, the way construct_domain / construct_subject already are), so the whole ~221-notebook backlog can be driven in domain-sized batches rather than one sweep.",
-        "The ORDER IS BREADTH-FIRST across the 14 domains, not depth-first within one: the batch entry point drives a shallow pass over every domain before deepening any, so coverage climbs across the whole library rather than perfecting three domains while eleven stay ungated. The chosen order is documented and the per-domain fractions after the first breadth pass are recorded in progress.txt.",
-        "The run is resumable and safe to re-invoke: re-running skips domains/notebooks already gated and never clobbers a passing gate, so an interrupted batch resumes without redoing work (the skip-if-gated contract is what makes an unattended run safe — the property band 82 relies on).",
-        "Gate green: python3 -m pytest -q tests/ covers a two-domain batch asserting only ungated topics gain gates and a re-run is a no-op; the progress log records the starting and ending gated/245 count for the domains touched."
+        "The coverage report is surfaced in-app off the existing /api/library view-model data (a launcher endpoint or fields folded onto the library response), so backfill progress is visible and a resumed batch's new gates show up without a separate scan.",
+        "The UI renders whatever the launcher reports (overall + per-domain fractions) and holds no coverage logic of its own, mirroring how the library badges and KnowledgeChecks render server-supplied state.",
+        "Gate green: npm run build in ui/ and cargo build in src-tauri/ pass, python3 -m pytest -q tests/ covers the coverage endpoint, and the progress log shows the coverage number before and after gating one fixture topic (no dependency on the 79 batch having run \u2014 the tracker ships first so those batches are visible)."
       ],
       "passes": true,
-      "notes": "python3 -m pytest -q tests/: 934 passed, 1 skipped (16 in tests/test_backfill.py, 5 new for the batch); python3 scripts/validate_nbgrader.py notebooks: 24 notebooks, 0 failures. backfill_library() is a one-liner over construct_each; library_targets() interleaves the domains (depth=1 round robin) — the two-domain test's capped pass gated one topic in EACH domain (traits + gpio) and the full batch's re-run returned [] with zero client calls and byte-identical notebooks. Coverage against the real library: start 24/245, end 24/245 — unchanged, because no LLM key is configured here, so the batch's selection (221 targets across 10 of 14 domains) ran but no seed notebook was gated; the order and per-domain fractions are recorded in progress.txt."
+      "notes": "Gates observed green: python3 -m pytest -q tests/ -> 999 passed, 0 failed (4:40; 996 before, +3 new coverage-endpoint tests); npm run build in ui/ -> built in 326ms, 46 modules, tsc --noEmit clean; cargo build in src-tauri/ -> Finished dev profile in 22.87s, 0 errors; scripts/validate_nbgrader.py notebooks -> 24 notebooks, 0 failures. Surfaced by folding praxis.coverage.coverage_report onto build_model(), so /api/library carries `coverage` (overall + per-domain + breadth) and every domain row carries `covered` \u2014 no second endpoint, no second scan, no second poll. Both UIs render it and compute none of it (ui/src/App.tsx header legend + sidebar + domain pane; launcher/templates/index.html the same three places). Shipped library through the endpoint: 24/245 gated (10%), in 8 of 14 domains. Coverage before and after gating one fixture topic (Peripherals, limit=1, no model): BEFORE Foundations 1/4, Peripherals 0/2 = 1/6 (17%) in 1 of 2 domains; AFTER Foundations 1/4, Peripherals 1/2 = 2/6 (33%) in 2 of 2 domains, sidebar rows [('Foundations',1,4),('Peripherals',1,2)]. test_a_new_gate_shows_up_in_the_next_library_reads_coverage pins that same move through /api/library itself (0 -> 1 in the module, +1 overall, +1 domainsGated)."
     }
   ]
 }

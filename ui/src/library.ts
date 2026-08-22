@@ -39,6 +39,36 @@ export type Domain = {
   /** How many carry knowledge checks, and how many the learner has passed. */
   gated: number;
   passed: number;
+  /** How many are gated for real — key *and* released graded cells (praxis/coverage.py). */
+  covered: number;
+};
+
+/** One domain's line of the coverage report — the primary figure, per praxis/coverage.py. */
+export type DomainCoverage = {
+  dir: string;
+  name: string;
+  title: string;
+  gated: number;
+  total: number;
+  complete: number;
+  pct: number;
+};
+
+/**
+ * How much of the library actually gates, as `praxis.coverage.coverage_report` computes
+ * it off these very rows. Rendered, never recomputed here: the overall fraction is the
+ * sum of the per-domain ones on the launcher's side, so the shell cannot show a number
+ * the gate does not enforce.
+ */
+export type Coverage = {
+  domains: DomainCoverage[];
+  gated: number;
+  total: number;
+  complete: number;
+  pct: number;
+  /** Breadth — how many domains have any gate at all. That is what a backfill moves. */
+  domainsGated: number;
+  domainsTotal: number;
 };
 
 export type Library = {
@@ -49,6 +79,8 @@ export type Library = {
   badge: Record<Status, string>;
   lab_base: string;
   pct: number;
+  /** Gated coverage, folded onto the library so a backfill's progress needs no second poll. */
+  coverage: Coverage;
 };
 
 export async function fetchLibrary(base: string): Promise<Library> {

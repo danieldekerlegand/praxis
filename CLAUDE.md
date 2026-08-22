@@ -137,6 +137,24 @@ across the library is what the gate is worth, so breadth is the default (`depth=
 round robin). Generated subjects are excluded from the seed batch on purpose; they reach
 the same gate through `construct_subject`.
 
+`praxis/coverage.py` is what makes those batches visible, and it **scans nothing**: it is a
+fold over the topic rows `launcher.app.build_model()` already builds, because a second scan
+would be a second definition of "gated" and the two would drift. A row counts only when
+both halves are on disk — `gated` (the answer key, folded in by `module_gates()`) **and**
+`graded` (the nbgrader cells, folded in by `_gated()` off `checks.graded_cells()`) — which
+is `backfill.is_gated()` restated on the view model, so the batch that writes gates and the
+report that counts them agree by construction. The **per-domain fraction is the primary
+figure** for the same reason breadth is the batch's default; the overall one is their sum,
+never a separate count. `python3 -m praxis.coverage` prints it: 24/245 in 8 of 14 domains
+as the seed library ships.
+
+In the app it is a field, not an endpoint: `build_model()` folds the report onto
+`/api/library` as `coverage` and each domain's own fraction onto its row as `covered`, so
+a resumed backfill's new gates arrive on the next library refetch — no second scan, no
+second poll, and `library_report()` reads that same key rather than counting again. Both
+UIs render what the launcher counted (`ui/src/App.tsx`, `launcher/templates/index.html`)
+and neither holds coverage logic, the same rule `KnowledgeChecks.tsx` follows for locks.
+
 ## Progression: what the checks actually gate
 
 `praxis/progress.py` is the learner's side, and it is deliberately *only* bookkeeping and

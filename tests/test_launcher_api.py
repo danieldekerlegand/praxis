@@ -283,6 +283,36 @@ def test_badges_come_from_nbstatus(library: dict) -> None:
     assert sum(library["counts"].values()) == library["total"]
 
 
+# --- the gated-coverage tracker ---------------------------------------------
+#
+# The tracker rides the library response rather than an endpoint of its own, so what is
+# asserted here is that it is the *same* view model: the coverage block recomputed from
+# the rows the response carries must equal the coverage block the response carries.
+
+
+def test_the_library_carries_the_gated_coverage_it_reports(library: dict) -> None:
+    """Recomputed from the rows served, it is the block served — one fold, not two."""
+    from praxis.coverage import coverage_report
+
+    coverage = library["coverage"]
+    assert coverage == coverage_report(library["domains"])
+    assert coverage["total"] == library["total"]
+    assert coverage["domainsTotal"] == len(library["domains"])
+    # The headline is the sum of the per-domain figures, never a separate count.
+    assert coverage["gated"] == sum(d["gated"] for d in coverage["domains"])
+    assert 0 <= coverage["gated"] <= coverage["total"]
+
+
+def test_each_domain_row_carries_the_fraction_the_sidebar_renders(library: dict) -> None:
+    """`covered` is on the row the UI already draws, so the shell needs no lookup."""
+    for domain, row in zip(library["domains"], library["coverage"]["domains"]):
+        assert (domain["dir"], domain["name"]) == (row["dir"], row["name"])
+        assert domain["covered"] == row["gated"] <= domain["n"] == row["total"]
+        # And it is these rows' own gate — both halves — not a number from anywhere else.
+        assert domain["covered"] == sum(
+            1 for t in domain["topics"] if t["gated"] and t["graded"])
+
+
 def test_render_serves_a_notebook_and_refuses_escapes(client: TestClient, library: dict) -> None:
     rel = library["domains"][0]["topics"][0]["rel"]
     assert client.get(f"/render/{rel}").status_code == 200
@@ -503,8 +533,10 @@ def test_a_subject_reaches_the_library_only_once_it_has_notebooks(
         "status": "scaffold",
         "recommended": False,
         "note": "",
-        # No checks beside it yet, so it gates nothing and nothing gates it.
+        # No checks beside it yet, so it gates nothing and nothing gates it — and no
+        # graded cells released either, so it counts toward no coverage.
         "gated": False,
+        "graded": False,
         "complete": False,
         "passed": 0,
         "checks": 0,
@@ -694,6 +726,32 @@ def test_a_constructed_topic_comes_back_gated(
     doc = load_checks(checks_path(launcher_app.library_path(rel)))
     assert checkset_failures(doc) == []
     assert item["checks"] == len(doc["checks"])
+
+
+def test_a_new_gate_shows_up_in_the_next_library_reads_coverage(
+    client: TestClient, scaffolded: str, model
+) -> None:
+    """What makes a backfill batch visible: no second scan, no second poll.
+
+    A resumed run's progress is whatever the next `/api/library` says, because the gate
+    it wrote is folded in from the same rows the badges come from.
+    """
+    model()
+    rel = "subjects/sailing-navigation/01-charts/reading-a-chart.ipynb"
+    charts = "subjects/sailing-navigation/01-charts"
+
+    before = client.get("/api/library").json()
+    await_job(client, client.post("/api/construct", json={"rel": rel}).json()["id"])
+    after = client.get("/api/library").json()
+
+    def domain(library: dict) -> dict:
+        return next(d for d in library["coverage"]["domains"] if d["dir"] == charts)
+
+    assert (domain(before)["gated"], domain(after)["gated"]) == (0, 1)
+    assert domain(after)["total"] == 2                      # the other one is still ungated
+    assert after["coverage"]["gated"] == before["coverage"]["gated"] + 1
+    assert after["coverage"]["domainsGated"] == before["coverage"]["domainsGated"] + 1
+    assert next(d for d in after["domains"] if d["dir"] == charts)["covered"] == 1
 
 
 def test_a_module_can_be_constructed_by_directory(

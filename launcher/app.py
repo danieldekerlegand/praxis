@@ -7,7 +7,8 @@ in JupyterLab and to a rendered read-only HTML view.
 
 Serves the same library three ways off one view model (``build_model``):
     /             the standalone HTML browser
-    /api/library  the same model as JSON — what the Tauri shell's browser reads
+    /api/library  the same model as JSON — what the Tauri shell's browser reads,
+                  gated coverage (`praxis/coverage.py`) folded onto it
     /render/<rel> a read-only HTML render of one notebook (the shell iframes this)
 
 Browsing is read-only. The writes are the three steps of building a subject — generate a
@@ -50,6 +51,7 @@ The desktop shell starts this process itself (see src-tauri/src/library.rs) on a
 free port, so it needs no separate terminal there.
 """
 
+import json
 import os
 import subprocess
 import sys
@@ -74,9 +76,17 @@ from curriculum import (  # noqa: E402
     subjects_dir,
 )
 from launcher.jobs import JobRegistry, badge_for  # noqa: E402
-from nbstatus import BADGE, notebook_status  # noqa: E402
-from praxis.checks import CheckError, checks_path, grade, load_checks, needs_checks  # noqa: E402
+from nbstatus import BADGE, status_from_dict  # noqa: E402
+from praxis.checks import (  # noqa: E402
+    CheckError,
+    checks_path,
+    grade,
+    graded_cells,
+    load_checks,
+    needs_checks,
+)
 from praxis.construct import topic_for_rel  # noqa: E402
+from praxis.coverage import coverage_report  # noqa: E402
 from praxis.curriculum_gen import generate_and_save  # noqa: E402
 from praxis.llm import LLMClient, LLMConfigError, LLMError  # noqa: E402
 from praxis import jd, storage  # noqa: E402
@@ -118,26 +128,43 @@ def _library_domains() -> list[Domain]:
     return domains
 
 
+def _read(path: Path) -> tuple[str, Optional[dict]]:
+    """(badge status, the parsed notebook) in one read.
+
+    `notebook_status()` parses the file to decide the badge and then throws it away.
+    `_gated()` needs the same dict again — the graded cells are what says a notebook
+    carries its gate — and reading 245 notebooks twice per library request is the whole
+    cost of the tracker, so read once and hand the dict on.
+    """
+    try:
+        nb = json.loads(path.read_text())
+    except Exception:            # unreadable / invalid JSON — same verdict as nbstatus
+        return "error", None
+    return status_from_dict(nb)[0], nb
+
+
 def _topics_for(domain: Domain, progress: Optional[dict] = None) -> list:
     """Uniform topic view models for a domain, from manifest or filesystem.
 
-    Each row also carries the learner's gate for that notebook (`gated`, `locked`,
-    `passed`, `checks`) — one model, so the library list and the study view can't
-    disagree about what is open. A domain whose notebooks have no checks beside them
-    comes back exactly as it did before there was a gate: nothing gated, nothing locked.
+    Each row also carries the learner's gate for that notebook (`gated`, `graded`,
+    `locked`, `passed`, `checks`) — one model, so the library list, the study view and
+    the coverage tracker can't disagree about what is open. A domain whose notebooks
+    have no checks beside them comes back exactly as it did before there was a gate:
+    nothing gated, nothing locked.
     """
     base = domain_path(domain)
-    rows, files = [], {}
+    rows, files, notebooks = [], {}, {}
     if domain.source in ("filesystem", "subject"):
         # Only what exists: a subject's curriculum may run ahead of its scaffolds.
         titles = {t.slug: t for t in domain.topics}
         paths = sorted(base.glob("*.ipynb") if domain.source == "subject"
                        else base.rglob("*.ipynb"))
         for p in paths:
-            status, _ = notebook_status(p)
+            status, notebook = _read(p)
             topic = titles.get(p.stem)
             rel = f"{domain.dir}/{p.relative_to(base).as_posix()}"
             files[rel] = p
+            notebooks[rel] = notebook
             rows.append({
                 "title": topic.title if topic else p.stem.replace("-", " ").title(),
                 "rel": rel,
@@ -149,9 +176,10 @@ def _topics_for(domain: Domain, progress: Optional[dict] = None) -> list:
     else:
         for t in domain.topics:
             p = base / f"{t.slug}.ipynb"
-            status, _ = notebook_status(p) if p.exists() else ("error", {})
+            status, notebook = _read(p) if p.exists() else ("error", None)
             rel = p.relative_to(NOTEBOOKS_DIR).as_posix()
             files[rel] = p
+            notebooks[rel] = notebook
             rows.append({
                 "title": t.title,
                 "rel": rel,
@@ -159,19 +187,33 @@ def _topics_for(domain: Domain, progress: Optional[dict] = None) -> list:
                 "recommended": t.recommended,
                 "note": t.note,
             })
-    return _gated(rows, files, progress)
+    return _gated(rows, files, progress, notebooks)
 
 
-def _gated(rows: list, files: dict, progress: Optional[dict]) -> list:
-    """Fold this learner's progression state into a domain's topic rows, in order."""
+def _gated(
+    rows: list, files: dict, progress: Optional[dict],
+    notebooks: Optional[dict] = None,
+) -> list:
+    """Fold this learner's progression state into a domain's topic rows, in order.
+
+    `gated` is the *behavioural* half — this learner meets questions here, which is
+    what locks the next topic — and comes from the answer key beside the notebook.
+    `graded` is the *shipped* half: the nbgrader graded cells really on disk, which is
+    what `praxis/backfill.py` calls gated and what `praxis/coverage.py` counts. A
+    notebook with a key but no cells is a half-migrated gate and is reported as one
+    rather than as coverage nobody has.
+    """
     if progress is None:
         progress = load_progress()
+    notebooks = notebooks or {}
     docs = {rel: load_checks(checks_path(p)) for rel, p in files.items()}
     gates = module_gates([r["rel"] for r in rows], docs, progress)
     titles = {r["rel"]: r["title"] for r in rows}
     for row in rows:
         gate = dict(gates[row["rel"]])
         gate["blockedBy"] = titles.get(gate["blockedBy"], "")
+        notebook = notebooks.get(row["rel"])
+        gate["graded"] = bool(notebook and graded_cells(notebook))
         row.update(gate)
     return rows
 
@@ -263,9 +305,19 @@ def build_model(learner: str = DEFAULT_LEARNER) -> dict:
             "passed": sum(1 for r in topics if r["gated"] and r["complete"]),
         })
     total = sum(d["n"] for d in domains)
+    # Gated coverage, off these very rows: how much of the library actually gates, per
+    # domain first. Folded in here rather than served from a second endpoint because a
+    # second endpoint would be a second `build_model()` pass over the same notebooks —
+    # and `praxis.coverage` counts the view model, so it has to be counted where the
+    # view model is built. `covered` is each domain's fraction on the row the sidebar
+    # already renders; `coverage` is the whole report, breadth included.
+    coverage = coverage_report(domains)
+    for domain, row in zip(domains, coverage["domains"]):
+        domain["covered"] = row["gated"]
     return {
         "domains": domains,
         "counts": counts,
+        "coverage": coverage,
         "total": total,
         "badge": BADGE,
         "lab_base": LAB_BASE,
@@ -409,10 +461,12 @@ def create_app():
 
     @app.get("/api/library", response_class=JSONResponse)
     def api_library():
-        """The whole library as JSON — domains, topics, live badges, counts.
+        """The whole library as JSON — domains, topics, live badges, counts, coverage.
 
         Same view model the HTML browser renders, so the shell's browser and this
-        app can never disagree about a badge. Recomputed per request.
+        app can never disagree about a badge. Recomputed per request, which is what
+        makes the `coverage` block a live tracker: a backfill batch's new gates are
+        in the next response, off the rows already being built rather than a rescan.
         """
         return build_model()
 

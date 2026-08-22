@@ -1,128 +1,140 @@
-# Chief Progress — 79-gating-backfill-by-domain
-Started: Sat Aug 22 08:19:23 CDT 2026
+# Chief Progress — 80-gating-coverage-tracker
+Started: Sat Aug 22 08:49:37 CDT 2026
 ---
 
 ## Codebase Patterns
 
-- **The four writes are define → scaffold → construct → checks.** Adding a fifth capability
-  usually means *selecting targets* for one of them, not writing a new writer. `praxis/backfill.py`
-  is the shape: it computes a target list and calls `construct_each`.
-- **`construct_each` is the only batch loop.** `construct_domain`, `construct_subject` and now
-  `backfill_domain` are one-liners over it, which is where resumability comes from.
-- **`checks.publish_graded_cells(nb, checks, target)` is the single write path for graded cells**:
-  annotate → `nbgrader validate` a staging copy → release only what nbgrader produced. Never
-  hand-annotate a notebook in a new caller.
-- A released notebook is ASCII-escaped JSON (`json.dumps` default) while a constructed one is
-  not — comparing notebook *bytes* before/after a gate is written will fail on the escaping
-  alone. Compare cell sources instead.
-- The full suite takes ~3 min (nbgrader subprocesses); `tests/test_backfill.py` alone ~50s.
+- **Library view model = one place.** `launcher.app.build_model()` → `_topics_for()` →
+  `_gated()` is where every per-topic fact the app knows gets folded in (status, gated,
+  locked, passed, checks, and now `graded`). Anything that wants to *count* notebooks
+  should fold over those rows, not re-scan `notebooks/` — a second scan is a second
+  definition and it will drift.
+- **Two halves of "gated".** `gated` = a loadable answer key (drives `module_gates()`,
+  locks the next topic). `graded` = nbgrader graded cells actually in the .ipynb
+  (decision D10 / band 84). `backfill.is_gated()` requires both; so does
+  `praxis.coverage.is_gated()`. A sidecar with no cells is a half-migrated gate.
+- **praxis/ must not import launcher/ at module level.** No praxis module does. When a
+  core module needs the view model (`coverage.library_report`), import `launcher.app`
+  *inside the function* so the arithmetic stays importable with no launch extra.
+- **Module convention** (see `praxis/gap.py`, `praxis/audit.py`): long "why" docstring
+  with a CLI stanza, then `_main(argv)` + `if __name__ == "__main__"`.
+- **No .venv in a fresh worktree.** `.chief/verify.sh` bootstraps one, but to run tests
+  by hand first: `uv venv .venv && uv pip install --python .venv/bin/python -e '.[launch,dev]'`.
+  Without fastapi the launcher tests silently skip — the interpreter that runs pytest
+  must also have nbgrader (praxis.checks resolves its console script beside it).
+- **Full suite is ~5 min** (996 tests). `tests/test_launcher_api.py` alone is ~90s.
 
 ---
 
-## 2026-08-22 — US-1 Gate one domain's notebooks by reusing the shipped check machinery
+## US-1 — Compute gated coverage overall and per domain (781a1fc)
 
-**What I did**
-- Added `praxis/backfill.py`: `domain_targets()` (every notebook on disk, `filesystem` domains
-  resolved through `construct.topic_for_path` so nested legacy notebooks work), `is_complete()`,
-  `is_gated()`, `backfill_targets()` and `backfill_domain(domain, *, limit=None, **kwargs)`.
-  It gates nothing itself — targets go to `construct_each(..., checks=True)`.
-- `is_gated()` is `needs_checks()` re-expressed against 84's schema: a sidecar **and**
-  `checks.graded_cells(nb)`. A sidecar on its own is a half-migrated gate, not a gate.
-- Fixed the resume path in `construct._with_checks`: it annotated only *freshly constructed*
-  notebooks, so a ✅-but-ungated topic gained a sidecar and no graded regions — exactly the
-  parallel format the nbgrader adoption replaced, and exactly the state this whole band is
-  backfilling. Now it annotates when the notebook carries no graded cells yet.
-- `generate_checks` gained one no-model repair: a stored set whose cells never landed is
-  republished from the sidecar (status `generated`, detail "graded cells written from the
-  stored set"), so the half-migrated state converges instead of being re-selected for ever.
-- Factored the staging/validate/release block out of `generate_checks` as
-  `checks.publish_graded_cells()`; added `checks.graded_cells()` + `CHECKS_EXTENSION` as the
-  one reader of the `praxis` cell namespace.
-- `tests/test_backfill.py` (11 tests) and an updated
-  `test_a_notebook_that_was_already_complete_still_gains_its_checks` in `tests/test_construct.py`
-  (the prose is preserved; the graded cells are new).
-- Documented the module in `CLAUDE.md` under **Knowledge checks**.
+Files changed:
+- `praxis/coverage.py` (new) — `is_gated(row)`, `domain_coverage()`, `coverage_report()`,
+  `library_report()`, `render()`, `python3 -m praxis.coverage [--json]`.
+- `launcher/app.py` — new `_read(path)` returns (status, parsed notebook) in ONE read;
+  `_topics_for` threads the parsed notebooks to `_gated`, which now folds a `graded`
+  field onto every row from `checks.graded_cells()`. `notebook_status` import replaced
+  by `status_from_dict`; `json` + `graded_cells` imported.
+- `tests/test_coverage.py` (new, 6 tests).
+- `tests/test_launcher_api.py` — the one test that pins the exact row dict gained
+  `"graded": False`.
+- `CLAUDE.md` — a paragraph on the tracker after the backfill section.
 
-**Verification**
-- `python3 -m pytest -q tests/` → **929 passed, 1 skipped** in 199s.
-- `python3 scripts/validate_nbgrader.py notebooks` → **24 notebooks, 0 failures**.
-- Seed-library coverage is unchanged at **24/245** — this story shipped the mechanism; no
-  seed notebook was gated, because gating one needs a model key (US-2 drives the batches).
+Observed:
+- `python3 -m pytest -q tests/`: **996 passed**, 0 failed (4:51).
+- `scripts/validate_nbgrader.py notebooks`: **24 notebooks, 0 failures** — an independent
+  corroboration of the 24.
+- `python3 -m praxis.coverage`: **24/245 notebooks gated (10%), in 8 of 14 domains.**
+  Model Evaluation 4/4, Interpretability 3/3, Pretraining 4/4, RL 5/5 are at 100%;
+  DevOps/MLOps is 1/65 and six domains are at 0. That asymmetry is the whole argument
+  for the per-domain figure being primary.
 
-**Learnings for future iterations**
-- The 84 band left the *resume* path (already-✅ notebook gains checks) writing only the
-  sidecar. Any story that assumed "the schema is adopted everywhere" needs to check the
-  caller, not just `annotate_notebook`.
-- `release_notebook` re-serializes with `json.dumps(..., indent=1)`, which ASCII-escapes.
-  The 24 already-gated seeds are ASCII-escaped too, so backfilled notebooks match them.
-- `nbgrader_validate()` returns `[]` early for a *released* notebook (no `BEGIN SOLUTION`
-  left to execute), so asserting it on the published file is a schema check, not a runtime
-  one. The runtime bar is `checkset_failures(verify_code=True)` plus the validate that runs
-  against the **staging** (authored) copy inside `publish_graded_cells`.
-- `FakeClient` in `tests/test_construct.py` answers both call kinds (notebook vs checks, told
-  apart by system prompt) and records them separately — reuse it rather than writing another.
+### Learnings for future iterations
+
+- The PRD's "off the same `_gated()`/`module_gates()` signal" and D10's "gated means
+  nbgrader cells" pull in different directions: `module_gates()` derives `gated` from the
+  **sidecar answer key**, not from cells. Resolved by adding `graded` as a second row
+  field rather than redefining `gated` — redefining it would have changed what
+  `/api/study` locks (a key-but-no-cells notebook still serves real questions through
+  the UI, so it *does* gate), which is out of this band's scope. The tracker requires
+  both. Today the two sets are identical (24 = 24), so nothing is hidden by the choice.
+- `_library_domains()` reads `launcher.app.DOMAINS`, bound at import from `curriculum`.
+  To test against a fixture library, `monkeypatch.setattr(launcher_app, "DOMAINS", [])`
+  — patching `curriculum.DOMAINS` does nothing.
+- Don't pin `24` in a test: band 79's backfill moves it. `test_the_shipped_library_report_agrees_with_the_notebooks_on_disk`
+  pins the *agreement* between the report and an independent file scan instead, so it
+  stays green as coverage climbs.
+- **US-2 next**: the endpoint. `coverage_report(build_model()["domains"])` is one line in
+  `launcher/app.py`; note `build_model()` is already called by `/api/library`, so folding
+  a `coverage` key onto that response costs nothing extra, while a separate
+  `GET /api/coverage` costs a second `build_model()` pass. Either satisfies US-2's
+  first criterion; folding onto `/api/library` is cheaper and keeps one poll.
 
 ---
 
-## 2026-08-22 — US-2 Batch the backfill across the 14 domains, resumably
+## US-2 — Surface the coverage in-app so a batch's progress is visible
 
-**What I did**
-- `praxis/backfill.py` gained the library batch, three functions and no new writer:
-  `library_domains()` (the seed manifest, read live off `curriculum.DOMAINS` the way
-  `promote`/`library_index` read it; generated subjects are opt-in via `subjects=True`),
-  `library_targets(domains, depth=1, limit=None)` and `backfill_library(...)` — a
-  one-liner over `construct_each`, exactly like `construct_domain`/`construct_subject`.
-- **The order is the only thing the batch adds.** `library_targets` interleaves the
-  per-domain backlogs: `depth` targets from each domain before any domain's next, so a
-  capped or interrupted run leaves every domain a little gated instead of three finished
-  and eleven with none. `depth=1` (pure round robin) is the default; a depth larger than
-  the biggest backlog degenerates to domain-at-a-time.
-- `coverage(domains)` returns per-domain `(domain, gated, complete, total)` — what the
-  fractions below were measured with. (Band 80 is the coverage *tracker*; this is the six
-  lines the batch needs to report itself, not that product surface.)
-- 5 new tests in `tests/test_backfill.py` over a two-module fixture: manifest order,
-  breadth-first vs `depth=2`, a capped pass gating one topic in *each* domain, a full
-  batch that gates only the ungated (the already-gated notebook and the scaffold come
-  back byte-identical) and whose re-run returns `[]` with zero client calls, and coverage.
-- Documented the batch in `CLAUDE.md` under **Knowledge checks**.
+Files changed:
+- `launcher/app.py` — `build_model()` now folds `coverage_report(domains)` onto the model
+  as `coverage`, and each domain row gains `covered` (that domain's strict gated count)
+  so the sidebar needs no lookup. Docstrings for the module map and `/api/library` say so.
+- `praxis/coverage.py` — `library_report()` now *reads* `build_model()["coverage"]`
+  instead of recomputing it, so the CLI and the app print one number computed once.
+- `ui/src/library.ts` — `Coverage` / `DomainCoverage` types, `Library.coverage`,
+  `Domain.covered`.
+- `ui/src/App.tsx` — three render sites, no logic: a header legend
+  (`🔒 X/Y gated (P%) · in G of D domains`), a `🔒 n` per domain in the sidebar count
+  (dimmed at zero), and a per-domain coverage line under the blurb in the topic pane.
+- `launcher/templates/index.html` — the same three sites in the standalone browser.
+- `ui/src/app.css` + `launcher/static/app.css` — `.legend.coverage` and `.dgate`, added
+  to both (they stay in sync by rule).
+- `tests/test_launcher_api.py` — 3 new tests (see below).
+- `CLAUDE.md` — the in-app paragraph after the tracker paragraph.
 
-**Verification**
-- `python3 -m pytest -q tests/` → **934 passed, 1 skipped** in 217s (16 in test_backfill).
-- `python3 scripts/validate_nbgrader.py notebooks` → **24 notebooks, 0 failures**.
+Observed:
+- `python3 -m pytest -q tests/`: **999 passed**, 0 failed (4:40) — 996 before, +3.
+- `npm run build` in `ui/`: green, `tsc --noEmit` clean, 46 modules, 326ms.
+- `cargo build` in `src-tauri/`: green, 22.87s.
+- `scripts/validate_nbgrader.py notebooks`: 24 notebooks, 0 failures.
+- Shipped library through `/api/library`: **24/245 gated (10%), in 8 of 14 domains**;
+  the HTML page renders the same line and `🔒 0 … 🔒 5` per domain in the sidebar.
+- **Before / after gating one fixture topic** (Peripherals, `backfill_domain(limit=1)`,
+  FakeClient — no model call):
 
-**Coverage: starting and ending gated/245**
+      BEFORE:  Foundations 1/4 25% · Peripherals 0/2 0%  →  1/6 (17%), 1 of 2 domains
+      AFTER:   Foundations 1/4 25% · Peripherals 1/2 50% →  2/6 (33%), 2 of 2 domains
+      sidebar rows after: [('Foundations', 1, 4), ('Peripherals', 1, 2)]
 
-Start **24/245**. End **24/245** — unchanged, because gating a seed notebook needs a model
-call and **no LLM key is configured in this environment** (`praxis/llm.py` resolves none;
-every test client is a fake). What ran here is the batch's selection, against the real
-library: 221 targets, 10 of the 14 domains with a backlog. Per-domain `gated/complete`,
-identical before and after:
+New tests:
+- `test_the_library_carries_the_gated_coverage_it_reports` — the block recomputed from
+  the rows the response carries **equals** the block the response carries, and the
+  headline is the sum of the per-domain figures.
+- `test_each_domain_row_carries_the_fraction_the_sidebar_renders` — `covered` on the
+  domain row equals that domain's report line *and* the count of its own topic rows with
+  `gated and graded`. That is the anti-fabrication assertion at the API boundary.
+- `test_a_new_gate_shows_up_in_the_next_library_reads_coverage` — construct one topic
+  through `POST /api/construct`, and the next `/api/library` shows 0→1 for that module,
+  +1 overall, +1 `domainsGated`. No second scan, no second poll.
 
-    01-symbolic-ai-logic                      0/15     09-procedural-generation     0/16
-    02-ai-ml-tooling                          1/15     10-data-analysis-research    0/15
-    03-llm-inference-training-optimization    5/33     11-devops-mlops-infra        1/65
-    04-agentic-ai                             0/16     12-model-evaluation          4/4
-    05-speech-audio                           0/22     13-interpretability          3/3
-    07-proprietary-coding-ai                  0/9      14-pretraining               4/4
-    08-architectures                          1/23     15-rl-and-training-dynamics  5/5
+### Learnings for future iterations
 
-**The chosen order** is `curriculum.DOMAINS`' own — 01, 02, 03, 04, 05, 07, 08, 09, 10, 11,
-12, 13, 14, 15 — round-robined. Domains 12–15 are already fully gated and drop out, so the
-first breadth pass is these ten, one per domain:
-
-    01/swi-prolog · 02/pytorch · 03/open-r1 · 04/model-context-protocol · 05/ffmpeg
-    07/google-gemini · 08/rnn · 09/tracery · 10/r-language · 11/bedrock
-
-and the second is 01/datalog · 02/keras · 03/mingpt · 04/agent-to-agent · … . Running it
-for real is a keyed run (band 82 drives it); re-invoking after one is a no-op by
-construction, so the pass can be resumed at any point.
-
-**Learnings for future iterations**
-- No LLM key exists in the chief environment. Any story whose acceptance criteria imply
-  *moving* the 24/245 number needs a keyed run — the mechanism can be shipped and proved
-  against fakes, the coverage number cannot be moved here. Say which one you did.
-- `library_targets` takes `(Domain, Subject|None)` pairs, not Domains, because
-  `topic_path` resolves a subject's module under `subjects_dir()`. Tests build a real
-  two-module subject in tmp and pass the pairs; the default is the seed manifest.
-- Each gated notebook costs ~5s (the `nbgrader validate` subprocess), so a test that
-  gates four is a ~25s test. Keep batch fixtures small — the suite is now ~3m40s.
+- **Fold, don't add an endpoint.** A `GET /api/coverage` would have cost a second
+  `build_model()` pass over every notebook for a number the library response was already
+  one line from carrying. Folding also means the shell's *existing* refetch-after-write
+  paths (construction settles → `fetchLibrary`) update the tracker for free.
+- The direction of the dependency matters: `build_model()` imports `coverage_report` at
+  module level (fine — `praxis/coverage.py` imports nothing from `launcher` at module
+  level), and `library_report()` reads the folded key. Keep it that way; recomputing in
+  `library_report` would be a second call site of the same fold.
+- `zip(domains, coverage["domains"])` is safe because `coverage_report` is a list
+  comprehension over the same sequence — order-preserving by construction, and the API
+  test pins `dir`/`name` agreement so it stays that way.
+- Jinja lookup of a per-domain row is
+  `{% set cov = (coverage['domains'] | selectattr('dir','equalto', active.dir) | list | first) %}`
+  — `selectattr` on dict items works because Jinja's attribute lookup falls back to
+  subscript.
+- A quick before/after demo without polluting the suite: drop a throwaway
+  `tests/test_zz_*.py` that imports the fixtures from `tests/test_coverage.py`
+  (`from test_coverage import LIBRARY, library`), run it with `-s`, then delete it.
+- The worktree ships no `ui/node_modules` either — `npm install` in `ui/` first, or
+  `npm run build` dies on `tsc: command not found`.

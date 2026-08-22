@@ -41,6 +41,12 @@ header {
 .dname { font-weight: 600; }
 .dcount { color: var(--muted); font-size: 12px; }
 
+/* Gated coverage — the tracker. Muted enough not to compete with the completion bar,
+   because a notebook being built and a notebook gating are two different questions. */
+.legend.coverage { margin-top: 2px; }
+.dgate { margin-left: 8px; }
+.dgate.none { opacity: 0.45; }
+
 .topics { list-style: none; padding: 0; margin: 0; }
 .topic {
   display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 10px;
