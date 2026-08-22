@@ -2,49 +2,67 @@
   "name": null,
   "project": "praxis",
   "category": "fix",
-  "branchName": "chief/80-gating-coverage-tracker",
+  "branchName": "chief/81-gate-quality-anti-fabrication",
   "baseBranch": "main",
-  "description": "Gating backfill program (80-band). A report of gated coverage \u2014 overall and per domain \u2014 so a backfill batch's progress is visible and resumable. The start line is the real one, and it is the honest headline of this whole program: 24 of 245 notebooks gated today, meaning praxis's differentiating gate is LARGELY UNSHIPPED until the backfill lands. The tracker is computed off the SAME _gated() view-model data the launcher already folds into /api/library's topic rows (gated/locked/passed/checks, from module_gates()), not a second scan, so the number the report shows and the number the app enforces cannot drift. It is surfaced in-app off that same data. This band adds the tracker only; it drives no notebooks (that is 79). It deliberately does NOT depend on 79: the tracker is what makes 79's batches visible, so it precedes or parallels them \u2014 and with the breadth-first ordering 79 adopts, the per-domain fractions are the number that matters, not the overall one. REVISED 2026-08-11 by decision D10 (rosetta/strategy/DECISIONS.md): 'gated' is now defined by 84's adopted nbgrader schema \u2014 a notebook carrying validate-passing nbgrader graded cells \u2014 not by the presence of a parallel `<slug>.checks.json` sidecar, hence the dependency on 84. Anti-fabrication: the count is derived from the real, on-disk gate signal (the same one the runtime gate uses), never a stored or asserted number, so it always reflects reality; a test pins the X/245 arithmetic against a fixture with a known gated subset.",
+  "description": "\ud83d\udd0c **jupyterquiz IS A CANDIDATE FOR THE RENDERING HALF (2026-08-13 portfolio scan).** The scan validated both of praxis's existing adoption calls \u2014 nbgrader and JupyterLite are the standards for their layers \u2014 and found one more: **jupyterquiz**, *\"an interactive quiz generator for Jupyter notebooks and Jupyter Book\"*. Praxis hand-builds its knowledge-check surface. That is adjacent rather than competing \u2014 per the standing principle in `rosetta/strategy/DECISIONS.md` \u2014 *a competitor at your layer is a threat; a competitor at an adjacent layer is a socket.* **The split to test:** jupyterquiz would carry the QUESTION RENDERING and answer capture; what stays praxis's is the part this tasklist is about \u2014 the RUBRIC, the anti-fabrication audit, and the reference-`solution`-run-against-its-own-`test` subprocess verification, which is the load-bearing check and which no quiz widget performs. Adopting the rendering must not weaken the grader.\n\n---\n\nGating backfill program (81-band). A quality pass over the gates the backfill generates: audit them for fabricated or trivial questions and tighten the grader so backfilled gates hold the SAME bar as hand-built ones, keeping the reference-`solution`-run-against-its-own-`test` subprocess verification the load-bearing check before a gate may be written. This is the gating-side analogue of construct.py's construction_failures discipline: tighten THIS grader when a new fabrication is found, keep its sentences specific (they are the repair prompt and the UI's error text). The risk backfill-at-scale introduces is a gate that technically validates but asks nothing real \u2014 a choice question whose answer is given away, a short question the rubric already answers, a code check whose test asserts nothing meaningful \u2014 and this band is the guard against it. REVISED 2026-08-11 by decision D10 (rosetta/strategy/DECISIONS.md): the artifact being audited is now 84's adopted nbgrader schema, and `nbgrader validate` is the AUTHORITATIVE gate \u2014 so this band's job is precisely the residue validate does NOT cover. That distinction is the whole point: nbgrader proves a graded cell is wellformed and that its hidden tests execute against its solution; it CANNOT tell you the question is trivial, that the answer is given away in the prompt, or that the test asserts nothing meaningful. Praxis's grader owns exactly that gap and must not re-litigate what validate already decides. Depends on 84 (the schema and the validate gate) and on the batched-gating story (79), whose output it audits. Anti-fabrication IS the deliverable: a fabricated or trivial gate is rejected and never written, and a test proves a deliberately trivial/fabricated one is caught while a genuine one passes.",
   "parked": false,
   "dependsOn": [
-    "40-gated-progression",
+    "79-gating-backfill-by-domain",
     "84-nbgrader-cell-schema-adoption"
   ],
   "touches": [
     "praxis/",
-    "launcher/",
-    "src-tauri/",
-    "ui/",
+    "notebooks/",
     "tests/"
   ],
   "iters": 7,
   "warmup": [
-    "echo '--- the view-model data to reuse: _gated folds gated/locked/passed/checks into library rows ---'; grep -n 'def _gated\\|module_gates\\|gated\\|checks_path' launcher/app.py praxis/progress.py | head",
-    "echo '--- current coverage to reproduce ---'; echo \"gated: $(find notebooks -name '*.checks.json' | wc -l) / total: $(find notebooks -name '*.ipynb' | wc -l)\"",
-    "echo '--- how a library view model already reaches the UI ---'; grep -n 'api/library' launcher/app.py | head"
+    "echo '--- the grader to tighten, and its load-bearing verify_code half ---'; sed -n '362,420p' praxis/checks.py",
+    "echo '--- the sibling discipline on the construction side ---'; grep -n 'def construction_failures\\|def gate_failures\\|fabricat' praxis/rubric.py | head",
+    "echo '--- the rule that carries the weight: solution run against its own test ---'; grep -n 'verify_code\\|subprocess\\|solution\\|def _run' praxis/checks.py | head"
   ],
   "userStories": [
     {
-      "id": "US-1",
-      "title": "Compute gated coverage overall and per domain",
+      "id": "US-0",
+      "title": "Does jupyterquiz carry the rendering half?",
+      "description": "Added by the 2026-08-13 scan. Assess before hardening a hand-built surface.",
       "acceptanceCriteria": [
-        "A coverage report computes gated coverage overall (X/245) and per domain (X/N per domain) off the same _gated()/module_gates() view-model signal the gate already uses \u2014 the on-disk presence of 84's validate-passing nbgrader graded cells on a notebook \u2014 never a stored or hand-maintained number.",
-        "The report reproduces the real starting line (24/245 overall) when run against the shipped library today, so the assertion is grounded in reality rather than a placeholder; the per-domain breakdown is presented as the PRIMARY figure, because breadth across the 14 domains is what 79 optimizes for and an overall fraction hides eleven empty domains behind three full ones.",
-        "Gate green: python3 -m pytest -q tests/ passes, including a test that pins the X/245 arithmetic against a fixture library with a known gated subset (asserting both the overall and a per-domain fraction)."
+        "jupyterquiz is assessed for whether it can render and capture the checks praxis generates, with its maintenance base recorded \u2014 it is a small project, and the standing rule is to adopt nothing with poor support.",
+        "The boundary is stated explicitly: adopting rendering may not move the GRADER, the rubric, or the subprocess verification, which are what this tasklist hardens and what makes a praxis gate different from a quiz.",
+        "A DECLINE is recorded with its reason. A small dependency for a surface praxis already has working is a legitimate no."
       ],
       "passes": true,
-      "notes": "python3 -m pytest -q tests/: 996 passed, 1 failed->fixed, final run 996 passed, 0 failed. scripts/validate_nbgrader.py notebooks: 24 notebooks, 0 failures. python3 -m praxis.coverage against the shipped library: 24/245 notebooks gated (10%), in 8 of 14 domains \u2014 per-domain: Symbolic AI 0/15, AI/ML Tooling 1/15, LLM Inference 5/33, Agentic AI 0/16, Speech Audio 0/22, Proprietary Coding AI 0/9, Architectures 1/23, Procedural Gen 0/16, Data Analysis 0/15, DevOps/MLOps 1/65, Model Evaluation 4/4, Interpretability 3/3, Pretraining 4/4, RL & Training Dynamics 5/5. tests/test_coverage.py: 6 tests \u2014 fixture library pins 1/6 overall with Foundations 1/4 and Peripherals 0/2, and gating one more topic moves it to 2/6; the shipped-library test pins the report against an independent on-disk scan rather than a magic 24, so it survives the backfill."
+      "notes": "DECLINE recorded in docs/explanation/jupyterquiz-assessment.md. Maintenance base measured 2026-08-22: jmshea/jupyterquiz, 166 stars / 48 forks / 5 open issues, MIT, single author, created 2021-06-15, last push 2026-03-05, latest release 2.9.6.4 \u2014 not abandoned but a bus factor of one. Decisive reason is architectural, not maintenance: its render input IS the answer key (`answers` array with `correct`) and grading runs in the browser, so 'rendering only' still hands the learner the key that checks.learner_check() withholds; response capture never reaches a server (copy-paste per its own README). Measured against the shipped library (24 checksets / 144 checks) it covers 72 choice cleanly, 48 short with a downgrade from model-graded to fuzzy string match, and 0 of the 24 code checks \u2014 the ones the subprocess verification exists for. Boundary stated explicitly in the doc: checkset_failures, GATED_SECTIONS/rubric, the solution-against-its-own-test subprocess run, and the server-side gate may not move. Gate green: python3 -m pytest -q tests/ -> 1001 passed, 0 failed (after installing the launch extra; without it test_launcher_api.py skips as a module and the run reads 939 passed / 4 skipped). scripts/validate_nbgrader.py notebooks -> 24 notebooks, 0 failures. check-doc-links --ratchet -> 0 dead vs 0 on main."
+    },
+    {
+      "id": "US-1",
+      "title": "Audit backfilled checksets for fabricated or trivial questions",
+      "acceptanceCriteria": [
+        "An audit pass scans the checksets produced by the 79 backfill for the failure modes scale introduces \u2014 an answer given away in the prompt, a short-answer the notebook body already answers verbatim, a code check whose test asserts nothing, a duplicated/near-identical question across sections \u2014 and reports each with a specific reason.",
+        "The audit reuses the shipped signals (the write-path grader's shape, the GATED_SECTIONS coverage, the solution-against-its-own-test subprocess result) rather than a parallel grader, so it measures the same thing the write path enforces \u2014 and it audits ONLY the residue `nbgrader validate` does not cover (triviality, an answer given away, a test that asserts nothing), never re-implementing validate's wellformedness or execution checks.",
+        "Gate green: python3 -m pytest -q tests/ passes, including a test that the audit flags a deliberately trivial/fabricated fixture checkset and passes a genuine one."
+      ],
+      "passes": false
     },
     {
       "id": "US-2",
-      "title": "Surface the coverage in-app so a batch's progress is visible",
+      "title": "Tighten checkset_failures so a trivial set can never be written",
       "acceptanceCriteria": [
-        "The coverage report is surfaced in-app off the existing /api/library view-model data (a launcher endpoint or fields folded onto the library response), so backfill progress is visible and a resumed batch's new gates show up without a separate scan.",
-        "The UI renders whatever the launcher reports (overall + per-domain fractions) and holds no coverage logic of its own, mirroring how the library badges and KnowledgeChecks render server-supplied state.",
-        "Gate green: npm run build in ui/ and cargo build in src-tauri/ pass, python3 -m pytest -q tests/ covers the coverage endpoint, and the progress log shows the coverage number before and after gating one fixture topic (no dependency on the 79 batch having run \u2014 the tracker ships first so those batches are visible)."
+        "The write-path grader is tightened so the fabrication/triviality modes the audit found are caught at write time \u2014 a gate exhibiting one is rejected and never written (same rule as the constructor), with the solution-against-its-own-test subprocess run kept as the load-bearing check, and `nbgrader validate` still the authoritative gate it runs ALONGSIDE rather than replaces.",
+        "The new failure sentences are specific enough to act on (they feed the repair prompt and surface as the UI's error text), and the cheap load path stays cheap \u2014 the tightening lands only on the write/verify path.",
+        "Gate green: python3 -m pytest -q tests/ covers the tightened rules \u2014 asserting a fabricated/trivial gate is rejected with an actionable message and that the existing hand-built seed gates still pass (no regression to the 24 already gated)."
       ],
-      "passes": true,
-      "notes": "Gates observed green: python3 -m pytest -q tests/ -> 999 passed, 0 failed (4:40; 996 before, +3 new coverage-endpoint tests); npm run build in ui/ -> built in 326ms, 46 modules, tsc --noEmit clean; cargo build in src-tauri/ -> Finished dev profile in 22.87s, 0 errors; scripts/validate_nbgrader.py notebooks -> 24 notebooks, 0 failures. Surfaced by folding praxis.coverage.coverage_report onto build_model(), so /api/library carries `coverage` (overall + per-domain + breadth) and every domain row carries `covered` \u2014 no second endpoint, no second scan, no second poll. Both UIs render it and compute none of it (ui/src/App.tsx header legend + sidebar + domain pane; launcher/templates/index.html the same three places). Shipped library through the endpoint: 24/245 gated (10%), in 8 of 14 domains. Coverage before and after gating one fixture topic (Peripherals, limit=1, no model): BEFORE Foundations 1/4, Peripherals 0/2 = 1/6 (17%) in 1 of 2 domains; AFTER Foundations 1/4, Peripherals 1/2 = 2/6 (33%) in 2 of 2 domains, sidebar rows [('Foundations',1,4),('Peripherals',1,2)]. test_a_new_gate_shows_up_in_the_next_library_reads_coverage pins that same move through /api/library itself (0 -> 1 in the module, +1 overall, +1 domainsGated)."
+      "passes": false
+    },
+    {
+      "id": "US-3",
+      "title": "Re-audit checksets written before the tightened bar, and regenerate only by policy",
+      "acceptanceCriteria": [
+        "A re-audit pass runs the tightened grader over every gate already on disk that was written BEFORE the tightening landed (79 batches may run before this band merges), reporting each one that no longer meets the bar with the grader's specific sentence \u2014 measuring with the same tightened write-path grader, never a parallel one.",
+        "The gate rules are respected: an already-gated notebook is skipped, not rewritten \u2014 a pre-tightening gate that now fails is FLAGGED for regeneration, and regeneration is an explicit per-notebook pass through the shipped checks.py write path (grade-then-write, plus `nbgrader validate`), so a regenerated gate that fails the tightened bar is never written and the existing one stays in place rather than leaving the notebook ungated.",
+        "Gate green: python3 -m pytest -q tests/ passes, including a test that the re-audit flags a fixture gate failing only the NEW rules while leaving it on disk untouched, and that an explicit regeneration replaces it only with one passing the tightened bar."
+      ],
+      "passes": false
     }
   ]
 }

@@ -31,8 +31,8 @@
         "The boundary is stated explicitly: adopting rendering may not move the GRADER, the rubric, or the subprocess verification, which are what this tasklist hardens and what makes a praxis gate different from a quiz.",
         "A DECLINE is recorded with its reason. A small dependency for a surface praxis already has working is a legitimate no."
       ],
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "DECLINE recorded in docs/explanation/jupyterquiz-assessment.md. Maintenance base measured 2026-08-22: jmshea/jupyterquiz, 166 stars / 48 forks / 5 open issues, MIT, single author, created 2021-06-15, last push 2026-03-05, latest release 2.9.6.4 \u2014 not abandoned but a bus factor of one. Decisive reason is architectural, not maintenance: its render input IS the answer key (`answers` array with `correct`) and grading runs in the browser, so 'rendering only' still hands the learner the key that checks.learner_check() withholds; response capture never reaches a server (copy-paste per its own README). Measured against the shipped library (24 checksets / 144 checks) it covers 72 choice cleanly, 48 short with a downgrade from model-graded to fuzzy string match, and 0 of the 24 code checks \u2014 the ones the subprocess verification exists for. Boundary stated explicitly in the doc: checkset_failures, GATED_SECTIONS/rubric, the solution-against-its-own-test subprocess run, and the server-side gate may not move. Gate green: python3 -m pytest -q tests/ -> 1001 passed, 0 failed (after installing the launch extra; without it test_launcher_api.py skips as a module and the run reads 939 passed / 4 skipped). scripts/validate_nbgrader.py notebooks -> 24 notebooks, 0 failures. check-doc-links --ratchet -> 0 dead vs 0 on main."
     },
     {
       "id": "US-1",
