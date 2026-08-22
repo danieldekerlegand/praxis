@@ -1,3 +1,49 @@
 # Chief Progress — 82-chief-powered-construction
 Started: Sat Aug 22 10:33:32 CDT 2026
 ---
+
+## US-1 — Generate a Chief tasklist for a domain backfill or a JD-suggested subject (commit ee9509c)
+
+Added `praxis/tasklist.py`: the live library cut into UNITS of batch work, each emitted as
+`tasks/chief/<name>.json`.
+  - `backfill_unit(domain)`  -> `gate-<domain.dir>`, targets == `backfill.backfill_targets`
+  - `subject_unit(subject)`  -> `build-<subject.slug>`, wider (construct + gate)
+  - `accepted_units(jd_id)`  -> band 78's `accepted` rows resolved to subjects on disk
+  - `tasklist(unit)` / `tasklist_failures(doc)` / `write_tasklist(unit)`
+Added the CLI the generated tasklists name: `python3 -m praxis.backfill [--list] [DIR…]`
+(`--list` = the selection, no model call, no key). Added `tests/test_tasklist.py` (30 tests)
+and a CLAUDE.md section.
+
+Files: praxis/tasklist.py (new), praxis/backfill.py (+CLI), tests/test_tasklist.py (new),
+CLAUDE.md.
+
+Observed: pytest 1066 passed; validate_nbgrader 24 notebooks / 0 failures; category guard OK;
+doc-links 0 dead vs 0 on main; `python3 -m praxis.tasklist` = 221 pending across 10 of 14 units.
+
+### Learnings for future iterations
+
+- **The generator generates, it never constructs.** Every gate/rubric rule already has one
+  owner; a tasklist that ran its own loop would be a second definition of "complete". The
+  stories name `python3 -m praxis.backfill <dir>` / `python3 -m praxis.construct --subject
+  <slug>` and nothing else.
+- **Grade before writing, one level up.** `tasklist_failures()` is the same idiom as
+  `construction_failures` / `checkset_failures`, and `write_tasklist` refuses a document
+  that fails it — and refuses to overwrite an active or retired tasklist, whose `passes`
+  flags are chief's bookkeeping.
+- **Chief facts worth not re-deriving** (from ~/Development/chief, both tasklists completed):
+  `docs/guides/headless-invocation.md` — `chief run --headless` prints `chief: run-id=<id>`,
+  `run-file=`, `events=`, `state=` before the loop and one final
+  `chief: outcome=` / `exit=` / `summary={…json…}`; exit codes 0 merged · 2 config error ·
+  3 no-work · 4 verify-failed · 5 conflict · 6 failed · 7 paused.
+  `docs/guides/local-inference-preset.md` — `chief run --local` (`--preset local`,
+  `CHIEF_PRESET=local`) needs `CHIEF_LOCAL_ENDPOINT` + `CHIEF_LOCAL_MODEL` and errors rather
+  than falling back to a paid provider. US-2 consumes exactly these two documents.
+- **A criterion naming another repo fails the run UNSATISFIABLE** before the first turn
+  unless the tasklist declares `crossRepo` — so generated criteria stay inside the worktree
+  (a test asserts it). This tasklist (82) declares `crossRepo: ["chief"]`, which is why its
+  own criteria may name `chief:80-…`.
+- **A generated subject's notebooks land OUTSIDE the repo** (storage root), so a
+  `build-<slug>` tasklist's branch diff is not its evidence — recorded badge/gate counts are.
+- Test cost: the `domain` fixture in `tests/test_backfill.py` (importable, along with
+  `subjects_root`) costs ~5s per test because it really constructs and validates notebooks.
+  Document-shape tests use a synthetic `Unit` instead; only selection tests pay for it.
