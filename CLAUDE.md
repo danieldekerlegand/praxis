@@ -129,6 +129,14 @@ state converges without a model call: `generate_checks` republishes the stored s
 cells rather than asking for new questions. `publish_graded_cells()` is the one write —
 annotate, `nbgrader validate` a staging copy, and release only what nbgrader produced.
 
+`backfill_library()` is the batch over all 14 seed domains, and the only thing it adds to
+`backfill_domain` is the **order**: `library_targets()` interleaves the domains — `depth`
+targets from each before any domain's next — so an interrupted or capped run leaves every
+domain a little gated instead of three domains finished and eleven with none. Coverage
+across the library is what the gate is worth, so breadth is the default (`depth=1`, a pure
+round robin). Generated subjects are excluded from the seed batch on purpose; they reach
+the same gate through `construct_subject`.
+
 ## Progression: what the checks actually gate
 
 `praxis/progress.py` is the learner's side, and it is deliberately *only* bookkeeping and

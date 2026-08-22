@@ -22,14 +22,19 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+import curriculum  # noqa: E402
 from curriculum import save_subject, subject_from_dict, topic_path  # noqa: E402
 from nbstatus import notebook_status  # noqa: E402
 from praxis import construct  # noqa: E402
 from praxis.backfill import (  # noqa: E402
     backfill_domain,
+    backfill_library,
     backfill_targets,
+    coverage,
     domain_targets,
     is_gated,
+    library_domains,
+    library_targets,
 )
 from praxis.checks import (  # noqa: E402
     GATED_SECTIONS,
@@ -265,3 +270,119 @@ def test_a_domain_with_nothing_to_do_needs_no_model_at_all(domain, monkeypatch):
     monkeypatch.setattr(construct, "LLMClient", no_client)
 
     assert backfill_domain(module, subject=subject) == []
+
+
+# --- the whole library, breadth-first ---------------------------------------
+
+LIBRARY = {
+    "title": "Embedded Rust",
+    "blurb": "Drive real hardware from Rust.",
+    "modules": [
+        {
+            "title": "Foundations",
+            "blurb": "The language guarantees that matter on a microcontroller.",
+            "topics": [
+                {"title": "Ownership and Borrowing", "slug": "ownership", "runnable": True},
+                {"title": "Traits and Generics", "slug": "traits", "runnable": True},
+                {"title": "Timers", "slug": "timers", "runnable": True},
+                {"title": "Wiring a Dev Board", "slug": "wiring", "runnable": False,
+                 "note": "needs hardware"},
+            ],
+        },
+        {
+            "title": "Peripherals",
+            "blurb": "Talking to the pins.",
+            "topics": [
+                {"title": "GPIO", "slug": "gpio", "runnable": True},
+                {"title": "SPI", "slug": "spi", "runnable": True},
+            ],
+        },
+    ],
+}
+
+
+@pytest.fixture
+def library():
+    """Two domains in the state the seed library is in: one gated, most not.
+
+    Foundations: `ownership` gated, `traits` and `timers` ✅-but-ungated, `wiring` a
+    scaffold. Peripherals: `gpio` and `spi` both ✅-but-ungated.
+    """
+    subject = subject_from_dict(LIBRARY, goal="drive a microcontroller from Rust")
+    save_subject(subject)
+    scaffold_subject(subject)
+    foundations, peripherals = subject.modules
+    construct_topic(foundations, foundations.topics[0],
+                    client=FakeClient(cell_reply(good_cells())))
+    for module, index in [(foundations, 1), (foundations, 2),
+                          (peripherals, 0), (peripherals, 1)]:
+        construct_topic(module, module.topics[index],
+                        client=FakeClient(cell_reply(good_cells())), checks=False)
+    return [(foundations, subject), (peripherals, subject)]
+
+
+def test_the_batch_reaches_every_seed_domain_in_manifest_order():
+    """The default batch is the shipped library, read live and paired with no subject."""
+    domains = library_domains()
+
+    assert [d for d, _ in domains] == list(curriculum.DOMAINS)
+    assert {s for _, s in domains} == {None}   # the user's subjects are not seed data
+
+
+def test_the_order_is_breadth_first_across_domains_not_depth_first(library):
+    ordered = library_targets(library)
+
+    # One from Foundations, one from Peripherals, then back for the seconds.
+    assert [t.slug for _, t, _ in ordered] == ["traits", "gpio", "timers", "spi"]
+    assert [t.slug for _, t, _ in library_targets(library, depth=2)] == [
+        "traits", "timers", "gpio", "spi"]          # depth is the only knob between them
+
+
+def test_a_capped_pass_leaves_every_domain_a_little_gated(library):
+    (foundations, _), (peripherals, _) = library
+    client = FakeClient()
+
+    results = backfill_library(library, client=client, limit=2)
+
+    assert slugs(results) == ["traits", "gpio"]     # not the two topics of one domain
+    assert is_gated(foundations, foundations.topics[1])
+    assert is_gated(peripherals, peripherals.topics[0])
+    assert nbgrader_validate(topic_path(peripherals, peripherals.topics[0])) == []
+    # deepening is what the next pass does, not this one
+    assert not is_gated(foundations, foundations.topics[2])
+    assert not is_gated(peripherals, peripherals.topics[1])
+
+
+def test_a_batch_gates_only_the_ungated_and_a_rerun_is_a_no_op(library):
+    (foundations, subject), (peripherals, _) = library
+    gated = topic_path(foundations, foundations.topics[0])
+    scaffold = topic_path(foundations, foundations.topics[3])
+    before = (gated.read_bytes(), checks_path(gated).read_bytes(), scaffold.read_bytes())
+
+    results = backfill_library(library, client=FakeClient())
+
+    assert sorted(slugs(results)) == ["gpio", "spi", "timers", "traits"]
+    assert all(is_gated(d, t) for d, t, _ in domain_targets(foundations, subject=subject)
+               if t.slug != "wiring")
+    assert (gated.read_bytes(), checks_path(gated).read_bytes(),
+            scaffold.read_bytes()) == before        # untouched: already gated, and a scaffold
+    snapshots = [snapshot(foundations), snapshot(peripherals)]
+
+    client = FakeClient()
+    again = backfill_library(library, client=client)
+
+    assert again == [] and client.calls == [] and client.check_calls == []
+    assert [snapshot(foundations), snapshot(peripherals)] == snapshots
+
+
+def test_coverage_counts_what_a_breadth_pass_moves(library):
+    (foundations, _), (peripherals, _) = library
+
+    before = coverage(library)
+
+    assert [(d.title, g, c, t) for d, g, c, t in before] == [
+        ("Foundations", 1, 3, 4), ("Peripherals", 0, 2, 2)]
+
+    backfill_library(library, client=FakeClient(), limit=2)
+
+    assert [(g, c) for _, g, c, _ in coverage(library)] == [(2, 3), (1, 2)]

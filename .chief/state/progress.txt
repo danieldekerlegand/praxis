@@ -61,3 +61,68 @@ Started: Sat Aug 22 08:19:23 CDT 2026
   against the **staging** (authored) copy inside `publish_graded_cells`.
 - `FakeClient` in `tests/test_construct.py` answers both call kinds (notebook vs checks, told
   apart by system prompt) and records them separately — reuse it rather than writing another.
+
+---
+
+## 2026-08-22 — US-2 Batch the backfill across the 14 domains, resumably
+
+**What I did**
+- `praxis/backfill.py` gained the library batch, three functions and no new writer:
+  `library_domains()` (the seed manifest, read live off `curriculum.DOMAINS` the way
+  `promote`/`library_index` read it; generated subjects are opt-in via `subjects=True`),
+  `library_targets(domains, depth=1, limit=None)` and `backfill_library(...)` — a
+  one-liner over `construct_each`, exactly like `construct_domain`/`construct_subject`.
+- **The order is the only thing the batch adds.** `library_targets` interleaves the
+  per-domain backlogs: `depth` targets from each domain before any domain's next, so a
+  capped or interrupted run leaves every domain a little gated instead of three finished
+  and eleven with none. `depth=1` (pure round robin) is the default; a depth larger than
+  the biggest backlog degenerates to domain-at-a-time.
+- `coverage(domains)` returns per-domain `(domain, gated, complete, total)` — what the
+  fractions below were measured with. (Band 80 is the coverage *tracker*; this is the six
+  lines the batch needs to report itself, not that product surface.)
+- 5 new tests in `tests/test_backfill.py` over a two-module fixture: manifest order,
+  breadth-first vs `depth=2`, a capped pass gating one topic in *each* domain, a full
+  batch that gates only the ungated (the already-gated notebook and the scaffold come
+  back byte-identical) and whose re-run returns `[]` with zero client calls, and coverage.
+- Documented the batch in `CLAUDE.md` under **Knowledge checks**.
+
+**Verification**
+- `python3 -m pytest -q tests/` → **934 passed, 1 skipped** in 217s (16 in test_backfill).
+- `python3 scripts/validate_nbgrader.py notebooks` → **24 notebooks, 0 failures**.
+
+**Coverage: starting and ending gated/245**
+
+Start **24/245**. End **24/245** — unchanged, because gating a seed notebook needs a model
+call and **no LLM key is configured in this environment** (`praxis/llm.py` resolves none;
+every test client is a fake). What ran here is the batch's selection, against the real
+library: 221 targets, 10 of the 14 domains with a backlog. Per-domain `gated/complete`,
+identical before and after:
+
+    01-symbolic-ai-logic                      0/15     09-procedural-generation     0/16
+    02-ai-ml-tooling                          1/15     10-data-analysis-research    0/15
+    03-llm-inference-training-optimization    5/33     11-devops-mlops-infra        1/65
+    04-agentic-ai                             0/16     12-model-evaluation          4/4
+    05-speech-audio                           0/22     13-interpretability          3/3
+    07-proprietary-coding-ai                  0/9      14-pretraining               4/4
+    08-architectures                          1/23     15-rl-and-training-dynamics  5/5
+
+**The chosen order** is `curriculum.DOMAINS`' own — 01, 02, 03, 04, 05, 07, 08, 09, 10, 11,
+12, 13, 14, 15 — round-robined. Domains 12–15 are already fully gated and drop out, so the
+first breadth pass is these ten, one per domain:
+
+    01/swi-prolog · 02/pytorch · 03/open-r1 · 04/model-context-protocol · 05/ffmpeg
+    07/google-gemini · 08/rnn · 09/tracery · 10/r-language · 11/bedrock
+
+and the second is 01/datalog · 02/keras · 03/mingpt · 04/agent-to-agent · … . Running it
+for real is a keyed run (band 82 drives it); re-invoking after one is a no-op by
+construction, so the pass can be resumed at any point.
+
+**Learnings for future iterations**
+- No LLM key exists in the chief environment. Any story whose acceptance criteria imply
+  *moving* the 24/245 number needs a keyed run — the mechanism can be shipped and proved
+  against fakes, the coverage number cannot be moved here. Say which one you did.
+- `library_targets` takes `(Domain, Subject|None)` pairs, not Domains, because
+  `topic_path` resolves a subject's module under `subjects_dir()`. Tests build a real
+  two-module subject in tmp and pass the pairs; the default is the seed manifest.
+- Each gated notebook costs ~5s (the `nbgrader validate` subprocess), so a test that
+  gates four is a ~25s test. Keep batch fixtures small — the suite is now ~3m40s.

@@ -1,4 +1,4 @@
-"""Gating backfill: drive the ✅-but-ungated library to gated, one domain at a time.
+"""Gating backfill: drive the ✅-but-ungated library to gated, in domain-sized batches.
 
 This invents no gating primitive. It is a *selector* in front of the shipped batch loop
 — `construct_each` → `construct_topic(..., checks=True)` → `praxis/checks.py` over
@@ -16,21 +16,29 @@ make an unattended, resumable run safe:
   the notebook carries the graded cells;
 - a notebook that is not yet ✅ is **left for construction**, never force-gated: checks
   written against a scaffold would ask questions about prose nobody has written.
+
+`backfill_domain` runs one domain; `backfill_library` runs the whole shipped manifest
+and is the entry point a batch uses. The difference between them is only the **order**:
+the library batch interleaves the domains rather than draining one at a time, because
+coverage across all 14 is what the gate is worth — see `library_targets`.
 """
 
 from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import curriculum  # noqa: E402  (module, not `from ... import DOMAINS`: read live)
 from curriculum import (  # noqa: E402
     CurriculumError,
     Domain,
     Subject,
     Topic,
+    all_subjects,
     domain_path,
     topic_path,
 )
@@ -118,3 +126,84 @@ def backfill_domain(
         targets = targets[:max(0, limit)]
     kwargs.setdefault("checks", True)
     return construct_each(targets, **kwargs)
+
+
+# --- the whole library, breadth-first ---------------------------------------
+
+
+def library_domains(*, subjects: bool = False) -> list[tuple[Domain, Subject | None]]:
+    """Every domain a batch can reach, paired with the curriculum it belongs to.
+
+    The order is `curriculum.DOMAINS`' own — the numbered seed domains, 01 through 15
+    — read live rather than bound at import, the way `promote`/`library_index` read it,
+    so a domain appended to the manifest joins the batch with no change here. Generated
+    subjects are off by default: their notebooks reach the same gate through
+    `construct_subject`, and a backfill of the shipped library must not walk into the
+    user's data.
+    """
+    domains: list[tuple[Domain, Subject | None]] = [(d, None) for d in curriculum.DOMAINS]
+    if subjects:
+        domains += [(m, s) for s in all_subjects() for m in s.modules]
+    return domains
+
+
+def library_targets(
+    domains: Sequence[tuple[Domain, Subject | None]] | None = None,
+    *,
+    depth: int = 1,
+    limit: int | None = None,
+) -> list[Target]:
+    """The library's ungated ✅ topics, ordered **breadth-first across domains**.
+
+    Each domain's own backlog stays in curriculum order, but the batch takes only
+    `depth` of them before moving to the next domain and comes back for the next
+    `depth` on the following round. So a run that is interrupted — or capped with
+    `limit` — leaves every domain a little gated rather than three domains finished
+    and eleven with nothing, which is the coverage this band is measured on.
+
+    `depth` is the only knob between the two extremes: 1 is a pure round robin, and a
+    number larger than the biggest domain's backlog degenerates to domain-at-a-time.
+    """
+    if domains is None:
+        domains = library_domains()
+    queues = [backfill_targets(domain, subject=subject) for domain, subject in domains]
+    ordered: list[Target] = []
+    step = max(1, depth)
+    for start in range(0, max((len(q) for q in queues), default=0), step):
+        for queue in queues:
+            ordered.extend(queue[start:start + step])
+    return ordered if limit is None else ordered[:max(0, limit)]
+
+
+def backfill_library(
+    domains: Sequence[tuple[Domain, Subject | None]] | None = None,
+    *,
+    depth: int = 1,
+    limit: int | None = None,
+    **kwargs,
+) -> list[ConstructionResult]:
+    """Gate the library's ungated ✅ notebooks, breadth-first across its domains.
+
+    A one-liner over `construct_each`, exactly like `construct_domain` and
+    `construct_subject` — which is where every property an unattended run needs comes
+    from: a topic gated by an earlier batch is not selected at all, one the model could
+    not make gradable comes back "failed" instead of stranding the rest, and a pass
+    with nothing left to do resolves no client and so costs no key.
+    """
+    kwargs.setdefault("checks", True)
+    return construct_each(library_targets(domains, depth=depth, limit=limit), **kwargs)
+
+
+def coverage(
+    domains: Sequence[tuple[Domain, Subject | None]] | None = None,
+) -> list[tuple[Domain, int, int, int]]:
+    """Per-domain `(domain, gated, complete, total)` — what a breadth pass moves."""
+    if domains is None:
+        domains = library_domains()
+    counted = []
+    for domain, subject in domains:
+        targets = domain_targets(domain, subject=subject)
+        complete = [(d, t) for d, t, _ in targets if is_complete(d, t)]
+        counted.append((domain, sum(is_gated(d, t) for d, t in complete),
+                        len(complete), len(targets)))
+    return counted
