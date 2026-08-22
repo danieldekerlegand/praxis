@@ -102,6 +102,9 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+      # nbgrader arrives with the core deps (it is pinned in [project].dependencies, not an
+      # extra), which is what makes the validate step below runnable. verify.sh probes for the
+      # same three imports locally and repairs a stale .venv rather than skipping the gate.
       - run: pip install -e '.[launch,dev]'
       - run: python scripts/validate_nbgrader.py notebooks
       - run: python -m pytest -q tests/

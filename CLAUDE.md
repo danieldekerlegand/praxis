@@ -284,8 +284,15 @@ Same reason `launcher.app.library_path()` exists for `/render`.
 ## Gates
 
 `python3 -m pytest -q tests/` (notebook core + launcher API), `npm run build` in `ui/`,
-`cargo build` in `src-tauri/`. `.chief/verify.sh` runs them path-scoped. The launcher tests
+`cargo build` in `src-tauri/`. `.chief/verify.sh` runs them path-scoped, plus
+`scripts/validate_nbgrader.py notebooks` — the authoritative graded-cell gate. The launcher tests
 skip themselves without the launch extra: `uv pip install --python .venv/bin/python -e '.[launch]'`.
+
+`nbgrader` is a pinned **core** dependency, not an extra, so an environment without it does not
+skip the graded-cell gate — it fails it. `verify.sh` probes for it alongside pytest/nbformat and
+repairs a `.venv` predating the pin with the same editable install CI runs, because
+`praxis.checks` resolves nbgrader's console script beside the *running* interpreter: the
+interpreter that runs the tests must be the one that has it.
 
 `.github/workflows/ci.yml` is the same three checks on every PR to `main`, with the same
 path predicates — change one and change the other. Its Rust job builds the frontend first

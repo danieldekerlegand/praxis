@@ -41,14 +41,35 @@ fi
 # The three manifests and scripts/ are in scope too: tests/test_packaging.py is where the
 # release version is pinned in step across them (and where the release script is asserted
 # on), so a lone version bump in tauri.conf.json must reach this gate.
+#
+# nbgrader belongs in that toolchain probe, not just pytest/nbformat: it is a pinned CORE
+# dependency (pyproject.toml) and `nbgrader validate` is the authoritative gate for graded
+# cells, so an environment without it does not skip the gate — it fails every graded-cell
+# test with "nbgrader validate is unavailable". A .venv predating the pin is exactly that
+# environment, so repair it in place with the same editable install CI runs before giving
+# up. `praxis.checks` resolves nbgrader's console script beside the running interpreter,
+# so the interpreter that runs the tests must be the one that has it.
 if echo "$changed" | grep -qE '\.(py|ipynb)$|^notebooks/|^tests/|^scripts/|^pyproject\.toml$|^ui/package\.json$|^src-tauri/tauri\.conf\.json$'; then
-  py=python3
-  [ -x .venv/bin/python ] && py=.venv/bin/python
-  if "$py" -c 'import pytest, nbformat' >/dev/null 2>&1; then
+  ready(){ [ -x "$1" ] || command -v "$1" >/dev/null 2>&1 || return 1
+           "$1" -c 'import pytest, nbformat, nbgrader' >/dev/null 2>&1; }
+  bootstrap(){ echo "verify: installing the pinned python deps into $1"
+               if command -v uv >/dev/null 2>&1; then
+                 uv pip install --quiet --python "$1" -e . >/dev/null 2>&1
+               else
+                 "$1" -m pip install --quiet -e . >/dev/null 2>&1
+               fi; }
+  py=""
+  preferred=python3
+  [ -x .venv/bin/python ] && preferred=.venv/bin/python
+  if ready "$preferred"; then py="$preferred"
+  elif bootstrap "$preferred" && ready "$preferred"; then py="$preferred"
+  elif [ "$preferred" != python3 ] && ready python3; then py=python3
+  fi
+  if [ -n "$py" ]; then
     run "$py" scripts/validate_nbgrader.py notebooks
     run "$py" -m pytest -q tests/
   else
-    echo "skip: pytest/nbformat not installed (create .venv: uv venv .venv && uv pip install --python .venv/bin/python pytest nbformat)"
+    echo "skip: pytest/nbformat/nbgrader not installed (create .venv: uv venv .venv && uv pip install --python .venv/bin/python -e '.[launch,dev]')"
   fi
 fi
 
