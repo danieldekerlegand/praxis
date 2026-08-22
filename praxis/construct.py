@@ -60,7 +60,12 @@ from curriculum import (  # noqa: E402
     topic_path,
 )
 from nbstatus import notebook_meta, status_from_dict  # noqa: E402
-from praxis.checks import ChecksResult, annotate_notebook, generate_checks  # noqa: E402
+from praxis.checks import (  # noqa: E402
+    ChecksResult,
+    annotate_notebook,
+    generate_checks,
+    graded_cells,
+)
 from praxis.curriculum_gen import extract_json  # noqa: E402
 from praxis.llm import LLMClient, LLMError  # noqa: E402
 from praxis.rubric import construction_failures, notebook_text  # noqa: E402
@@ -405,12 +410,20 @@ def _with_checks(
     Reported alongside the notebook rather than folded into it: the notebook on disk is
     genuinely complete either way, and a set of checks the model could not make gradable
     must not un-write it. `result.checks_ok` is the "this tutorial can be gated" half.
+
+    A notebook that was skipped as already-✅ is still annotated when it carries none of
+    84's graded cells yet — that resume path is the whole gating backfill, and writing
+    only the sidecar there would quietly reintroduce the parallel checkset format the
+    nbgrader schema replaced. Once the cells are in, the skip stands: `generate_checks`
+    returns "skipped" before it touches the file.
     """
     if not enabled:
         return result
+    annotate = result.status != "skipped" or not graded_cells(nb)
     return replace(result, checks=generate_checks(
-        domain, topic, notebook=nb, annotate=result.status != "skipped", **kwargs
+        domain, topic, notebook=nb, annotate=annotate, **kwargs
     ))
+
 
 
 # --- constructing many ------------------------------------------------------

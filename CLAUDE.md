@@ -114,7 +114,28 @@ the `CheckOutcome`.
 
 `construct_topic(..., checks=True)` attaches a `ChecksResult` to the
 `ConstructionResult`. A set the model couldn't make gradable does **not** un-write a good
-notebook: `result.ok` is about the notebook, `result.checks_ok` about the gate.
+notebook: `result.ok` is about the notebook, `result.checks_ok` about the gate. A topic
+that was skipped as already-✅ still gets its graded cells written when it carries none
+yet — that resume path *is* the gating backfill, and writing only the sidecar there would
+quietly reintroduce the format the nbgrader schema replaced.
+
+`praxis/backfill.py` is that same path pointed at the library the seed notebooks are
+already in. It writes no gate of its own — it **selects** (the ✅-but-ungated topics of
+one domain) and hands them to `construct_each`. Two rules make an unattended run safe:
+a notebook that is not yet ✅ is left for construction, never force-gated, and an
+already-gated one is skipped, where gated means `checks.graded_cells(nb)` **and** a
+loadable answer key — a sidecar on its own is a half-migrated gate, not a gate. That
+state converges without a model call: `generate_checks` republishes the stored set's
+cells rather than asking for new questions. `publish_graded_cells()` is the one write —
+annotate, `nbgrader validate` a staging copy, and release only what nbgrader produced.
+
+`backfill_library()` is the batch over all 14 seed domains, and the only thing it adds to
+`backfill_domain` is the **order**: `library_targets()` interleaves the domains — `depth`
+targets from each before any domain's next — so an interrupted or capped run leaves every
+domain a little gated instead of three domains finished and eleven with none. Coverage
+across the library is what the gate is worth, so breadth is the default (`depth=1`, a pure
+round robin). Generated subjects are excluded from the seed batch on purpose; they reach
+the same gate through `construct_subject`.
 
 ## Progression: what the checks actually gate
 

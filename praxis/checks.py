@@ -42,7 +42,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -56,6 +56,8 @@ from praxis.rubric import RUBRIC_SECTIONS, notebook_text  # noqa: E402
 
 CHECKS_VERSION = 1
 CHECKS_SUFFIX = ".checks.json"
+# The `praxis` metadata namespace `annotate_notebook()` stamps on every cell it owns.
+CHECKS_EXTENSION = "checks"
 
 DEFAULT_ATTEMPTS = 3
 
@@ -370,6 +372,19 @@ def autograder_tests_metadata(*, grade_id: str, source: str) -> dict:
     }
 
 
+def graded_cells(nb: dict) -> list[dict]:
+    """The Praxis-owned graded cells of a notebook — what `annotate_notebook` wrote.
+
+    One reader for the `praxis.extension` namespace, so "is this notebook gated?" is
+    answered the same way everywhere: by the cells in the nbgrader schema, not by the
+    presence of a sidecar beside it.
+    """
+    return [
+        cell for cell in nb.get("cells", [])
+        if cell.get("metadata", {}).get("praxis", {}).get("extension") == CHECKS_EXTENSION
+    ]
+
+
 def annotate_notebook(nb: dict, checks: list[dict] | tuple[dict, ...] = ()) -> dict:
     """Add nbgrader metadata and learner-visible graded cells in place.
 
@@ -381,8 +396,8 @@ def annotate_notebook(nb: dict, checks: list[dict] | tuple[dict, ...] = ()) -> d
     # A forced regeneration may start from the learner artifact produced by the
     # previous release.  Remove only Praxis-owned graded cells so stale answers
     # and hidden tests cannot survive into the new authored source.
-    cells[:] = [c for c in cells if c.get("metadata", {}).get("praxis", {}).get(
-        "extension") != "checks"]
+    stale = {id(c) for c in graded_cells(nb)}
+    cells[:] = [c for c in cells if id(c) not in stale]
     for index, cell in enumerate(cells, 1):
         metadata = cell.setdefault("metadata", {})
         metadata.setdefault("nbgrader", source_metadata(
@@ -414,7 +429,7 @@ def annotate_notebook(nb: dict, checks: list[dict] | tuple[dict, ...] = ()) -> d
                     kind=kind, grade_id=grade_id, source=source,
                 ),
                 # Explicitly namespaced: nbgrader consumers ignore this extension.
-                "praxis": {"extension": "checks", "kind": kind,
+                "praxis": {"extension": CHECKS_EXTENSION, "kind": kind,
                             "grade_id": grade_id},
             },
             "source": [source],
@@ -424,6 +439,28 @@ def annotate_notebook(nb: dict, checks: list[dict] | tuple[dict, ...] = ()) -> d
         cells[:] = [c for c in cells if c.get("id") != grade_id]
         cells.append(cell)
     return nb
+
+
+def publish_graded_cells(nb: dict, checks: list[dict], target: str | Path) -> list[str]:
+    """Write a set's graded cells into the notebook at *target*, via nbgrader.
+
+    The authored notebook — reference solutions and hidden tests included — is built in
+    a staging file, and only the artifact nbgrader's own release converter produces is
+    published.  Returns `nbgrader validate`'s failures; on any failure nothing is
+    written, so a notebook never gains a gate its own validator rejects.  The sidecar
+    remains the answer-key store for Praxis's `learner_check` boundary.
+    """
+    target = Path(target)
+    annotate_notebook(nb, checks)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="praxis-source-", dir=target.parent) as staging:
+        authored = Path(staging) / target.name
+        authored.write_text(json.dumps(nb, indent=1) + "\n")
+        failures = nbgrader_validate(authored)
+        if failures:
+            return failures
+        release_notebook(authored, target)
+    return []
 
 
 def release_notebook(source: str | Path, destination: str | Path) -> Path:
@@ -562,7 +599,7 @@ def migrate_checks_to_nbgrader(root: str | Path) -> int:
                     str(doc.get("slug") or notebook.stem), check.get("section", ""),
                     check.get("kind", ""), check.get("prompt", ""),
                 ))
-        doc.setdefault("praxis", {"extension": "checks", "version": 1,
+        doc.setdefault("praxis", {"extension": CHECKS_EXTENSION, "version": 1,
                                    "kinds": ["choice", "short"]})
         annotate_notebook(nb, doc["checks"])
         sidecar.write_text(json.dumps(doc, indent=2) + "\n")
@@ -963,13 +1000,29 @@ def generate_checks(
     """
     path = topic_checks_path(domain, topic)
     existing = load_checks(path)
-    if existing is not None and not force and not checkset_failures(existing, verify_code=False):
-        return ChecksResult(
-            path=path, slug=topic.slug, title=topic.title, status="skipped",
-            count=len(existing.get("checks", [])), detail="already generated",
-        )
-
     nb = notebook if notebook is not None else _read_notebook(topic_path(domain, topic))
+    if existing is not None and not force and not checkset_failures(existing, verify_code=False):
+        stored = [c for c in existing.get("checks", []) if isinstance(c, dict)]
+        skipped = ChecksResult(
+            path=path, slug=topic.slug, title=topic.title, status="skipped",
+            count=len(stored), detail="already generated",
+        )
+        if not annotate or not write or nb is None or graded_cells(nb):
+            return skipped
+        # The answer key is on disk but the notebook carries none of the graded cells —
+        # a set written before the nbgrader schema was adopted. Publish the cells from
+        # the stored set: the gate the learner meets is the one in the notebook, and
+        # repairing it must not cost a model call or a new set of questions.
+        failures = publish_graded_cells(nb, stored, topic_path(domain, topic))
+        if failures:
+            return ChecksResult(
+                path=path, slug=topic.slug, title=topic.title, status="failed",
+                count=len(stored), failures=tuple(failures),
+                detail="the stored set does not validate as graded cells",
+            )
+        return replace(skipped, status="generated",
+                       detail="graded cells written from the stored set")
+
     if nb is None:
         return ChecksResult(
             path=path, slug=topic.slug, title=topic.title, status="failed",
@@ -1003,19 +1056,10 @@ def generate_checks(
         failures = checkset_failures(doc)
         if not failures:
             if write:
-                # Build the authored notebook in a staging file and publish only the
-                # notebook produced by nbgrader. The sidecar remains the answer-key
-                # store for Praxis's learner_check boundary.
                 if annotate:
-                    annotate_notebook(nb, checks)
-                    target = topic_path(domain, topic)
-                    with tempfile.TemporaryDirectory(prefix="praxis-source-", dir=target.parent) as staging:
-                        authored = Path(staging) / target.name
-                        authored.write_text(json.dumps(nb, indent=1) + "\n")
-                        failures = nbgrader_validate(authored)
-                        if failures:
-                            continue
-                        release_notebook(authored, target)
+                    failures = publish_graded_cells(nb, checks, topic_path(domain, topic))
+                    if failures:
+                        continue
                 save_checks(path, doc)
             return ChecksResult(
                 path=path, slug=topic.slug, title=topic.title, status="generated",
