@@ -1,3 +1,92 @@
 # Chief Progress — 85-jupyterlite-delivery
 Started: Sat Aug 22 11:19:51 CDT 2026
 ---
+
+## Codebase Patterns
+
+- **The seed library notebooks ARE the released artifact.** `checks.publish_graded_cells()`
+  writes nbgrader's `generate_assignment` output to `topic_path()`, so `notebooks/**.ipynb`
+  carry no reference solutions. The answer key is the `<slug>.checks.json` sidecar beside
+  them — so anything copying a notebook DIRECTORY carries the key. Copy files, not dirs.
+- **`checks.graded_cells()` does not find every graded cell.** It matches only
+  `metadata.praxis.extension == "checks"`. nbgrader's companion autograder-tests cell
+  (`grade_id` `<id>-tests`, `grade+locked`, no praxis namespace) is NOT in that list — and
+  its assertions are the answer. Any "is this safe to show?" check needs the nbgrader flags
+  too, which is what `lite._graded()` does. Measured: 24 seed notebooks carry 24 such cells
+  with their assertions in plain text, so the shipped library's "hidden tests" are visible
+  in any full-notebook render. Relevant to US-3.
+- **The system `python3` here is 3.14 with the core deps; there is no `.venv`.** The full
+  suite takes ~6 min. Two concurrent `pytest -q tests/` runs roughly double that — run one.
+- **`npm run build` needs `npm --prefix ui ci` first** in a fresh worktree (no node_modules).
+- Network is available (pypi, npm, jsdelivr) but the framework Python's SSL has no CA
+  bundle — `urllib` fails with CERTIFICATE_VERIFY_FAILED while `curl` works. That is why
+  `praxis.lite index` takes `--lock <file>`.
+
+---
+
+## US-1 — A JupyterLite site that runs a released tutorial with no local Python (done)
+
+Commit d4ecb30.
+
+**What was built**
+
+- `praxis/lite.py` — the staging half of the adoption. Pins (`JUPYTERLITE_CORE` 0.8.3,
+  `JUPYTERLITE_PYODIDE_KERNEL` 0.8.5, `JUPYTER_SERVER` 2.14.2 build-time only) live here
+  and nowhere else; the build script reads them back via `python3 -m praxis.lite pins`.
+  `browser_notebook()` strips every graded region, `leak_failures()` re-inspects the
+  artifact after stripping, `stage_contents()` raises rather than writing a leak,
+  `requirements()` triages imports against the vendored Pyodide index.
+- `praxis/data/pyodide-packages.json` — vendored `pyodide-lock.json` `imports` map (304
+  importable names) + stdlib names, for Pyodide v314.0.5 / CPython 3.14.2. Regenerate with
+  `python3 -m praxis.lite index --pyodide v314.0.5 [--lock <file>]`.
+- `scripts/build-jupyterlite.sh` (`--check` / `--force`), `make build-lite`, wired into
+  `make build` (before `build-ui`) and `make bundle`. Stamp-guarded: a re-run with the site
+  already staged for the current pins took 0.34s.
+- `docs/reference/jupyterlite.md` (linked from `docs/README.md`, cross-referenced from
+  `docs/reference/packaging.md`) — states the runtime/gate split explicitly.
+- `tests/test_lite.py` — 16 tests. The built-site test skips itself when no site is staged,
+  the same discipline the launcher tests use for the launch extra.
+
+**Observed**
+
+- Site: 72 MB at `src-tauri/resources/jupyterlite`. 101 notebooks under `files/`, 0
+  `*.checks.json`, 0 notebooks failing `leak_failures`.
+- **Category counts (the acceptance criterion asked for these in progress.txt):**
+  | category | seed notebooks |
+  |---|---|
+  | runnable in the browser (`available`) | **101** |
+  | `unavailable-in-browser` | **144** |
+  | total | **245** |
+  Top blockers: torch (49), transformers (24), anthropic (8), datasets (7), trl (6).
+- **End to end in a real browser**, headless chromium via playwright against the static
+  site: `lab/index.html?path=08-architectures/resnet.ipynb` → Run > Run All Cells → all 4
+  code cells reached execution counts `[1]`…`[4]` on the Pyodide kernel, numpy 2.4.6
+  auto-loaded, 4 output areas, 0 errors, first output line
+  `numpy 2.4.6 — ResNet internals from scratch, CPU-only, no downloads`. Nothing Python-side
+  was involved in executing that notebook; the only local process was a static file server
+  (Rust will be that server in US-2).
+- Gates: `pytest -q tests/` **1117 passed** in 369.92s (baseline on this branch before the
+  change: 1101 passed in 373.71s). `npm run build` in `ui/` green. `cargo build` in
+  `src-tauri/` green (22.84s). `scripts/validate_nbgrader.py notebooks` → 24 notebooks, 0
+  failures. `check-doc-links.mjs` → 0 dead references.
+
+**Learnings for future iterations**
+
+- The pinned kernel loads Pyodide from `cdn.jsdelivr.net/pyodide/v314.0.5/full/`, so a
+  FIRST run needs network even though nothing is installed locally. Documented, not fixed —
+  `jupyter lite build --pyodide <dist>` is the offline path and adds ~250 MB. If US-2's
+  "zero terminals" demo is run offline, expect the kernel not to start; that is this, not a
+  bundling bug.
+- The site is 72 MB. Do NOT put it in `ui/dist` — that is embedded into the Rust binary at
+  compile time. Serve it from `src-tauri/resources/` as a Tauri **resource** (the pattern
+  `praxis-runtime` + `tauri.embedded.conf.json` already established). US-2 should follow
+  that, plus a small static file server in `library.rs`.
+- `jupyterlite-core` needs `jupyter-server` installed at BUILD time or the contents addon
+  fails with "jupyter-server is not installed. You cannot add custom content to
+  jupyterlite." — hence the third pin.
+- 5 of the 101 "available" notebooks have zero Python code cells (R/Quarto topics — their
+  content is conceptual). "Available" means "nothing it imports is missing", not "it has
+  code to run".
+- `window.jupyterapp` is NOT exposed by JupyterLite's lab page; drive it through the menu
+  (`Run` → `Run All Cells`) and read `.jp-InputPrompt` / `.jp-OutputArea-output` from the
+  DOM.
