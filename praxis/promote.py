@@ -59,7 +59,7 @@ def domain_numbering_failures(
     top-level directories, while allowing the legacy domain's nested notebooks.
     """
     root = Path(root) if root is not None else curriculum.NOTEBOOKS_DIR
-    manifest = list(domains if domains is not None else DOMAINS)
+    manifest = list(domains if domains is not None else curriculum.DOMAINS)
     manifest_dirs = [d.dir for d in manifest if d.source != "subject"]
     failures: list[str] = []
     if any(d.startswith("06-") for d in manifest_dirs):
@@ -68,8 +68,11 @@ def domain_numbering_failures(
                if (match := re.match(r"^(\d{2})-", d))]
     if len(numbers) != len(set(numbers)):
         failures.append("domain numbers must be unique")
-    if set(numbers) != set(range(1, 16)) - {6}:
-        failures.append("DOMAINS must contain 01-05 and 07-15")
+    required = set(range(1, 16)) - {6}
+    if numbers and max(numbers) >= 16:
+        required.update(range(16, max(numbers) + 1))
+    if set(numbers) != required:
+        failures.append("DOMAINS must contain 01-05, 07-15, and contiguous appended domains")
     disk_dirs = {p.name for p in root.iterdir() if p.is_dir()} if root.is_dir() else set()
     if set(manifest_dirs) != {d for d in disk_dirs if re.match(r"^\d{2}-", d)}:
         failures.append("on-disk numbered domain directories must match DOMAINS")
