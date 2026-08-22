@@ -813,3 +813,11 @@ Re-ran `CHIEF_BASE_BRANCH=main .chief/verify.sh` after the recorded verification
 ### Learnings for future iterations
 
 - The prior failure was environment-dependent; the current repository-local verification environment has the pinned nbgrader dependency and passes the full gate.
+
+## Verification recovery — 2026-08-21 (current iteration)
+
+Re-ran `CHIEF_BASE_BRANCH=main .chief/verify.sh`. Observed `doc-links: 0 dead vs 0 on main`, nbgrader validation of 24 notebooks with 0 failures, and `918 passed, 1 skipped`; the merge gate reported `verify: PASS`.
+
+### Learnings for future iterations
+
+- When all stories are already passed but a prior verification block remains, rerun the exact merge gate in the repository-local environment before reporting completion; the earlier failure was caused by an unavailable dependency/environment rather than implementation regressions.
