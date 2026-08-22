@@ -325,3 +325,36 @@ def test_the_discovery_order_gains_a_step_rather_than_losing_the_fallbacks():
     found = [body.find(step) for step in order]
     assert all(at >= 0 for at in found), dict(zip(order, found))
     assert found == sorted(found), f"discovery order changed: {dict(zip(order, found))}"
+
+
+# --- the dependencies praxis deliberately does not have ----------------------
+# An adoption assessment that lives only in a scan note decays into a re-litigation.
+# jupyterquiz was assessed on 2026-08-22 and DECLINED — its rendering is inseparable from
+# its client-side grading, so using it would hand the learner the answer key that
+# `checks.learner_check()` exists to withhold. docs/explanation/jupyterquiz-assessment.md
+# is the record; these two assertions are what keep it true.
+
+DECLINE_DOC = ROOT / "docs" / "explanation" / "jupyterquiz-assessment.md"
+
+
+def test_jupyterquiz_is_declared_nowhere():
+    """A dependency added later must fail here first, and read the record before removing it."""
+    manifests = {
+        "pyproject.toml": (ROOT / "pyproject.toml").read_text(),
+        "ui/package.json": (ROOT / "ui" / "package.json").read_text(),
+    }
+    for rel, text in manifests.items():
+        assert "jupyterquiz" not in text.lower(), f"{rel} adopts jupyterquiz; see {DECLINE_DOC.name}"
+
+
+def test_the_decline_is_recorded_with_its_reason_and_is_reachable():
+    """docs/README.md's rule: a document not linked there does not exist."""
+    record = DECLINE_DOC.read_text()
+    assert "DECLINE" in record
+    # The maintenance base the standing "adopt nothing with poor support" rule needs.
+    for measured in ("jmshea/jupyterquiz", "166", "2026-03-05", "MIT"):
+        assert measured in record, f"the assessment records no {measured!r}"
+    # The boundary the adoption was not allowed to move.
+    for boundary in ("learner_check", "checkset_failures", "GATED_SECTIONS", "subprocess"):
+        assert boundary in record, f"the assessment does not state the {boundary} boundary"
+    assert "explanation/jupyterquiz-assessment.md" in (ROOT / "docs" / "README.md").read_text()

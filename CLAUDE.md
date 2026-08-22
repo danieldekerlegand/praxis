@@ -155,6 +155,51 @@ second poll, and `library_report()` reads that same key rather than counting aga
 UIs render what the launcher counted (`ui/src/App.tsx`, `launcher/templates/index.html`)
 and neither holds coverage logic, the same rule `KnowledgeChecks.tsx` follows for locks.
 
+`praxis/gateaudit.py` asks the question the two write-path gates cannot: `nbgrader
+validate` proves a graded cell is well-formed and that its hidden tests run, and
+`checkset_failures` proves the set is *gradable* — neither proves it is worth grading.
+That residue is all this module looks at, and it re-implements no part of either: it
+calls `checkset_failures` for the gradability half and adds four measured rules — a
+`choice` whose correct option is already spelled out in its prompt, a `short` whose key
+is quoted back in the question or copied out of the notebook body (`body_text()` drops
+the Praxis-owned cells first, because a question is not evidence for itself), a `code`
+check whose `test` still passes an empty submission or the starter stub (the shipped
+`run_code_check()` subprocess pointed the other way — generation proves the reference
+solution passes, the audit proves nothing else does), and two near-identical prompts in
+one set. Every threshold is set against the 24 hand-built seed gates, which is the bar a
+backfilled gate has to hold: `python3 -m praxis.gateaudit` flags 0 of them, and a test
+pins that. Tighten a threshold only with that measurement in hand.
+
+Those four rules are also **the write path's**, not a report run after the fact:
+`checkset_failures(doc, quality=…, notebook=…)` calls `quality_failures` /
+`duplicate_failures` out of `gateaudit`, so a trivial set is rejected and never written
+exactly where an ungradable one is, and the sentences become `_repair_prompt`'s feedback
+and the UI's error text. `quality` follows `verify_code`, which is what keeps the two
+paths honest: the cheap load path (`needs_checks()`, and generation's already-generated
+skip) runs neither, so a gate written before the bar existed is skipped rather than
+silently re-judged or rewritten — re-auditing those is `gateaudit`'s own pass, on
+purpose. Import it **inside** the function: `gateaudit` imports `praxis.checks` at
+module level, so the dependency runs one way at import time.
+
+`praxis/regate.py` is that pass, pointed at the gates that were already on disk when the
+bar landed — and it needs no marker to find them: the write path now rejects a set that
+fails the tightened bar, so a gate that fails it **is** one written before the tightening,
+measured rather than recorded (the same reason `progress.py` re-derives an unlock instead
+of storing one). It owns no rule. `bar_failures()` is one call to
+`checkset_failures(doc, verify_code=True, notebook=body_text(nb))` — `quality` left to
+follow `verify_code` — so what it reports is exactly "would the write path accept this
+today?", down to the sentence; `gateaudit` splits the two halves for its report, this
+deliberately does not. The outcomes are `refresh.py`'s vocabulary one level down:
+**HOLDS**, **FLAGGED-FOR-HUMAN** (the default — a re-audit writes nothing, the flagged
+gate stays where it is, and the notebook keeps the gate it had), and **FORCE-REGENERATE**,
+an explicit per-gate opt-in that hands the topic to `generate_checks(force=True)`. That
+is the whole safety argument for regeneration: the shipped write path grades and
+`nbgrader validate`s before it writes, so a candidate that fails the tightened bar leaves
+the existing gate byte-identical rather than stripping the notebook of one. A gate that
+holds is never a regeneration target even with `force=True`, so an unattended re-audit
+costs no model call. `python3 -m praxis.regate` prints it; the 24 seed gates, all written
+before the bar, hold it, and a test pins that.
+
 ## Progression: what the checks actually gate
 
 `praxis/progress.py` is the learner's side, and it is deliberately *only* bookkeeping and

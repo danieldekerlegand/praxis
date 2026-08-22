@@ -19,6 +19,7 @@ import curriculum
 from curriculum import DOMAINS, Domain, Topic, topic_path
 from nbstatus import status_from_dict
 from praxis.checks import checkset_failures, load_checks, checks_path
+from praxis.gateaudit import body_text
 from praxis.construct import ConstructionResult, construct_topic
 from praxis.rubric import gate_failures
 
@@ -141,7 +142,10 @@ def promote_topic(
     if checkset is None:
         failures.append(f"knowledge checks are absent: {check_path}")
     else:
-        failures.extend(checkset_failures(checkset, verify_code=True))
+        failures.extend(checkset_failures(
+            checkset, verify_code=True,
+            notebook=body_text(notebook) if notebook else "",
+        ))
     if failures:
         return PromotionResult(topic.slug, topic.title, False, result, tuple(dict.fromkeys(failures)))
     try:

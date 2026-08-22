@@ -65,11 +65,26 @@ CURRICULUM = {
 # --- the sample sets every test is built from -------------------------------
 
 
+# One distinct question per section. The write-path grader rejects a set that asks the
+# same question twice, so a fixture that templated one prompt off the section name would
+# fail the very bar these tests assert a good set clears.
+CHOICE_PROMPTS = {
+    "What & Why": "Why does the borrow checker reject a second mutable reference?",
+    "Mental Model": "Where does a moved value live once its new binding goes out of scope?",
+    "Key Concepts": "Which lifetime annotation ties a returned slice to its input?",
+    "Worked Examples": "In the example above, what frees the buffer after the loop?",
+    "Gotchas": "Which mistake makes an index into a slice panic at runtime?",
+    "When to Use": "Which situation calls for `Rc` rather than passing a plain reference?",
+}
+
+
 def choice(section: str, answer: int = 1) -> dict:
     return {
         "section": section,
         "kind": "choice",
-        "prompt": f"In the context of {section.lower()}, which statement is correct?",
+        "prompt": CHOICE_PROMPTS.get(
+            section, f"Which statement about {section.lower()} is correct?"
+        ),
         "options": ["The first, which is wrong", "The second, which is right",
                     "The third, which is wrong"],
         "answer": answer,
@@ -77,11 +92,19 @@ def choice(section: str, answer: int = 1) -> dict:
     }
 
 
+SHORT_PROMPTS = {
+    "Mental Model": "Explain, in your own words, why a move is not a copy.",
+    "Worked Examples": "Walk through what the second example would do on an empty list.",
+}
+
+
 def short(section: str) -> dict:
     return {
         "section": section,
         "kind": "short",
-        "prompt": f"Explain, in your own words, what {section.lower()} means here.",
+        "prompt": SHORT_PROMPTS.get(
+            section, f"Explain, in your own words, what {section.lower()} means here."
+        ),
         "expected": "A correct answer names the mechanism, says when it applies, and "
                     "gives one consequence of getting it wrong.",
         "explanation": "The mechanism, its scope, and one consequence.",
@@ -291,6 +314,130 @@ def test_a_set_that_could_not_grade_a_learner_is_never_written(constructed, item
     assert any(expected in f for f in result.failures), result.failures
     assert not path.exists()          # nothing on disk claims this topic is gated
     assert needs_checks(module, topic)
+
+
+# --- anti-fabrication: gradable is not the same as worth grading ------------
+
+# Everything above asks whether a learner *could* be graded on the set. These ask
+# whether there is anything to grade — praxis.gateaudit's measured rules, run from the
+# same write path, so a question that hands over its own answer is rejected exactly
+# where an ungradable one is. `nbgrader validate` passes every set below.
+
+
+def _swap(section: str, check: dict) -> list[dict]:
+    """A good set with one section's check replaced by a deliberately bad one."""
+    return [c for c in good_checks() if c["section"] != section] + [check]
+
+
+QUOTED_KEY = ("A move transfers ownership and leaves the source binding unusable, so "
+              "reading it afterwards will not compile.")
+
+
+@pytest.mark.parametrize(
+    "items, expected",
+    [
+        # The question spells out the option it wants picked.
+        (_swap(GATED_SECTIONS[4], dict(
+            choice(GATED_SECTIONS[4]),
+            prompt="A slice index panics at runtime when it is out of bounds. Which "
+                   "mistake makes an index into a slice panic at runtime?",
+            options=["Borrowing the slice twice",
+                     "An index that is out of bounds",
+                     "Naming the binding after a keyword"],
+        )), "gives its own answer away"),
+        # The marking key is quoted back in the question it marks.
+        (_swap(GATED_SECTIONS[1], dict(
+            short(GATED_SECTIONS[1]),
+            prompt=f"Is it true that {QUOTED_KEY[0].lower()}{QUOTED_KEY[1:]} Explain.",
+            expected=QUOTED_KEY,
+        )), "contains its own marking key"),
+        # A test that passes when the learner writes nothing at all.
+        (_without("code") + [dict(code(GATED_SECTIONS[3]), test="assert True")],
+         "passes an empty submission"),
+        # A test satisfied by the stub the learner was handed.
+        (_without("code") + [dict(code(GATED_SECTIONS[3]),
+                                  test="assert callable(owned)")],
+         "passes the starter stub"),
+        # The same question twice, which is what a model does when it runs dry.
+        (_swap(GATED_SECTIONS[5], dict(choice(GATED_SECTIONS[5]),
+                                       prompt=CHOICE_PROMPTS[GATED_SECTIONS[0]])),
+         "near-identical"),
+    ],
+)
+def test_a_set_that_asks_nothing_real_is_never_written(constructed, items, expected):
+    module, topic = constructed
+    path = topic_checks_path(module, topic)
+
+    result = generate_checks(module, topic, client=FakeClient(reply(items)), attempts=1)
+
+    assert result.status == "failed" and not result.ok
+    assert any(expected in f for f in result.failures), result.failures
+    assert not path.exists()          # nothing on disk claims this topic is gated
+    assert needs_checks(module, topic)
+
+
+def test_an_answer_copied_out_of_the_notebook_is_never_written(constructed):
+    """Passable by searching the page the learner is already reading."""
+    from test_construct import PROSE
+
+    module, topic = constructed
+    items = _swap(GATED_SECTIONS[1], dict(short(GATED_SECTIONS[1]),
+                                          expected=PROSE.strip()))
+
+    result = generate_checks(module, topic, client=FakeClient(reply(items)), attempts=1)
+
+    assert result.status == "failed"
+    assert any("copied out of the notebook" in f for f in result.failures), result.failures
+    assert not topic_checks_path(module, topic).exists()
+
+
+def test_the_triviality_sentences_are_what_the_model_is_repaired_with(constructed):
+    """Same rule as the constructor's: the grader's own sentence is the repair prompt."""
+    module, topic = constructed
+    trivial = _swap(GATED_SECTIONS[5], dict(choice(GATED_SECTIONS[5]),
+                                            prompt=CHOICE_PROMPTS[GATED_SECTIONS[0]]))
+    client = FakeClient(reply(trivial), reply(good_checks()))
+
+    result = generate_checks(module, topic, client=client, attempts=2)
+
+    assert result.status == "generated" and result.attempts == 2
+    assert "near-identical" in client.calls[1]["prompt"]
+    assert "Replace it with a question about something else" in client.calls[1]["prompt"]
+
+
+def test_the_cheap_load_path_does_not_re_judge_a_gate_already_on_disk(constructed):
+    """The tightening lands on the write path only.
+
+    A gate written before the bar existed is not re-run on every load — re-auditing
+    those is `praxis.gateaudit`, an explicit pass, and the idempotence rule still says
+    an existing set is skipped rather than rewritten.
+    """
+    module, topic = constructed
+    generate_checks(module, topic, client=FakeClient(reply(good_checks())))
+    path = topic_checks_path(module, topic)
+    doc = json.loads(path.read_text())
+    doc["checks"][-1]["prompt"] = doc["checks"][0]["prompt"]   # the same question twice
+    path.write_text(json.dumps(doc, indent=2))
+
+    assert checkset_failures(doc, verify_code=False) == []     # the cheap half only
+    assert any("near-identical" in f for f in checkset_failures(doc))
+    assert not needs_checks(module, topic)
+
+
+def test_the_shipped_seed_gates_still_pass_the_tightened_bar():
+    """No regression: every gate the library already ships clears the new rules too."""
+    from praxis.checks import CHECKS_SUFFIX
+    from praxis.gateaudit import body_text, notebook_for_checks
+
+    gates = sorted((ROOT / "notebooks").rglob(f"*{CHECKS_SUFFIX}"))
+
+    assert len(gates) >= 24
+    for path in gates:
+        notebook = notebook_for_checks(path)
+        assert checkset_failures(
+            json.loads(path.read_text()),
+            notebook=body_text(json.loads(notebook.read_text())),
+        ) == [], path
 
 
 def test_checks_are_not_written_against_an_unconstructed_notebook(subject):

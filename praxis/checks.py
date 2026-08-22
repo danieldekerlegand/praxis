@@ -26,6 +26,13 @@ available here (a check that looks like a check and asserts nothing):
   - **A set that fails `checkset_failures()` is never written.** In particular a `code`
     check must carry a reference `solution` that really does pass its own `test` — and
     that is verified by *running* it, not by reading it.
+  - **Gradable is not the whole bar.** The same grader also asks whether the set is
+    worth grading — the triviality rules in `praxis/gateaudit.py`, run from here on the
+    write/verify path (`quality=`, which follows `verify_code=`): a question that spells
+    out its own answer, a marking key copied out of the notebook the learner is reading,
+    a `test` that passes an empty submission, the same question asked twice. Tighten
+    *those* when a new fabrication turns up, the way `construction_failures` is tightened
+    one level up.
   - **An existing, valid set is skipped, not rewritten** (`force=True` overrides), so
     regenerating across a curriculum is idempotent and a batch is resumable.
 
@@ -636,9 +643,26 @@ def run_code_check(check: dict, submission: str, *, timeout: int = CODE_TIMEOUT)
     return False, "\n".join(tail) or "the assertions failed"
 
 
-def check_failures(check: dict, *, runnable: bool = True, verify_code: bool = True) -> list[str]:
-    """What is wrong with one check. Empty list == a learner could be graded on it."""
+def check_failures(
+    check: dict,
+    *,
+    runnable: bool = True,
+    verify_code: bool = True,
+    quality: bool | None = None,
+    notebook: str = "",
+) -> list[str]:
+    """What is wrong with one check. Empty list == a learner could be graded on it.
+
+    `quality` adds the second half of the bar — `praxis.gateaudit`'s measured triviality
+    rules, which say whether the check is worth grading rather than whether it can be
+    graded. It follows `verify_code` unless given: both belong to the write/verify path,
+    so the cheap load path stays cheap and a gate already on disk is never silently
+    re-judged against a bar that landed after it was written (re-auditing those is
+    `praxis.gateaudit`, deliberately a separate pass). `notebook` is the notebook's own
+    body text; without it the copied-out-of-the-page rule simply does not run.
+    """
     where = check.get("id") or check.get("prompt", "")[:40]
+    quality = verify_code if quality is None else quality
     failures = []
 
     if len(check.get("prompt", "")) < MIN_PROMPT_CHARS:
@@ -700,14 +724,33 @@ def check_failures(check: dict, *, runnable: bool = True, verify_code: bool = Tr
             "make, in enough detail to grade against"
         )
 
+    if quality:
+        # Imported here, not at the top: gateaudit reads this module's grader, so the
+        # dependency only runs one way at import time.
+        from praxis.gateaudit import quality_failures
+
+        failures += quality_failures(
+            check, notebook=notebook, runnable=runnable, verify_code=verify_code
+        )
+
     return failures
 
 
-def checkset_failures(doc: dict, *, verify_code: bool = True) -> list[str]:
+def checkset_failures(
+    doc: dict,
+    *,
+    verify_code: bool = True,
+    quality: bool | None = None,
+    notebook: str = "",
+) -> list[str]:
     """The bar a set must clear before it may be written beside a notebook.
 
-    `verify_code=False` skips running each `code` check's reference solution — the
-    structural half, cheap enough to run on every load. Generation always verifies.
+    `verify_code=False` skips running each `code` check's reference solution *and* the
+    triviality rules — the structural half, cheap enough to run on every load. Generation
+    always verifies, so a gate that asks nothing real is rejected exactly where a gate
+    that cannot be graded is. `quality=False` keeps the gradability half on its own,
+    which is what `praxis.gateaudit` wants when it reports the two separately;
+    `notebook` is the body text the copied-out-of-the-page rule measures against.
     """
     if not isinstance(doc, dict):
         return ["the checks file does not hold a JSON object"]
@@ -719,12 +762,16 @@ def checkset_failures(doc: dict, *, verify_code: bool = True) -> list[str]:
         return ["the set holds no checks"]
 
     runnable = bool(doc.get("runnable", True))
+    quality = verify_code if quality is None else quality
     failures = []
     for check in checks:
         if not isinstance(check, dict):
             failures.append("a check is not an object")
             continue
-        failures += check_failures(check, runnable=runnable, verify_code=verify_code)
+        failures += check_failures(
+            check, runnable=runnable, verify_code=verify_code,
+            quality=quality, notebook=notebook,
+        )
 
     covered = {c.get("section") for c in checks if isinstance(c, dict)}
     missing = [s for s in GATED_SECTIONS if s not in covered]
@@ -743,6 +790,11 @@ def checkset_failures(doc: dict, *, verify_code: bool = True) -> list[str]:
         )
     if not runnable and "code" in kinds:
         failures.append("this topic is not Python-runnable, so it can carry no code checks")
+
+    if quality:
+        from praxis.gateaudit import duplicate_failures
+
+        failures += duplicate_failures(checks)
 
     return failures
 
@@ -1036,6 +1088,8 @@ def generate_checks(
                     "writing checks against it"),
         )
 
+    from praxis.gateaudit import body_text  # see check_failures: one-way at import time
+
     client = client or LLMClient()
     prompt = build_prompt(domain, topic, nb, subject=subject)
     failures: list[str] = ["no attempt was made"]
@@ -1053,7 +1107,7 @@ def generate_checks(
             continue
         doc = build_checkset(domain, topic, checks,
                              model=getattr(client.config, "model", ""))
-        failures = checkset_failures(doc)
+        failures = checkset_failures(doc, notebook=body_text(nb))
         if not failures:
             if write:
                 if annotate:
