@@ -46,7 +46,12 @@ worst genuine `short` shares 44% of its key with the notebook body (the rule fir
 most similar genuine pair of prompts overlaps 33% (the rule fires at 70%).
 
 The sentences are written to be acted on, the same rule the constructor's grader
-follows: they are what a repair prompt hands back to the model and what the UI shows.
+follows: they are what a repair prompt hands back to the model and what the UI shows —
+literally, because `checks.checkset_failures()` now runs these same rules on its
+write/verify path (`quality=`, which follows `verify_code=`), so a set exhibiting one of
+them is rejected before it is written, exactly as an ungradable one is. This module owns
+the rules; the write path enforces them on new gates, and the passes below point them at
+the gates already on disk, which were written before the bar existed.
 
 CLI::
 
@@ -327,7 +332,9 @@ def audit_checkset(
 
     notebook_path = notebook_for_checks(path)
     nb = _read_notebook(notebook_path)
-    gradable = checkset_failures(doc, verify_code=verify_code)
+    # `quality=False`: the write-path grader runs these same rules, and the two halves
+    # are reported separately here rather than merged into one verdict.
+    gradable = checkset_failures(doc, verify_code=verify_code, quality=False)
     residue = set_quality_failures(
         doc,
         notebook=body_text(nb) if nb else "",

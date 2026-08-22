@@ -170,6 +170,17 @@ one set. Every threshold is set against the 24 hand-built seed gates, which is t
 backfilled gate has to hold: `python3 -m praxis.gateaudit` flags 0 of them, and a test
 pins that. Tighten a threshold only with that measurement in hand.
 
+Those four rules are also **the write path's**, not a report run after the fact:
+`checkset_failures(doc, quality=…, notebook=…)` calls `quality_failures` /
+`duplicate_failures` out of `gateaudit`, so a trivial set is rejected and never written
+exactly where an ungradable one is, and the sentences become `_repair_prompt`'s feedback
+and the UI's error text. `quality` follows `verify_code`, which is what keeps the two
+paths honest: the cheap load path (`needs_checks()`, and generation's already-generated
+skip) runs neither, so a gate written before the bar existed is skipped rather than
+silently re-judged or rewritten — re-auditing those is `gateaudit`'s own pass, on
+purpose. Import it **inside** the function: `gateaudit` imports `praxis.checks` at
+module level, so the dependency runs one way at import time.
+
 ## Progression: what the checks actually gate
 
 `praxis/progress.py` is the learner's side, and it is deliberately *only* bookkeeping and
