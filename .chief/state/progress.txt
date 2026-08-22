@@ -1,15 +1,15 @@
 # Chief Progress — 83-seed-library-refresh
-Started: Fri Aug 21 04:14:07 CDT 2026
+Started: Fri Aug 21 19:06:42 CDT 2026
 ---
 
 ## Codebase Patterns
 
-- Repo-maintenance notebook operations should compose `praxis.audit` and `praxis.construct`; the constructor is the only writer and its pre-write `construction_failures` check is the anti-fabrication barrier.
+- Promotion must remain a policy layer over `construct_topic`; the constructor and checks grader are the only accepted gates before documentation records a seed as covered.
 
-## Iteration US-2
+## Iteration US-3
 
-Implemented the seed refresh policy in `docs/explanation/seed-refresh-policy.md` and added `praxis.refresh` with explicit `FLAGGED-FOR-HUMAN` default and per-notebook `FORCE-REGENERATE` opt-in. The maintenance CLI/API audits first, refuses to target healthy complete seeds, and delegates forced writes to the shipped constructor. Added tests for default read-only flagging, failed forced regeneration preserving the original bytes, and healthy-seed refusal.
+Implemented `praxis.promote` with a repository-only promotion path for recommended topics. It requires the constructor result, `gate_failures`, the complete badge, and a valid checkset before moving a topic from gap-analysis §2 into its domain's §1 coverage section. Added `docs/explanation/domain-addition-policy.md`, reserving domain 06 and validating `DOMAINS` against numbered directories, plus focused promotion tests.
 
-Verification observed: `python3 -m pytest -q` — 914 passed, 1 skipped; focused refresh tests — 6 passed.
+Verification observed: `python3 -m pytest -q tests/` — 917 passed, 1 skipped; promotion/refresh tests — 6 passed.
 
-Learnings for future iterations: `construct_path` remains the single repo writer; refresh code should stay a policy layer around it rather than adding another notebook-generation or grading path.
+Learnings for future iterations: the manifest includes a filesystem-backed legacy domain, so numbering validation must compare only top-level numbered directories while allowing nested legacy notebooks.

@@ -53,7 +53,8 @@
         "A domain-addition policy is documented in docs/: the numbering runs 01\u201315 with 06 a permanent hole \u2014 a new domain APPENDS the next free number (16+), never reuses 06 \u2014 and adding a domain means a Domain entry in curriculum.py's DOMAINS, a notebooks/NN-slug directory, and a gap-analysis coverage section; a test asserts the on-disk domain directories, the DOMAINS list, and the no-reuse-of-06 rule agree.",
         "Gate green: python3 -m pytest -q tests/ passes, including the domain-numbering consistency test and a test that the promotion path refuses to record a promotion for a topic whose notebook is not \u2705 or whose checkset is absent."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "Added praxis.promote repository path: construct_topic with checks=True, gate_failures, and checkset_failures must all pass before moving a recommended entry from gap-analysis §2 to §1. Added domain-addition policy and manifest/directory validator reserving 06. Full pytest: 917 passed, 1 skipped; promotion tests: 6 passed."
     }
   ]
 }
