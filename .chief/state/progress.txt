@@ -1,3 +1,71 @@
 # Chief Progress — 80-gating-coverage-tracker
 Started: Sat Aug 22 08:49:37 CDT 2026
 ---
+
+## Codebase Patterns
+
+- **Library view model = one place.** `launcher.app.build_model()` → `_topics_for()` →
+  `_gated()` is where every per-topic fact the app knows gets folded in (status, gated,
+  locked, passed, checks, and now `graded`). Anything that wants to *count* notebooks
+  should fold over those rows, not re-scan `notebooks/` — a second scan is a second
+  definition and it will drift.
+- **Two halves of "gated".** `gated` = a loadable answer key (drives `module_gates()`,
+  locks the next topic). `graded` = nbgrader graded cells actually in the .ipynb
+  (decision D10 / band 84). `backfill.is_gated()` requires both; so does
+  `praxis.coverage.is_gated()`. A sidecar with no cells is a half-migrated gate.
+- **praxis/ must not import launcher/ at module level.** No praxis module does. When a
+  core module needs the view model (`coverage.library_report`), import `launcher.app`
+  *inside the function* so the arithmetic stays importable with no launch extra.
+- **Module convention** (see `praxis/gap.py`, `praxis/audit.py`): long "why" docstring
+  with a CLI stanza, then `_main(argv)` + `if __name__ == "__main__"`.
+- **No .venv in a fresh worktree.** `.chief/verify.sh` bootstraps one, but to run tests
+  by hand first: `uv venv .venv && uv pip install --python .venv/bin/python -e '.[launch,dev]'`.
+  Without fastapi the launcher tests silently skip — the interpreter that runs pytest
+  must also have nbgrader (praxis.checks resolves its console script beside it).
+- **Full suite is ~5 min** (996 tests). `tests/test_launcher_api.py` alone is ~90s.
+
+---
+
+## US-1 — Compute gated coverage overall and per domain (781a1fc)
+
+Files changed:
+- `praxis/coverage.py` (new) — `is_gated(row)`, `domain_coverage()`, `coverage_report()`,
+  `library_report()`, `render()`, `python3 -m praxis.coverage [--json]`.
+- `launcher/app.py` — new `_read(path)` returns (status, parsed notebook) in ONE read;
+  `_topics_for` threads the parsed notebooks to `_gated`, which now folds a `graded`
+  field onto every row from `checks.graded_cells()`. `notebook_status` import replaced
+  by `status_from_dict`; `json` + `graded_cells` imported.
+- `tests/test_coverage.py` (new, 6 tests).
+- `tests/test_launcher_api.py` — the one test that pins the exact row dict gained
+  `"graded": False`.
+- `CLAUDE.md` — a paragraph on the tracker after the backfill section.
+
+Observed:
+- `python3 -m pytest -q tests/`: **996 passed**, 0 failed (4:51).
+- `scripts/validate_nbgrader.py notebooks`: **24 notebooks, 0 failures** — an independent
+  corroboration of the 24.
+- `python3 -m praxis.coverage`: **24/245 notebooks gated (10%), in 8 of 14 domains.**
+  Model Evaluation 4/4, Interpretability 3/3, Pretraining 4/4, RL 5/5 are at 100%;
+  DevOps/MLOps is 1/65 and six domains are at 0. That asymmetry is the whole argument
+  for the per-domain figure being primary.
+
+### Learnings for future iterations
+
+- The PRD's "off the same `_gated()`/`module_gates()` signal" and D10's "gated means
+  nbgrader cells" pull in different directions: `module_gates()` derives `gated` from the
+  **sidecar answer key**, not from cells. Resolved by adding `graded` as a second row
+  field rather than redefining `gated` — redefining it would have changed what
+  `/api/study` locks (a key-but-no-cells notebook still serves real questions through
+  the UI, so it *does* gate), which is out of this band's scope. The tracker requires
+  both. Today the two sets are identical (24 = 24), so nothing is hidden by the choice.
+- `_library_domains()` reads `launcher.app.DOMAINS`, bound at import from `curriculum`.
+  To test against a fixture library, `monkeypatch.setattr(launcher_app, "DOMAINS", [])`
+  — patching `curriculum.DOMAINS` does nothing.
+- Don't pin `24` in a test: band 79's backfill moves it. `test_the_shipped_library_report_agrees_with_the_notebooks_on_disk`
+  pins the *agreement* between the report and an independent file scan instead, so it
+  stays green as coverage climbs.
+- **US-2 next**: the endpoint. `coverage_report(build_model()["domains"])` is one line in
+  `launcher/app.py`; note `build_model()` is already called by `/api/library`, so folding
+  a `coverage` key onto that response costs nothing extra, while a separate
+  `GET /api/coverage` costs a second `build_model()` pass. Either satisfies US-2's
+  first criterion; folding onto `/api/library` is cheaper and keeps one poll.

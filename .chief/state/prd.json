@@ -32,7 +32,8 @@
         "The report reproduces the real starting line (24/245 overall) when run against the shipped library today, so the assertion is grounded in reality rather than a placeholder; the per-domain breakdown is presented as the PRIMARY figure, because breadth across the 14 domains is what 79 optimizes for and an overall fraction hides eleven empty domains behind three full ones.",
         "Gate green: python3 -m pytest -q tests/ passes, including a test that pins the X/245 arithmetic against a fixture library with a known gated subset (asserting both the overall and a per-domain fraction)."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "python3 -m pytest -q tests/: 996 passed, 1 failed->fixed, final run 996 passed, 0 failed. scripts/validate_nbgrader.py notebooks: 24 notebooks, 0 failures. python3 -m praxis.coverage against the shipped library: 24/245 notebooks gated (10%), in 8 of 14 domains \u2014 per-domain: Symbolic AI 0/15, AI/ML Tooling 1/15, LLM Inference 5/33, Agentic AI 0/16, Speech Audio 0/22, Proprietary Coding AI 0/9, Architectures 1/23, Procedural Gen 0/16, Data Analysis 0/15, DevOps/MLOps 1/65, Model Evaluation 4/4, Interpretability 3/3, Pretraining 4/4, RL & Training Dynamics 5/5. tests/test_coverage.py: 6 tests \u2014 fixture library pins 1/6 overall with Foundations 1/4 and Peripherals 0/2, and gating one more topic moves it to 2/6; the shipped-library test pins the report against an independent on-disk scan rather than a magic 24, so it survives the backfill."
     },
     {
       "id": "US-2",
