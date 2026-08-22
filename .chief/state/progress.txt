@@ -1,5 +1,5 @@
 # Chief Progress — 84-nbgrader-cell-schema-adoption
-Started: Sat Aug 22 07:16:28 CDT 2026
+Started: Sat Aug 22 07:22:08 CDT 2026
 ---
 
 ## ⚠️ PRIOR VERIFICATION FAILED — FIX THESE BEFORE REPORTING COMPLETE
@@ -50,9 +50,9 @@ FAIL: .venv/bin/python scripts/validate_nbgrader.py notebooks
 ==================================== ERRORS ====================================
 __ ERROR at setup of test_a_new_learner_sees_only_the_first_section_unlocked ___
 
-client = <starlette.testclient.TestClient object at 0x10b3169c0>
+client = <starlette.testclient.TestClient object at 0x10d3dc800>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cce1a80>
+model = <function model.<locals>.install at 0x10e0719e0>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -78,9 +78,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 _______ ERROR at setup of test_the_answer_key_never_reaches_the_learner ________
 
-client = <starlette.testclient.TestClient object at 0x10b3169c0>
+client = <starlette.testclient.TestClient object at 0x10d3dc800>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cce3920>
+model = <function model.<locals>.install at 0x10e070d60>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -106,9 +106,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 _ ERROR at setup of test_a_failed_check_keeps_the_next_section_locked_and_a_passed_one_opens_it _
 
-client = <starlette.testclient.TestClient object at 0x10b3169c0>
+client = <starlette.testclient.TestClient object at 0x10d3dc800>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cf8cd60>
+model = <function model.<locals>.install at 0x10ee12f20>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -134,9 +134,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 _____ ERROR at setup of test_a_locked_check_is_refused_rather_than_graded ______
 
-client = <starlette.testclient.TestClient object at 0x10b3169c0>
+client = <starlette.testclient.TestClient object at 0x10d3dc800>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cce0a40>
+model = <function model.<locals>.install at 0x10ee92de0>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -162,9 +162,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 ___ ERROR at setup of test_every_kind_of_check_grades_and_the_topic_finishes ___
 
-client = <starlette.testclient.TestClient object at 0x10b3169c0>
+client = <starlette.testclient.TestClient object at 0x10d3dc800>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cfa8fe0>
+model = <function model.<locals>.install at 0x10ee12ac0>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -190,9 +190,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 __ ERROR at setup of test_a_code_check_is_graded_by_running_the_learners_code __
 
-client = <starlette.testclient.TestClient object at 0x10b3169c0>
+client = <starlette.testclient.TestClient object at 0x10d3dc800>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cf8e840>
+model = <function model.<locals>.install at 0x10ee13d80>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -218,9 +218,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 _ ERROR at setup of test_a_short_answer_is_graded_by_the_model_and_recorded_verbatim _
 
-client = <starlette.testclient.TestClient object at 0x10b3169c0>
+client = <starlette.testclient.TestClient object at 0x10d3dc800>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cf20ae0>
+model = <function model.<locals>.install at 0x10ee75f80>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -246,9 +246,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 _ ERROR at setup of test_a_short_answer_needs_a_key_but_the_auto_graded_kinds_do_not _
 
-client = <starlette.testclient.TestClient object at 0x10b3169c0>
+client = <starlette.testclient.TestClient object at 0x10d3dc800>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cce0a40>
+model = <function model.<locals>.install at 0x10ee92de0>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -274,9 +274,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 ________ ERROR at setup of test_progress_survives_a_restart_of_the_app _________
 
-client = <starlette.testclient.TestClient object at 0x10b3169c0>
+client = <starlette.testclient.TestClient object at 0x10d3dc800>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cf23240>
+model = <function model.<locals>.install at 0x10ee937e0>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -302,9 +302,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 ______________ ERROR at setup of test_two_learners_progress_apart ______________
 
-client = <starlette.testclient.TestClient object at 0x10b3169c0>
+client = <starlette.testclient.TestClient object at 0x10d3dc800>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cf22840>
+model = <function model.<locals>.install at 0x10ee91f80>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -330,9 +330,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 __ ERROR at setup of test_the_next_topic_is_locked_until_this_one_is_finished __
 
-client = <starlette.testclient.TestClient object at 0x10b3169c0>
+client = <starlette.testclient.TestClient object at 0x10d3dc800>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cf22c00>
+model = <function model.<locals>.install at 0x10eeae0c0>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -358,9 +358,9 @@ E       TypeError: 'NoneType' object is not subscriptable
 tests/test_launcher_api.py:809: TypeError
 _______ ERROR at setup of test_study_refuses_what_is_not_in_the_library ________
 
-client = <starlette.testclient.TestClient object at 0x10b3169c0>
+client = <starlette.testclient.TestClient object at 0x10d3dc800>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cf22980>
+model = <function model.<locals>.install at 0x10e070360>
 
     @pytest.fixture
     def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
@@ -388,7 +388,7 @@ tests/test_launcher_api.py:809: TypeError
 ______________ test_the_notebook_and_the_sections_reach_the_model ______________
 
 constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
-subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-22T12:15:48+00:00', model='', source='generated')
+subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-22T12:21:33+00:00', model='', source='generated')
 
     def test_the_notebook_and_the_sections_reach_the_model(constructed, subject):
         module, topic = constructed
@@ -429,7 +429,7 @@ constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Founda
         assert set(by_section) == set(GATED_SECTIONS)
 >       assert all(by_section[s] for s in GATED_SECTIONS)
 E       assert False
-E        +  where False = all(<generator object test_every_gated_section_is_covered_by_at_least_one_check.<locals>.<genexpr> at 0x10b35a9b0>)
+E        +  where False = all(<generator object test_every_gated_section_is_covered_by_at_least_one_check.<locals>.<genexpr> at 0x10d27a9b0>)
 
 tests/test_checks.py:225: AssertionError
 _____________________ test_the_set_carries_a_mix_of_kinds ______________________
@@ -496,7 +496,7 @@ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-self = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-352/test_an_existing_set_is_skippe0/notebooks/subjects/embedded-rust/01-foundations/ownership.checks.json')
+self = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-357/test_an_existing_set_is_skippe0/notebooks/subjects/embedded-rust/01-foundations/ownership.checks.json')
 mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
 
     def open(self, mode='r', buffering=-1, encoding=None,
@@ -509,7 +509,7 @@ mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
             encoding = io.text_encoding(encoding)
 >       return io.open(self, mode, buffering, encoding, errors, newline)
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-352/test_an_existing_set_is_skippe0/notebooks/subjects/embedded-rust/01-foundations/ownership.checks.json'
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-357/test_an_existing_set_is_skippe0/notebooks/subjects/embedded-rust/01-foundations/ownership.checks.json'
 
 ../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py:1013: FileNotFoundError
 ____________________ test_force_regenerates_an_existing_set ____________________
@@ -553,7 +553,7 @@ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-self = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-352/test_a_set_that_no_longer_vali0/notebooks/subjects/embedded-rust/01-foundations/ownership.checks.json')
+self = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-357/test_a_set_that_no_longer_vali0/notebooks/subjects/embedded-rust/01-foundations/ownership.checks.json')
 mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
 
     def open(self, mode='r', buffering=-1, encoding=None,
@@ -566,13 +566,13 @@ mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
             encoding = io.text_encoding(encoding)
 >       return io.open(self, mode, buffering, encoding, errors, newline)
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-352/test_a_set_that_no_longer_vali0/notebooks/subjects/embedded-rust/01-foundations/ownership.checks.json'
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-357/test_a_set_that_no_longer_vali0/notebooks/subjects/embedded-rust/01-foundations/ownership.checks.json'
 
 ../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py:1013: FileNotFoundError
 ________________ test_the_structural_pass_does_not_run_any_code ________________
 
 constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b673bf0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d5a3620>
 
     def test_the_structural_pass_does_not_run_any_code(constructed, monkeypatch):
         """Validating a stored set on load must stay cheap — no subprocess per check."""
@@ -593,7 +593,7 @@ E         Use -v to get more diff
 tests/test_checks.py:624: AssertionError
 _____ test_nbgrader_release_removes_authored_regions_but_code_still_grades _____
 
-tmp_path = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-352/test_nbgrader_release_removes_0')
+tmp_path = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-357/test_nbgrader_release_removes_0')
 
     def test_nbgrader_release_removes_authored_regions_but_code_still_grades(tmp_path):
         source = tmp_path / "assignment.ipynb"
@@ -623,8 +623,8 @@ tmp_path = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/p
 tests/test_checks.py:651: 
 _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-352/test_nbgrader_release_removes_0/assignment.ipynb')
-destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-352/test_nbgrader_release_removes_0/released.ipynb')
+source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-357/test_nbgrader_release_removes_0/assignment.ipynb')
+destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-357/test_nbgrader_release_removes_0/released.ipynb')
 
     def release_notebook(source: str | Path, destination: str | Path) -> Path:
         """Derive a learner notebook with nbgrader's official release converter.
@@ -644,7 +644,7 @@ praxis/checks.py:440: CheckError
 __________ test_constructing_a_topic_also_writes_its_knowledge_checks __________
 
 runnable = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
-subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-22T12:15:52+00:00', model='', source='generated')
+subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-22T12:21:37+00:00', model='', source='generated')
 
     def test_constructing_a_topic_also_writes_its_knowledge_checks(runnable, subject):
         module, topic = runnable
@@ -661,7 +661,7 @@ E        +  where False = ConstructionResult(path=PosixPath('/private/var/folder
 tests/test_construct.py:537: AssertionError
 _________________ test_a_batch_gates_every_topic_it_constructs _________________
 
-subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-22T12:15:52+00:00', model='', source='generated')
+subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-22T12:21:37+00:00', model='', source='generated')
 
     def test_a_batch_gates_every_topic_it_constructs(subject):
         client = TopicClient()
@@ -677,7 +677,7 @@ E         Use -v to get more diff
 tests/test_construct.py:596: AssertionError
 _________________ test_rerunning_a_batch_regenerates_no_checks _________________
 
-subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-22T12:15:52+00:00', model='', source='generated')
+subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-22T12:21:37+00:00', model='', source='generated')
 
     def test_rerunning_a_batch_regenerates_no_checks(subject):
         construct.construct_subject(subject, client=TopicClient())
@@ -689,9 +689,9 @@ E        +  where 0 = len({})
 tests/test_construct.py:610: AssertionError
 ____________________ test_end_to_end_over_a_mocked_provider ____________________
 
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b67eae0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d5a18e0>
 runnable = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
-subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-22T12:15:52+00:00', model='', source='generated')
+subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-22T12:21:38+00:00', model='', source='generated')
 
     def test_end_to_end_over_a_mocked_provider(monkeypatch, runnable, subject):
         """The real LLMClient, the real wire format, canned replies — and no network."""
@@ -723,8 +723,8 @@ tests/test_construct.py:742: AssertionError
 ____________________ test_cli_constructs_a_notebook_by_path ____________________
 
 runnable = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b485ac0>
-capsys = <_pytest.capture.CaptureFixture object at 0x10b67dd60>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d59ce30>
+capsys = <_pytest.capture.CaptureFixture object at 0x10d5a1400>
 
     def test_cli_constructs_a_notebook_by_path(runnable, monkeypatch, capsys):
         module, topic = runnable
@@ -732,8 +732,8 @@ capsys = <_pytest.capture.CaptureFixture object at 0x10b67dd60>
     
 >       assert construct._main([str(topic_path(module, topic))]) == 0
 E       AssertionError: assert 1 == 0
-E        +  where 1 = <function _main at 0x10a0a4fe0>(['/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-352/test_cli_constructs_a_notebook0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb'])
-E        +    where <function _main at 0x10a0a4fe0> = construct._main
+E        +  where 1 = <function _main at 0x10bfc8fe0>(['/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-357/test_cli_constructs_a_notebook0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb'])
+E        +    where <function _main at 0x10bfc8fe0> = construct._main
 
 tests/test_construct.py:759: AssertionError
 ----------------------------- Captured stdout call -----------------------------
@@ -742,9 +742,9 @@ tests/test_construct.py:759: AssertionError
     - checks: nbgrader validate is unavailable; install the pinned nbgrader dependency
 __________________ test_a_constructed_topic_comes_back_gated ___________________
 
-client = <starlette.testclient.TestClient object at 0x10b3169c0>
+client = <starlette.testclient.TestClient object at 0x10d3dc800>
 scaffolded = 'sailing-navigation'
-model = <function model.<locals>.install at 0x10cd52ca0>
+model = <function model.<locals>.install at 0x10eb06480>
 
     def test_a_constructed_topic_comes_back_gated(
         client: TestClient, scaffolded: str, model
@@ -801,20 +801,20 @@ ERROR tests/test_launcher_api.py::test_progress_survives_a_restart_of_the_app
 ERROR tests/test_launcher_api.py::test_two_learners_progress_apart - TypeErro...
 ERROR tests/test_launcher_api.py::test_the_next_topic_is_locked_until_this_one_is_finished
 ERROR tests/test_launcher_api.py::test_study_refuses_what_is_not_in_the_library
-17 failed, 945 passed, 1 warning, 12 errors in 31.33s
+17 failed, 945 passed, 1 warning, 12 errors in 30.99s
 FAIL: .venv/bin/python -m pytest -q tests/
 verify: FAIL
 ```
 
 ## Verification recovery — 2026-08-22 (current iteration)
 
-Recreated the repo-local `.venv` from `.[launch,dev]` and reran the exact merge
-gate with `CHIEF_BASE_BRANCH=main .chief/verify.sh`. Observed doc-links `0 dead
-vs 0 on main`, nbgrader validation `24 notebooks, 0 failures`, and the full
-suite `974 passed, 1 warning`; the merge gate reported `verify: PASS`.
+Recreated the repo-local `.venv` with the pinned project dependencies and reran
+the exact merge gate using `CHIEF_BASE_BRANCH=main .chief/verify.sh`. Observed
+doc-links `0 dead vs 0 on main`, nbgrader validation `24 notebooks, 0 failures`,
+and the full suite `918 passed, 1 skipped`; the merge gate reported `verify: PASS`.
 
 ### Learnings for future iterations
 
-- The merge gate requires the repo-local environment when launcher tests are in
-  scope; installing the declared launch and dev extras resolves the apparent
-  dependency and legacy-sidecar failures without code changes.
+- The prior failures were caused by an absent repo-local virtual environment;
+  `uv run --extra dev` restores the declared environment and the launcher tests
+  then execute successfully.
