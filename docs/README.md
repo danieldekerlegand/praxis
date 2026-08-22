@@ -12,6 +12,7 @@ The map. Structured per the ecosystem
 
 *information-oriented — what it is*
 
+- [Chief-powered construction — the batch, driven unattended and for free](reference/chief-powered-construction.md)
 - [Packaging Praxis](reference/packaging.md)
 - [Storage — where your work is kept](reference/storage.md)
 

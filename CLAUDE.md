@@ -234,6 +234,37 @@ tasklist's evidence is the recorded badge/gate counts, not a diff.
 `--list` prints the selection with no model call and no key, which is what a generated
 tasklist's `warmup` (`python3 -m praxis.tasklist show <name>`) is for.
 
+`praxis/headless.py` is the other half — it **starts** one of those tasklists and reads its
+result back, and it consumes two chief contracts **by reference**, the way `llm.py` consumes
+agora's: a documented CLI shape and two environment variables, never an import or a path
+into another checkout. `docs/reference/chief-powered-construction.md` is the prose contract.
+
+`chief run --headless` adds machine-readable lines to the same engine — `chief: run-id=`
+before the loop, `chief: outcome=` / `exit=` / `summary={…}` after it, and an exit code that
+names the outcome. **Only those are read.** `records()` keeps `chief: <key>=<value>` lines
+and drops every other byte on the stream, so the human summary block sharing it cannot be
+scraped by accident; `parse_run()` takes the outcome from the summary JSON, then the
+`outcome=` line, then the exit table — three machine-readable sources and no fourth — and
+**raises** on a stream with no run-id rather than inventing one (a test prints a human block
+saying "All tasklists merged successfully" next to a summary saying `verify-failed`, and
+pins that the summary wins). A `chief: exit=` that disagrees with the process's own status
+is refused for the same reason.
+
+`chief run --preset local` is the routing switch, and `LocalPreset` is its two required
+variables (`CHIEF_LOCAL_ENDPOINT`, `CHIEF_LOCAL_MODEL`) and nothing else — no `--provider`
+or `--model`, which chief refuses next to the preset rather than guessing who is paying, and
+no default host. `LocalPreset.failures()` is chief's own refusal made one process earlier:
+an unconfigured preset stops the batch **before it spawns** instead of quietly billing a
+paid provider for a run that was asked to be free. The tradeoff is deliberate and belongs
+here rather than in the app: a local model writes worse code, but every artifact still goes
+through `construction_failures` / `checkset_failures(verify_code=True)` / `nbgrader
+validate` before it lands, so a weaker model costs **iterations, not correctness**.
+
+Resumability is again not implemented — `unfinished(run)` is just the rows chief reported as
+unfinished, and re-running them is safe because of skip-if-✅ and skip-if-gated one and two
+levels down. The CLI exits with **chief's own exit code**: `python3 -m praxis.headless` is
+the plan (preset, units, exact argv, no spawn), `… run [names] [--jd ID] [-p N]` drives it.
+
 ## Progression: what the checks actually gate
 
 `praxis/progress.py` is the learner's side, and it is deliberately *only* bookkeeping and
