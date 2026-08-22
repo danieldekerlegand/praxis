@@ -20,10 +20,10 @@ DOMAIN  ?=
 .DEFAULT_GOAL := help
 .PHONY: help venv install install-dev install-pip \
         run dev ui-dev launch lab web \
-        build build-ui build-rust bundle bundle-app \
+        build build-ui build-lite build-rust bundle bundle-app \
         test test-py verify check \
         doctor curriculum define scaffold construct docs tasklists ralph \
-        clean clean-ui clean-rust distclean
+        clean clean-ui clean-lite clean-rust distclean
 
 ## ---------------------------------------------------------------- help
 
@@ -72,7 +72,7 @@ web: build-ui ## Serve the built frontend statically (pair with `make launch`)
 
 ## ---------------------------------------------------------------- build
 
-build: build-ui build-rust ## Frontend then Rust — in that order, always
+build: build-lite build-ui build-rust ## JupyterLite site, frontend, then Rust — in that order, always
 
 # Order-only: install deps once, not on every build. `make distclean` forces a reinstall.
 ui/node_modules:
@@ -81,15 +81,21 @@ ui/node_modules:
 build-ui: | ui/node_modules ## tsc --noEmit && vite build -> ui/dist
 	$(NPM) --prefix ui run build
 
+# The learner's notebook runtime: a JupyterLab on a Pyodide kernel, static files, no
+# local Python (docs/reference/jupyterlite.md). Stamp-guarded — it re-stages only when the
+# pins in praxis/lite.py change, so this costs a second on every build but the first.
+build-lite: ## Build the JupyterLite site -> src-tauri/resources/jupyterlite
+	PY=$(PY) ./scripts/build-jupyterlite.sh
+
 build-rust: ## cargo build (embeds whatever is in ui/dist right now)
 	cd src-tauri && $(CARGO) build
 
 # tauri build runs beforeBuildCommand itself, so ui/dist cannot go stale here. It finds
 # src-tauri/ by walking up from the CWD — hence repo root, not ui/ (docs/reference/packaging.md).
-bundle: | ui/node_modules ## Release desktop bundle (.app/.dmg, .msi/.exe, .deb/.AppImage)
+bundle: build-lite | ui/node_modules ## Release desktop bundle (.app/.dmg, .msi/.exe, .deb/.AppImage)
 	$(NPM) --prefix ui exec -- tauri build
 
-bundle-app: | ui/node_modules ## macOS .app only, skipping the DMG step
+bundle-app: build-lite | ui/node_modules ## macOS .app only, skipping the DMG step
 	$(NPM) --prefix ui exec -- tauri build --bundles app
 
 ## ---------------------------------------------------------------- gates
@@ -141,8 +147,11 @@ clean: clean-ui ## Remove build output (keeps target/ and .venv)
 clean-ui:
 	rm -rf ui/dist ui/node_modules/.vite
 
+clean-lite: ## Drop the built JupyterLite site (a rebuild re-downloads ~70 MB of assets)
+	rm -rf src-tauri/resources/jupyterlite src-tauri/resources/.jupyterlite-build
+
 clean-rust: ## cargo clean — drops the whole target/ dir
 	cd src-tauri && $(CARGO) clean
 
-distclean: clean clean-rust ## Also drop node_modules and .venv
-	rm -rf ui/node_modules .venv
+distclean: clean clean-lite clean-rust ## Also drop node_modules, .venv and the lite builder
+	rm -rf ui/node_modules .venv .lite-venv

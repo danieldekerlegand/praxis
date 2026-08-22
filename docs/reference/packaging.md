@@ -12,6 +12,12 @@ Two distributable shapes come out of this repo, and both wrap the same Python co
 The shell is not the product — `launcher/app.py` and the notebook core are. Both targets
 start from the same `ui/dist`, and both browse the same launcher API.
 
+A bundle also carries the **JupyterLite site** a learner runs tutorials in — static
+JupyterLab on a Pyodide kernel, so reading and running a notebook needs no local Python at
+all. It is built by `scripts/build-jupyterlite.sh` into `src-tauri/resources/jupyterlite`
+(untracked, like the embedded runtime below) and `make bundle` depends on it. See
+[JupyterLite — the tutorial runtime in the browser](jupyterlite.md).
+
 ## Prerequisites
 
 - **Rust** (stable, ≥ 1.77.2) and **Node 20+** with npm.
