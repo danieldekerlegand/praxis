@@ -31,7 +31,8 @@
         "The audit is strictly read-only: it never writes or rewrites a notebook (the seed library stays held to gate_failures and stays green), and its output is a machine-readable report naming each rotted notebook, the specific dead URL or failing cell, and the grader's own sentence for it.",
         "Gate green: python3 -m pytest -q tests/ passes, including a test that the audit flags a fixture notebook with a dead URL and one with a non-compiling cell (against a stubbed HTTP layer \u2014 no live network in tests) and passes a healthy one."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "Added read-only praxis.audit JSON/CLI sweep using construction_failures, gate_failures, and compile checks; fixture tests cover dead URL, syntax failure, healthy, offline unchecked, and byte-identical input. Full pytest: 911 passed, 1 skipped."
     },
     {
       "id": "US-2",
@@ -41,7 +42,8 @@
         "A refresh is a repo-maintenance operation, not an in-app write: notebooks/ ships with the app and is never written at runtime, so the regenerate path runs from the repo (CLI/maintenance entry point) and its output lands as a reviewable diff; a regeneration whose result fails the grader writes nothing and leaves the existing seed in place.",
         "Gate green: python3 -m pytest -q tests/ passes, including a test that a flagged notebook is untouched by default, that force-regenerating a fixture notebook goes through the shipped grader (a failing regeneration leaves the original byte-identical), and that an un-flagged \u2705 notebook is never a regeneration target."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "Added documented FLAGGED-FOR-HUMAN / FORCE-REGENERATE policy and repo-only praxis.refresh CLI/API; forced candidates delegate to construct_path with force=True and the shipped construction grader writes only passing content. Full pytest: 914 passed, 1 skipped; refresh tests: 6 passed."
     },
     {
       "id": "US-3",
@@ -51,7 +53,8 @@
         "A domain-addition policy is documented in docs/: the numbering runs 01\u201315 with 06 a permanent hole \u2014 a new domain APPENDS the next free number (16+), never reuses 06 \u2014 and adding a domain means a Domain entry in curriculum.py's DOMAINS, a notebooks/NN-slug directory, and a gap-analysis coverage section; a test asserts the on-disk domain directories, the DOMAINS list, and the no-reuse-of-06 rule agree.",
         "Gate green: python3 -m pytest -q tests/ passes, including the domain-numbering consistency test and a test that the promotion path refuses to record a promotion for a topic whose notebook is not \u2705 or whose checkset is absent."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "Added praxis.promote repository path: construct_topic with checks=True, gate_failures, and checkset_failures must all pass before moving a recommended entry from gap-analysis §2 to §1. Added domain-addition policy and manifest/directory validator reserving 06. Full pytest: 917 passed, 1 skipped; promotion tests: 6 passed."
     }
   ]
 }

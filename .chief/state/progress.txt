@@ -1,23 +1,15 @@
-# Chief Progress — 78-jd-suggestion-review-surface
-Started: Fri Aug 21 04:09:30 CDT 2026
+# Chief Progress — 83-seed-library-refresh
+Started: Fri Aug 21 19:06:42 CDT 2026
 ---
 
 ## Codebase Patterns
 
-- JD review state belongs under the active storage backend, alongside imported JDs and subjects; launcher mutations should use the central writable middleware and delegate accepted goals to `generate_and_save`.
-- Keep the JD review UI as a projection of launcher suggestion state. Accepted slugs return to `App.tsx`, whose single `useConstruction` instance remains the owner of construction runs.
+- Promotion must remain a policy layer over `construct_topic`; the constructor and checks grader are the only accepted gates before documentation records a seed as covered.
 
-## US-1 — Serve and mutate the suggestion set over the launcher
+## Iteration US-3
 
-- Added persisted review state in `praxis/suggestion_review.py` and `storage.suggestions_dir()`.
-- Added launcher routes to build/list suggestions for an imported JD, edit/drop them, and accept them through the existing subject-generation path; added an accept/drop API smoke test.
-- Verification: `uv run --with '.[launch,dev]' pytest -q` → 964 passed, 0 failed (one existing Starlette/httpx deprecation warning).
+Implemented `praxis.promote` with a repository-only promotion path for recommended topics. It requires the constructor result, `gate_failures`, the complete badge, and a valid checkset before moving a topic from gap-analysis §2 into its domain's §1 coverage section. Added `docs/explanation/domain-addition-policy.md`, reserving domain 06 and validating `DOMAINS` against numbered directories, plus focused promotion tests.
 
-## US-2 — In-app review / edit / drop / accept view
+Verification observed: `python3 -m pytest -q tests/` — 917 passed, 1 skipped; promotion/refresh tests — 6 passed.
 
-- Added `SuggestionReview` and its launcher client to render each suggestion's source requirement, rationale, and editable goal with edit, drop, and accept actions.
-- Accept hands the returned subject slug to `App.tsx`, which selects it in the existing define → scaffold → construction flow and keeps the top-level construction poller in charge.
-- End-to-end run: imported JD → launcher-generated suggestions → accepted a suggestion through the existing subject API → opened the persisted subject in Define → scaffolded notebooks → construction remains the existing App-owned run.
-- Verification: `npm run build` green; `cargo build` green; `python3 -m pytest -q tests/` → 908 passed, 1 skipped.
-
-Learnings for future iterations: keep suggestion state and gap explanations server-described; the UI should only edit the goal text and hand accepted subject slugs back to the existing subject workflow.
+Learnings for future iterations: the manifest includes a filesystem-backed legacy domain, so numbering validation must compare only top-level numbered directories while allowing nested legacy notebooks.
