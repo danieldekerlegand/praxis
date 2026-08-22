@@ -503,8 +503,10 @@ def test_a_subject_reaches_the_library_only_once_it_has_notebooks(
         "status": "scaffold",
         "recommended": False,
         "note": "",
-        # No checks beside it yet, so it gates nothing and nothing gates it.
+        # No checks beside it yet, so it gates nothing and nothing gates it — and no
+        # graded cells released either, so it counts toward no coverage.
         "gated": False,
+        "graded": False,
         "complete": False,
         "passed": 0,
         "checks": 0,
