@@ -21,3 +21,4 @@ The map. Structured per the ecosystem
 
 - [Gap Analysis](explanation/gap-analysis.md)
 - [Notebook Completion Rubric](explanation/notebook-rubric.md)
+- [jupyterquiz — assessed, declined](explanation/jupyterquiz-assessment.md)
