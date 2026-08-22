@@ -69,3 +69,58 @@ Observed:
   scan proposes a learner-facing dependency, that is the first question to ask of it.
 - The commit trailer in `.chief/agent-context.md` names Opus 4.8; this iteration ran on
   Opus 5 and the trailer records the model that actually did the work.
+
+---
+
+## US-1 — Audit backfilled checksets for fabricated or trivial questions (262d731)
+
+New module `praxis/gateaudit.py` + `tests/test_gateaudit.py` (15 tests), plus a
+paragraph in `CLAUDE.md` beside the coverage one.
+
+**What it audits, and what it deliberately does not.** Two gates already ran before a
+set landed: `nbgrader validate` (wellformedness + hidden tests execute) and
+`checks.checkset_failures()` (gradable, reference solution run against its own test).
+Neither can say the question is trivial. The audit calls `checkset_failures` for the
+gradability half — reported under its own key, never merged — and owns only four
+measured rules:
+
+- `choice` giveaway: word coverage of the correct option by the prompt, **scored against
+  the best distractor's coverage**, so a question reusing its own subject vocabulary is
+  not mistaken for one handing over its answer.
+- `short` key quoted in its own prompt / copied verbatim out of the notebook body.
+  `body_text()` drops the Praxis-owned graded cells first — `annotate_notebook()`
+  publishes the prompts into the notebook, so without that every gate looks copied.
+- `code` test that passes an **empty submission or the starter stub** — `run_code_check()`
+  pointed the other way. Generation proves the reference solution passes; this proves
+  nothing else does. Measured, not read, so `assert True` and a tautological assert both
+  fall out of the same rule.
+- two near-identical prompts in one set (Jaccard over content words).
+
+**Measured before written.** Every threshold was calibrated against the 24 shipped gates
+(see the notes field for the numbers). All 24 are `generated_by: "hand-authored"` — the
+79 backfill has produced nothing on disk in this worktree, so the hand-built set is both
+the corpus and the bar, and `test_every_shipped_seed_gate_is_clean` pins 0 flagged.
+
+Observed: `python3 -m pytest -q tests/` **1016 passed, 0 failed** (339s, launch extra
+installed). `python3 scripts/validate_nbgrader.py notebooks` **24 notebooks, 0 failures**.
+`python3 -m praxis.gateaudit` **24 gates (144 checks), 0 flagged**, 2.3s.
+
+### Learnings for future iterations
+
+- **Calibrate a threshold against the shipped 24 before writing the rule, not after.**
+  A ten-line probe script over `notebooks/**/*.checks.json` printed the worst genuine
+  score for each candidate rule; two candidates died there (option-length ratio — the
+  genuine max is 2.8x, no headroom; and any body-overlap rule below 0.7). Repeat that
+  probe before adding or tightening a rule in US-2/US-3.
+- **US-2 wiring, already thought through.** `set_quality_failures(doc, notebook=...,
+  verify_code=...)` is shaped to drop straight into `checkset_failures`'s write path, and
+  `quality_failures(check, ...)` into `check_failures`. Import it **inside** the function
+  in `praxis/checks.py` — `gateaudit` imports `checks` at module level, so a module-level
+  import back is a cycle. The `notebook=` argument defaults to `""` (the copied-out-of-
+  the-page rule simply does not run without it), and `verify_code=False` skips the
+  subprocess runs, so `needs_checks()`'s cheap load path stays cheap for free.
+- **One landmine for US-2:** the sample builders in `tests/test_checks.py` (`choice()` /
+  `short()`) template the prompt off the section name, so two of them across sections
+  score ~1.0 on the duplicate rule. Wiring the rule into `checkset_failures` will fail
+  those tests until the fixtures are given distinct prompts — which is the right fix, not
+  a reason to loosen the rule.
