@@ -207,3 +207,79 @@ def coverage(
         counted.append((domain, sum(is_gated(d, t) for d, t in complete),
                         len(complete), len(targets)))
     return counted
+
+
+# --- CLI --------------------------------------------------------------------
+
+
+def _domains_for(dirs: Sequence[str]) -> list[tuple[Domain, Subject | None]]:
+    """Resolve the named seed domains, or the whole library when none are named."""
+    if not dirs:
+        return library_domains()
+    chosen = []
+    for name in dirs:
+        domain = curriculum.domain_by_dir(name)
+        if domain is None:
+            raise CurriculumError(
+                f"no seed domain '{name}' — its id is the directory under notebooks/, "
+                f"e.g. {curriculum.DOMAINS[0].dir}"
+            )
+        chosen.append((domain, None))
+    return chosen
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run the backfill from a shell — the entry point a Chief tasklist drives.
+
+    `--list` is the half that costs nothing: it prints the selection and stops, so a
+    batch's plan (and a generated tasklist's warmup) can be read with no key configured
+    and no model call made.
+    """
+    import argparse  # noqa: PLC0415  (a CLI convenience, not an import-time dependency)
+
+    parser = argparse.ArgumentParser(
+        description="Gate the ✅-but-ungated notebooks of one domain, or of the library"
+    )
+    parser.add_argument("domains", nargs="*", metavar="DIR",
+                        help="seed domain directories (default: the whole library)")
+    parser.add_argument("--list", action="store_true",
+                        help="print the selection and exit — no model call, no key")
+    parser.add_argument("--limit", type=int, default=None, help="cap the number of topics")
+    parser.add_argument("--depth", type=int, default=1,
+                        help="topics per domain per round when running the library (default 1)")
+    args = parser.parse_args(argv)
+
+    try:
+        domains = _domains_for(args.domains)
+    except CurriculumError as exc:
+        print(f"praxis.backfill: {exc}", file=sys.stderr)
+        return 2
+
+    targets = library_targets(domains, depth=max(1, args.depth), limit=args.limit)
+    if args.list:
+        for domain, gated, complete, total in coverage(domains):
+            print(f"{domain.dir:<28} {complete - gated:>3} ungated of {complete:>3} ✅ "
+                  f"({total} notebooks)")
+        print(f"\n{len(targets)} topics selected, in batch order:")
+        for domain, topic, _ in targets:
+            print(f"  {domain.dir}/{topic.slug}.ipynb")
+        return 0
+
+    results = construct_each(targets, checks=True)
+    failed = 0
+    for result in results:
+        print(result.summary())
+        if not result.checks_ok:
+            for failure in result.checks.failures or (result.checks.detail,):
+                print(f"    - checks: {failure}", file=sys.stderr)
+            failed += 1
+        elif not result.ok:
+            for failure in result.failures:
+                print(f"    - {failure}", file=sys.stderr)
+            failed += 1
+    print(f"\n{len(results) - failed} of {len(results)} topics gated")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

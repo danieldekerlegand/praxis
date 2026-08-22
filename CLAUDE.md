@@ -200,6 +200,71 @@ holds is never a regeneration target even with `force=True`, so an unattended re
 costs no model call. `python3 -m praxis.regate` prints it; the 24 seed gates, all written
 before the bar, hold it, and a test pins that.
 
+## Driving the batch unattended: Chief tasklists
+
+`praxis/tasklist.py` is a **generator, not a second batch**. Praxis already owns the loop
+(`construct_each`, and `backfill_domain` in front of it); what it does not own is running
+that loop with nobody in front of the app. So this module cuts the live library into
+*units* — one seed domain's gate (`gate-<domain.dir>`) or one generated subject's build
+(`build-<subject.slug>`) — and emits `tasks/chief/<name>.json` whose stories run the
+**shipped** commands, `python3 -m praxis.backfill <dir>` and `python3 -m praxis.construct
+--subject <slug>`. It constructs nothing and gates nothing; a tasklist that drove its own
+construction would be a second definition of "complete" and the two would drift.
+
+Three rules do the work. Resumability is **not written here** — it falls out of
+skip-if-✅ (`construct_topic`) and skip-if-gated (`backfill.is_gated`), which is why
+`iters` scales with the backlog: another iteration is another resumed pass, not a harder
+story. A unit with an empty backlog is **refused** (`unit_for`), because an empty tasklist
+is a Chief run that ends `EMPTY-NO-WORK` having proved the domain was already gated. And
+the document is **graded before it is written**, the constructor's rule one level up:
+`tasklist_failures()` is the machine-readable half of chief's `docs/reference/tasklist-schema.md`
+(branch is `chief/<name>`, a category `scripts/check-tasklist-categories.mjs` accepts, every
+story `passes: false`, no `mergedToMain`), and `write_tasklist` writes nothing that fails
+it — nor over a tasklist that is already active or retired, whose `passes` flags are
+chief's bookkeeping and not this module's to reset.
+
+`touches` is the one scheduler field carrying a decision: a unit declares the notebook
+tree it writes (`notebooks/<dir>`, `subjects/<slug>`), so fourteen domain gates run in
+parallel while two tasklists on the *same* domain never co-schedule. The one asymmetry
+worth knowing: a backfill's notebooks are in the branch, but a generated subject is the
+user's data and is written **outside the repo** under `storage`'s root, so a subject
+tasklist's evidence is the recorded badge/gate counts, not a diff.
+
+`python3 -m praxis.backfill [--list] [DIR…]` is the entry point those tasklists name —
+`--list` prints the selection with no model call and no key, which is what a generated
+tasklist's `warmup` (`python3 -m praxis.tasklist show <name>`) is for.
+
+`praxis/headless.py` is the other half — it **starts** one of those tasklists and reads its
+result back, and it consumes two chief contracts **by reference**, the way `llm.py` consumes
+agora's: a documented CLI shape and two environment variables, never an import or a path
+into another checkout. `docs/reference/chief-powered-construction.md` is the prose contract.
+
+`chief run --headless` adds machine-readable lines to the same engine — `chief: run-id=`
+before the loop, `chief: outcome=` / `exit=` / `summary={…}` after it, and an exit code that
+names the outcome. **Only those are read.** `records()` keeps `chief: <key>=<value>` lines
+and drops every other byte on the stream, so the human summary block sharing it cannot be
+scraped by accident; `parse_run()` takes the outcome from the summary JSON, then the
+`outcome=` line, then the exit table — three machine-readable sources and no fourth — and
+**raises** on a stream with no run-id rather than inventing one (a test prints a human block
+saying "All tasklists merged successfully" next to a summary saying `verify-failed`, and
+pins that the summary wins). A `chief: exit=` that disagrees with the process's own status
+is refused for the same reason.
+
+`chief run --preset local` is the routing switch, and `LocalPreset` is its two required
+variables (`CHIEF_LOCAL_ENDPOINT`, `CHIEF_LOCAL_MODEL`) and nothing else — no `--provider`
+or `--model`, which chief refuses next to the preset rather than guessing who is paying, and
+no default host. `LocalPreset.failures()` is chief's own refusal made one process earlier:
+an unconfigured preset stops the batch **before it spawns** instead of quietly billing a
+paid provider for a run that was asked to be free. The tradeoff is deliberate and belongs
+here rather than in the app: a local model writes worse code, but every artifact still goes
+through `construction_failures` / `checkset_failures(verify_code=True)` / `nbgrader
+validate` before it lands, so a weaker model costs **iterations, not correctness**.
+
+Resumability is again not implemented — `unfinished(run)` is just the rows chief reported as
+unfinished, and re-running them is safe because of skip-if-✅ and skip-if-gated one and two
+levels down. The CLI exits with **chief's own exit code**: `python3 -m praxis.headless` is
+the plan (preset, units, exact argv, no spawn), `… run [names] [--jd ID] [-p N]` drives it.
+
 ## Progression: what the checks actually gate
 
 `praxis/progress.py` is the learner's side, and it is deliberately *only* bookkeeping and
