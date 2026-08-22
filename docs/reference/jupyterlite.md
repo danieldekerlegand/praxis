@@ -16,19 +16,17 @@ to register. Praxis **adopts** it as the runtime for notebook content.
 
 JupyterLite is the *runtime*. It is **not** the gate, and cannot be.
 
-The gate is server-side on purpose: `checks.learner_check()` is the only way a check
-reaches a client, a locked section is served **no checks at all** (not the answer key,
-not even the question), and `POST /api/study/<rel>` answers **423** for a section the
-learner has not reached. A JupyterLite site is a static directory the learner controls
-completely — shipping the gate into it would hand every learner the answer key, and *a
-disabled button is not the gate*.
+A JupyterLite site is a static directory the learner controls completely, so shipping the
+gate into it would hand every learner the answer key — and *a disabled button is not the
+gate*. Which process holds that key instead, and what may cross to a browser, is stated
+once in [The gate's authority](gate-authority.md); this page is the runtime half of it.
 
 So the split is:
 
 | | Where it runs | What it holds |
 |---|---|---|
 | **Tutorial content** — the eight rubric sections and their code | The browser, on Pyodide | The released notebook body, nothing graded |
-| **The gate** — questions, grading, unlocks | A process the learner does not control: the Tauri backend / the embedded interpreter | The answer key, the recorded outcomes, the derived unlocks |
+| **The gate** — questions, grading, unlocks | The Python core, on the embedded interpreter the shell starts | The answer key, the recorded outcomes, the derived unlocks |
 
 `praxis/lite.py` is that boundary, and it is stricter than `learner_check()` rather than
 equal to it: `browser_notebook()` removes **every** graded region — Praxis's own check
@@ -158,6 +156,7 @@ running need nothing, constructing needs what it always needed.
 
 ## Related
 
+- [The gate's authority](gate-authority.md) — which process holds the answer key, and what may cross to a browser
 - [Packaging Praxis](packaging.md) — what a bundle carries and how it is built
 - [Notebook Completion Rubric](../explanation/notebook-rubric.md) — what a tutorial is
 - [Storage — where your work is kept](storage.md) — why generated subjects are not staged here

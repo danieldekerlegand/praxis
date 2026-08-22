@@ -285,6 +285,22 @@ Two boundaries carry the anti-fabrication weight, both server-side:
 section serves **no checks at all** while `POST /api/study/<rel>` answers **423** for one
 the learner hasn't reached. A disabled button is not the gate.
 
+Since JupyterLite became the runtime the browser is explicitly **untrusted**, and
+`docs/reference/gate-authority.md` is the one place that says which process holds the key
+(`tests/test_gate_authority.py` enforces it — the doc is in the python path predicate of
+both `.chief/verify.sh` and CI for that reason). Two rules were added there and both are
+one-liners you must not route around. `checks.learner_answer()` is `learner_check()`'s
+**inbound twin**: a submission is read for `check_id` and `answer` and nothing else, and
+one carrying a verdict (`passed`, `outcome`, `graded_by`, `locked`, …) is refused **400**
+rather than ignored — a client that sends a verdict believes it grades. And
+`lite.browser_notebook()` is the one notebook filter for **both** untrusted surfaces: the
+JupyterLite site *and* `/render/<rel>`, which is HTML in a browser with devtools. It is
+stricter than `checks.graded_cells()` on purpose — nbgrader's companion `-tests` cell has
+no praxis namespace and its assertions are the answer. Grading itself never moves: the
+Pyodide kernel is a scratchpad, `run_code_check()` runs the submission in a subprocess of
+the interpreter holding the key, so a `code` check is gradable exactly when the core is
+running, which is exactly when there is a gate at all.
+
 Progress persists as one JSON file per learner under `progress_dir()` — and what is
 stored is the whole outcome, learner's answer included, not a boolean.
 

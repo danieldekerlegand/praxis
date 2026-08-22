@@ -15,8 +15,10 @@
 //! - **It serves content, never the gate.** What is on disk here has already had every
 //!   graded region stripped by `praxis/lite.py`, and no answer key is staged; the gate's
 //!   authority stays in the launcher, which the learner does not control
-//!   (`docs/reference/jupyterlite.md`). This is a read-only file server over one
-//!   directory and holds no unlock logic of its own.
+//!   (`docs/reference/gate-authority.md`). This is a read-only file server over one
+//!   directory and holds no unlock logic of its own. It refuses an answer key by name
+//!   as well ([`ANSWER_KEY`]) — the staging refusal is what keeps one out of the site,
+//!   and this is what keeps a stray one unreachable if it ever got in.
 //!
 //! It is a few dozen lines of `std::net` rather than a dependency for the same reason
 //! `library::healthy` writes its own `GET /healthz`: one read-only GET/HEAD server over
@@ -38,6 +40,11 @@ const SITE_DIR: &str = "jupyterlite";
 /// *with* the site because the site is static — a shell with no Python core can still
 /// draw a library from it.
 const MANIFEST: &str = "praxis-lite.json";
+
+/// Praxis's answer-key sidecar (`praxis::checks::checks_path`). `praxis/lite.py` stages
+/// only `.ipynb`, so the site should contain none — this refuses one anyway, because
+/// "there isn't one there" is a property of the last build and not of this server.
+const ANSWER_KEY: &str = ".checks.json";
 
 /// Point the shell at a site somewhere else. The same variable
 /// `scripts/build-jupyterlite.sh` writes one with, so a site built to a scratch directory
@@ -251,9 +258,15 @@ enum Resolved {
 /// the site root — a symlink inside a JupyterLab asset tree is the way a normalizing
 /// server still serves `/etc/passwd`. With `..` refused up front, a path that does not
 /// exist cannot be outside the root, so "missing" and "refused" stay separable.
+///
+/// An [`ANSWER_KEY`] target is refused before anything is looked up, so the refusal does
+/// not depend on whether one happens to be on disk.
 fn resolve(root: &Path, target: &str) -> Resolved {
     let path = target.split(['?', '#']).next().unwrap_or_default();
     let decoded = percent_decode(path);
+    if decoded.ends_with(ANSWER_KEY) {
+        return Resolved::Refused;
+    }
     let Ok(base) = root.canonicalize() else {
         return Resolved::Refused;
     };
@@ -435,6 +448,27 @@ mod tests {
         // An asset that simply is not there is missing, not refused: with `..` already
         // refused, a path that does not exist cannot be outside the site.
         assert_eq!(resolve(&root, "/nothing-here.js"), Resolved::Missing);
+    }
+
+    #[test]
+    fn an_answer_key_is_refused_whether_or_not_one_is_on_disk() {
+        // `praxis/lite.py` stages only `.ipynb`, so a built site holds no key at all.
+        // That is a property of the last build; this is a property of the server.
+        let dir = scratch("answer-key");
+        let root = site_at(&dir.join("site"));
+        let planted = root.join("files").join("01-domain").join("topic.checks.json");
+        write(&planted, r#"{"checks": [{"answer": 0, "test": "assert True"}]}"#);
+        assert!(planted.is_file(), "the key really is there to be served");
+
+        for target in [
+            "/files/01-domain/topic.checks.json",
+            "/files/01-domain/topic.checks.json?download=1",
+            "/files/01-domain/topic%2Echecks%2Ejson",
+        ] {
+            assert_eq!(resolve(&root, target), Resolved::Refused, "{target} served a key");
+        }
+        // The notebook beside it is still content, and still served.
+        assert!(matches!(resolve(&root, "/files/01-domain/topic.ipynb"), Resolved::Found(_)));
     }
 
     #[test]

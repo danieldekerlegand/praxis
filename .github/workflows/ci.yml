@@ -39,7 +39,7 @@ jobs:
           {
             echo "ui=$(has '^ui/')"
             echo "rust=$(has '^src-tauri/')"
-            echo "python=$(has '\.(py|ipynb)$|^notebooks/|^tests/|^scripts/|^pyproject\.toml$|^ui/package\.json$|^src-tauri/tauri\.conf\.json$|^Makefile$|^README\.md$')"
+            echo "python=$(has '\.(py|ipynb)$|^notebooks/|^tests/|^scripts/|^pyproject\.toml$|^ui/package\.json$|^src-tauri/tauri\.conf\.json$|^Makefile$|^README\.md$|^docs/reference/gate-authority\.md$')"
           } >> "$GITHUB_OUTPUT"
 
   frontend:

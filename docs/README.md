@@ -13,6 +13,7 @@ The map. Structured per the ecosystem
 *information-oriented — what it is*
 
 - [Chief-powered construction — the batch, driven unattended and for free](reference/chief-powered-construction.md)
+- [The gate's authority — which process holds the answer key](reference/gate-authority.md)
 - [JupyterLite — the tutorial runtime in the browser](reference/jupyterlite.md)
 - [Packaging Praxis](reference/packaging.md)
 - [Storage — where your work is kept](reference/storage.md)
