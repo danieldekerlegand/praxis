@@ -155,6 +155,21 @@ second poll, and `library_report()` reads that same key rather than counting aga
 UIs render what the launcher counted (`ui/src/App.tsx`, `launcher/templates/index.html`)
 and neither holds coverage logic, the same rule `KnowledgeChecks.tsx` follows for locks.
 
+`praxis/gateaudit.py` asks the question the two write-path gates cannot: `nbgrader
+validate` proves a graded cell is well-formed and that its hidden tests run, and
+`checkset_failures` proves the set is *gradable* — neither proves it is worth grading.
+That residue is all this module looks at, and it re-implements no part of either: it
+calls `checkset_failures` for the gradability half and adds four measured rules — a
+`choice` whose correct option is already spelled out in its prompt, a `short` whose key
+is quoted back in the question or copied out of the notebook body (`body_text()` drops
+the Praxis-owned cells first, because a question is not evidence for itself), a `code`
+check whose `test` still passes an empty submission or the starter stub (the shipped
+`run_code_check()` subprocess pointed the other way — generation proves the reference
+solution passes, the audit proves nothing else does), and two near-identical prompts in
+one set. Every threshold is set against the 24 hand-built seed gates, which is the bar a
+backfilled gate has to hold: `python3 -m praxis.gateaudit` flags 0 of them, and a test
+pins that. Tighten a threshold only with that measurement in hand.
+
 ## Progression: what the checks actually gate
 
 `praxis/progress.py` is the learner's side, and it is deliberately *only* bookkeeping and
