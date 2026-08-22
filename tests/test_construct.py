@@ -555,20 +555,29 @@ def test_checks_can_be_turned_off(runnable):
     assert not checks_path(result.path).exists()
 
 
+def _authored(nb: dict) -> list[str]:
+    """Every cell the constructor wrote, as source — the graded cells excluded."""
+    graded = checks_mod.graded_cells(nb)
+    return ["".join(c["source"]) for c in nb["cells"] if c not in graded]
+
+
 def test_a_notebook_that_was_already_complete_still_gains_its_checks(runnable):
     """The resume path: a library built before the gate existed is not left ungated."""
     module, topic = runnable
     construct_topic(module, topic, client=FakeClient(reply(good_cells())), checks=False)
-    written = topic_path(module, topic).read_text()
+    before = json.loads(topic_path(module, topic).read_text())
 
     client = FakeClient(reply(good_cells()))
     result = construct_topic(module, topic, client=client)
 
-    assert result.status == "skipped"             # the notebook is untouched...
-    assert topic_path(module, topic).read_text() == written
+    assert result.status == "skipped"             # the prose is not rewritten...
     assert client.calls == []
     assert result.checks.status == "generated"    # ...but it is gated now
     assert len(client.check_calls) == 1
+    after = json.loads(topic_path(module, topic).read_text())
+    assert _authored(after) == _authored(before)
+    # And the gate is in the notebook, not only in the sidecar beside it.
+    assert checks_mod.graded_cells(after)
 
 
 def test_checks_the_model_cannot_make_gradable_do_not_un_write_the_notebook(runnable):
