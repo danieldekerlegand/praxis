@@ -124,3 +124,63 @@ installed). `python3 scripts/validate_nbgrader.py notebooks` **24 notebooks, 0 f
   score ~1.0 on the duplicate rule. Wiring the rule into `checkset_failures` will fail
   those tests until the fixtures are given distinct prompts — which is the right fix, not
   a reason to loosen the rule.
+
+---
+
+## US-2 — Tighten checkset_failures so a trivial set can never be written (63c1036)
+
+The four rules US-1 measured now run on the **write path**, not only as a report.
+`praxis/checks.py`:
+
+- `check_failures(..., quality=None, notebook="")` appends `gateaudit.quality_failures`;
+  `checkset_failures(..., quality=None, notebook="")` passes it through and adds
+  `gateaudit.duplicate_failures` across the set. Both import gateaudit *inside* the
+  function — gateaudit imports `praxis.checks` at module level, so the dependency runs
+  one way at import time.
+- **`quality` follows `verify_code`.** That one line is the whole boundary: the cheap
+  load path (`needs_checks()`, and generation's already-generated skip, both
+  `verify_code=False`) runs neither half, so it stays cheap *and* a gate written before
+  the bar existed is skipped rather than silently re-judged or rewritten. Re-auditing
+  those is US-3's explicit pass. `quality=False` is also what `gateaudit.audit_checkset`
+  now passes, so its two halves stay reported separately instead of double-counting.
+- `generate_checks` passes `notebook=body_text(nb)` — the copied-out-of-the-page rule is
+  the one rule that needs the page. `praxis/promote.py` does the same with the notebook
+  it had already read.
+
+Files: `praxis/checks.py`, `praxis/gateaudit.py`, `praxis/promote.py`,
+`tests/test_checks.py`, `CLAUDE.md`.
+
+Observed: `python3 -m pytest -q tests/` **1025 passed, 0 failed** (313s);
+`CHIEF_BASE_BRANCH=main bash .chief/verify.sh` → **verify: PASS**;
+`python3 scripts/validate_nbgrader.py notebooks` **24 notebooks, 0 failures**;
+`python3 -m praxis.gateaudit` **24 gates (144 checks), 0 flagged**.
+
+Nine new tests: five parametrized fabricated/trivial sets (answer given away, key quoted
+in its own prompt, a `test` passing an empty submission, a `test` passing the starter
+stub, the same question twice) each fail with that rule's own sentence and leave nothing
+on disk; a `short` whose `expected` is copied verbatim out of the notebook body is
+rejected; the grader's sentence is what the model's **second attempt** is repaired with;
+the cheap load path returns `[]` for a set the full bar flags; and all 24 shipped seed
+gates still pass the tightened bar.
+
+### Learnings for future iterations
+
+- **The fixture landmine US-1 predicted was real and was the only test change needed.**
+  `tests/test_checks.py`'s `choice()`/`short()` templated one prompt off the section
+  name, scoring 0.75–1.00 on the duplicate rule; they now carry a per-section prompt
+  (`CHOICE_PROMPTS` / `SHORT_PROMPTS`, with the old template as the fallback for a
+  section not in the map). `tests/test_construct.py`, `test_backfill.py` and
+  `test_launcher_api.py` all import `good_checks` from there, so fixing it once fixed
+  every caller — check that import graph before duplicating a fixture.
+- **US-3 is already half-specified by this shape.** The "flag, don't rewrite" rule it
+  wants is what `quality` following `verify_code` already produces: a pre-tightening gate
+  on disk is *skipped* by `needs_checks()`, so US-3 is (a) a pass that calls
+  `checkset_failures(doc, notebook=body_text(nb))` — the tightened grader, not a parallel
+  one — over gates already written, and (b) an explicit per-notebook regeneration that
+  goes through `generate_checks(force=True)`, which now cannot write a set failing the
+  new bar. `docs/explanation/seed-refresh-policy.md`'s FLAGGED-FOR-HUMAN /
+  FORCE-REGENERATE vocabulary is the one to reuse.
+- **Cost of the tightening, measured:** a `code` check now costs up to 3 subprocess runs
+  at generation (reference solution, empty submission, starter stub) instead of 1. The
+  full suite went 313s vs ~339s before — no meaningful change, because sets carry ~1 code
+  check each.
