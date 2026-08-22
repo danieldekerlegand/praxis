@@ -27,7 +27,8 @@
       ],
       "answer": 0,
       "explanation": "For a single prompt answered G times, the other G\u22121 completions already tell you whether one was better than average. That is an unbiased baseline by construction.",
-      "id": "grpo-rlvr-01"
+      "id": "grpo-rlvr-01",
+      "grade_id": "grpo-rlvr-77597c1d4209f540"
     },
     {
       "section": "Mental Model",
@@ -35,7 +36,8 @@
       "prompt": "GRPO is described as 'grading on a curve, one question at a time'. Derive two practical consequences from that framing.",
       "expected": "A correct answer must derive at least two of: (1) the prompt's INTRINSIC DIFFICULTY CANCELS \u2014 a hard prompt where everyone scores low and an easy one where everyone scores high both produce advantages centred on zero, giving the variance reduction of a perfect state-dependent baseline for free; (2) a UNANIMOUS GROUP TEACHES NOTHING \u2014 if all G completions get the same reward every advantage is zero, so all-correct and all-wrong prompts contribute no gradient despite costing full sampling budget, which makes prompt difficulty selection a first-class concern; (3) G CONTROLS ESTIMATE QUALITY \u2014 small groups give noisy baselines and waste more prompts, large groups cost linearly more sampling.",
       "explanation": "The comparison set is right there in the group, so no prediction is needed \u2014 but only if the group actually disagrees.",
-      "id": "grpo-rlvr-02"
+      "id": "grpo-rlvr-02",
+      "grade_id": "grpo-rlvr-dac39981812d4377"
     },
     {
       "section": "Key Concepts",
@@ -49,7 +51,8 @@
       ],
       "answer": 0,
       "explanation": "The advantage is (r \u2212 mean)/std within the group; with one sample both the deviation and the std are zero. Beyond that, the fraction of degenerate groups is the cost people forget when picking G.",
-      "id": "grpo-rlvr-03"
+      "id": "grpo-rlvr-03",
+      "grade_id": "grpo-rlvr-032555d2a355f566"
     },
     {
       "section": "Worked Examples",
@@ -59,7 +62,8 @@
       "solution": "def group_advantage(rewards, eps=1e-8):\n    r = list(rewards)\n    if not r:\n        return []\n    mean = sum(r) / len(r)\n    var = sum((x - mean) ** 2 for x in r) / len(r)\n    sd = var ** 0.5\n    return [(x - mean) / (sd + eps) for x in r]\n",
       "test": "a = group_advantage([1.0, 1.0, 1.0, 1.0])\nassert all(abs(x) < 1e-6 for x in a), 'unanimous group -> zero advantage'\na = group_advantage([0.0, 0.0, 0.0])\nassert all(abs(x) < 1e-6 for x in a), 'all-wrong group -> zero advantage'\na = group_advantage([1.0, 0.0])\nassert a[0] > 0 > a[1], 'better than average is positive'\nassert abs(sum(group_advantage([3.0, 1.0, 2.0, 6.0]))) < 1e-6, 'advantages sum to ~0'\na = group_advantage([1.0, 0.0, 0.0, 0.0])\nassert abs(a[0]) > abs(a[1]), 'the lone winner deviates most'\nassert group_advantage([]) == []\n",
       "explanation": "The first two assertions are GRPO's defining constraint: unanimous groups produce no gradient at all, so you learn only from prompts the model gets right SOMETIMES.",
-      "id": "grpo-rlvr-04"
+      "id": "grpo-rlvr-04",
+      "grade_id": "grpo-rlvr-788c2c7f15b2b280"
     },
     {
       "section": "Gotchas",
@@ -73,7 +77,8 @@
       ],
       "answer": 0,
       "explanation": "Under RLVR the checker IS the objective, so any gap between the checker and the capability you meant will be found and exploited. The engineering effort moves from reward-model training to checker design.",
-      "id": "grpo-rlvr-05"
+      "id": "grpo-rlvr-05",
+      "grade_id": "grpo-rlvr-c7ceefd8719aa699"
     },
     {
       "section": "When to Use",
@@ -81,7 +86,16 @@
       "prompt": "Compare GRPO+RLVR against PPO with a learned reward model: when does each win, and what is the deeper shift RLVR represents?",
       "expected": "A correct answer must say GRPO+RLVR wins where rewards are CHECKABLE (maths, code, tests, exact answers) and sampling is cheap enough to draw G completions per prompt \u2014 no critic to train, no critic to be wrong. PPO wins where the reward must be a LEARNED MODEL because the task is open-ended with no checker, where sampling is very expensive (PPO reuses each rollout for several epochs while GRPO needs G samples per prompt), or where a trustworthy critic already exists. It must identify the deeper shift: moving from LEARNED to CHECKABLE rewards removes the reward-hacking failure mode that dominates RLHF and replaces it with CHECKER DESIGN \u2014 a better problem, because a checker's failures are inspectable in a way a reward model's are not. Noting that GRPO is not a better optimiser, just PPO with the critic replaced by a group baseline, is a plus.",
       "explanation": "The algorithmic change is modest; the change in what the reward IS is the consequential part.",
-      "id": "grpo-rlvr-06"
+      "id": "grpo-rlvr-06",
+      "grade_id": "grpo-rlvr-7683be0ee2b4bbef"
     }
-  ]
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  }
 }

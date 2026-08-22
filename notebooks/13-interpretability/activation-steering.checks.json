@@ -27,7 +27,8 @@
       ],
       "answer": 0,
       "explanation": "Probing is correlational and establishes decodability. Adding a direction and observing the output change establishes that downstream computation reads it.",
-      "id": "activation-steering-01"
+      "id": "activation-steering-01",
+      "grade_id": "activation-steering-8cb6b999f08a0b52"
     },
     {
       "section": "Mental Model",
@@ -35,7 +36,8 @@
       "prompt": "Steering is described as 'a thumb on the scale, not a rewritten rulebook'. Derive from that framing why steering has its largest effect on ambivalent inputs, and why a large coefficient degrades output quality.",
       "expected": "A correct answer must explain that the nudge added is CONSTANT while the activations are not, so the same alpha*v is a small perturbation to a confident activation and decisive for an ambivalent one \u2014 steering therefore bites hardest exactly where the model was undecided. For the second part it must explain that real activations occupy a small region of the space, so a large alpha places them OFF the data manifold, somewhere no training input ever produced, where the model's behaviour is unconstrained rather than merely wrong \u2014 producing degenerate repetition and broken syntax. It should convey that the model still computes everything it would have; steering only leans on the result.",
       "explanation": "Both characteristic behaviours \u2014 selective effect and quality collapse \u2014 follow from the same picture of a fixed offset added to a varying, manifold-constrained activation.",
-      "id": "activation-steering-02"
+      "id": "activation-steering-02",
+      "grade_id": "activation-steering-80115095b8aa8e62"
     },
     {
       "section": "Key Concepts",
@@ -49,7 +51,8 @@
       ],
       "answer": 0,
       "explanation": "Classification accuracy and directional alignment are different objectives \u2014 the notebook shows the probe classifying better while DIM aligns better with the true direction. Both methods need labels.",
-      "id": "activation-steering-03"
+      "id": "activation-steering-03",
+      "grade_id": "activation-steering-cd898d9eb5ad0186"
     },
     {
       "section": "Worked Examples",
@@ -59,7 +62,8 @@
       "solution": "def diff_in_means(pos, neg):\n    d = len(pos[0])\n    mp = [sum(v[i] for v in pos) / len(pos) for i in range(d)]\n    mn = [sum(v[i] for v in neg) / len(neg) for i in range(d)]\n    diff = [a - b for a, b in zip(mp, mn)]\n    norm = sum(x * x for x in diff) ** 0.5\n    if norm == 0:\n        return diff\n    return [x / norm for x in diff]\n",
       "test": "v = diff_in_means([[1.0, 0.0]], [[-1.0, 0.0]])\nassert abs(v[0] - 1.0) < 1e-9 and abs(v[1]) < 1e-9, v\nv = diff_in_means([[2.0, 2.0], [4.0, 4.0]], [[0.0, 0.0], [0.0, 0.0]])\nassert abs(sum(x*x for x in v) ** 0.5 - 1.0) < 1e-9, 'must be unit length'\nassert abs(v[0] - v[1]) < 1e-9, 'symmetric input -> symmetric direction'\nz = diff_in_means([[1.0, 1.0]], [[1.0, 1.0]])\nassert all(abs(x) < 1e-12 for x in z), 'identical means -> zero vector, no crash'\nv = diff_in_means([[0.0, 3.0]], [[0.0, 0.0]])\nassert abs(v[1] - 1.0) < 1e-9\n",
       "explanation": "This is the entire construction of a steering vector. Normalising is what makes the coefficient alpha comparable across vectors \u2014 without it, comparing alpha between two directions compares nothing.",
-      "id": "activation-steering-04"
+      "id": "activation-steering-04",
+      "grade_id": "activation-steering-d843ef485581f4ef"
     },
     {
       "section": "Gotchas",
@@ -73,7 +77,8 @@
       ],
       "answer": 0,
       "explanation": "Entanglement is a property of the data the vector was built from. The notebook shows a naive vector dragging an unrelated readout from 50% to 99%, and a topic-balanced vector leaving it untouched.",
-      "id": "activation-steering-05"
+      "id": "activation-steering-05",
+      "grade_id": "activation-steering-a80b7fd1686f6d8a"
     },
     {
       "section": "When to Use",
@@ -81,7 +86,16 @@
       "prompt": "A colleague proposes shipping steering vectors as the safety mechanism that prevents a deployed model from producing harmful content. Give the strongest honest assessment.",
       "expected": "A correct answer must decline to endorse it as a SAFETY GUARANTEE, on grounds including: steering shifts a DISPOSITION rather than installing a constraint; it degrades output quality as strength rises; it generalises unpredictably to prompt formats it was not built on; it entangles correlated concepts; and critically the SAME technique works in REVERSE \u2014 the refusal-direction results show such behaviours can be removed as easily as strengthened, so anyone with activation access can undo it. It should recommend FINE-TUNING (or DPO) where the behaviour must durably hold, and position steering as a research instrument for testing causal hypotheses about representations that sometimes doubles as a product feature.",
       "explanation": "Steering is the cheapest causal tool in interpretability and a weak control mechanism; those two facts are not in tension, but conflating them is how it gets misused.",
-      "id": "activation-steering-06"
+      "id": "activation-steering-06",
+      "grade_id": "activation-steering-b0090386810c3f93"
     }
-  ]
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  }
 }

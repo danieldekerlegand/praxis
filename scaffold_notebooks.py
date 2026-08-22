@@ -163,9 +163,9 @@ def scaffold_notebook(domain: Domain, topic: Topic) -> dict:
         md("## 8. Resources\n\nTODO: official docs + 2-3 high-signal links (real URLs)."),
     ]
 
-    return nbformat.v4.new_notebook(
-        cells=cells,
-        metadata={
+    notebook = {
+        "cells": cells,
+        "metadata": {
             "praxis": {
                 "status": "scaffold",
                 "domain": domain.dir,
@@ -177,8 +177,13 @@ def scaffold_notebook(domain: Domain, topic: Topic) -> dict:
             "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
             "language_info": {"name": "python"},
         },
-        nbformat_minor=5,
-    )
+        "nbformat": 4,
+        "nbformat_minor": 5,
+    }
+    # Keep every scaffold cell consumable by nbgrader.  These are read-only/source
+    # cells for now; constructor-generated checks add the graded regions later.
+    from praxis.checks import annotate_notebook
+    return nbformat.from_dict(annotate_notebook(notebook))
 
 
 def scaffold_domain(domain: Domain) -> tuple[int, int]:

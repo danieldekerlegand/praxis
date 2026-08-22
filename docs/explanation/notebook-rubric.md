@@ -54,6 +54,19 @@ Each topic is tagged `runnable` in `curriculum.py`:
 A finished notebook is not yet a *gated* tutorial. Each one is paired with a
 `<slug>.checks.json` beside it (`praxis/checks.py`, written as the second half of
 construction) holding the questions a learner must pass to unlock the next section.
+The notebook's graded regions use nbgrader's published cell metadata schema (schema
+version 3, as emitted by nbgrader 0.9.x): `grade`, `solution`, `locked`, `task`,
+`grade_id`, `points`, `schema_version`, and `checksum`. `grade_id` is content-derived
+and is the stable key for outcomes; it is not the check's position in the sidecar.
+
+Praxis has two learner-facing check kinds that nbgrader itself does not define:
+`choice` (multiple choice) and `short` (model-graded written response). They are a
+documented, namespaced Praxis extension carried by the sidecar alongside standard
+nbgrader cells. nbgrader is code-centric, so an nbgrader-only consumer can read the
+graded cells and ignore this extension without encountering a mutated nbgrader schema.
+The idempotent migration pass is `praxis.checks.migrate_checks_to_nbgrader(root)`;
+it reads each existing sidecar, adds standard metadata/learner regions to its notebook,
+and can be rerun safely.
 
 - **One check per gated section, minimum** — the eight rubric sections minus Setup and
   Resources, which teach nothing a learner can be tested on.
@@ -64,8 +77,13 @@ construction) holding the questions a learner must pass to unlock the next secti
     `runnable: true` topics.
   - `short` — a written answer, graded by the model against the check's `expected`
     marking key, with the learner's answer recorded verbatim on the outcome.
-- **The answer key never lives in the notebook** — that is why the checks are a sibling
-  file and not a cell.
+- **The answer key never reaches the learner artifact** — that is why the checks remain
+  a sibling file. The authored source temporarily carries nbgrader's standard
+  `### BEGIN SOLUTION` / `### END SOLUTION` and `### BEGIN HIDDEN TESTS` /
+  `### END HIDDEN TESTS` regions. `praxis.checks.release_notebook()` delegates their
+  removal to nbgrader's `generate_assignment`; Praxis does not implement a second
+  stripper. The published notebook is content-inspected before it is written, while
+  `learner_check()` remains the only API path that exposes a check prompt/starter.
 
 Hard requirements, the same shape as the notebook gate (`praxis.checks.checkset_failures`
 is the machine-checkable definition, and a set that fails it is never written):

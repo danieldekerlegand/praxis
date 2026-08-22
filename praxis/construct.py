@@ -60,7 +60,7 @@ from curriculum import (  # noqa: E402
     topic_path,
 )
 from nbstatus import notebook_meta, status_from_dict  # noqa: E402
-from praxis.checks import ChecksResult, generate_checks  # noqa: E402
+from praxis.checks import ChecksResult, annotate_notebook, generate_checks  # noqa: E402
 from praxis.curriculum_gen import extract_json  # noqa: E402
 from praxis.llm import LLMClient, LLMError  # noqa: E402
 from praxis.rubric import construction_failures, notebook_text  # noqa: E402
@@ -305,7 +305,9 @@ def build_notebook(
         or {"display_name": "Python 3", "language": "python", "name": "python3"},
         "language_info": meta.get("language_info") or {"name": "python"},
     }
-    return nbformat.v4.new_notebook(cells=body, metadata=meta, nbformat_minor=5)
+    return nbformat.from_dict(annotate_notebook(
+        {"cells": body, "metadata": meta, "nbformat": 4, "nbformat_minor": 5}
+    ))
 
 
 # --- constructing one notebook ---------------------------------------------
@@ -406,7 +408,9 @@ def _with_checks(
     """
     if not enabled:
         return result
-    return replace(result, checks=generate_checks(domain, topic, notebook=nb, **kwargs))
+    return replace(result, checks=generate_checks(
+        domain, topic, notebook=nb, annotate=result.status != "skipped", **kwargs
+    ))
 
 
 # --- constructing many ------------------------------------------------------

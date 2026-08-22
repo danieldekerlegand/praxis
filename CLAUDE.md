@@ -87,14 +87,22 @@ implemented there; it falls out of every target going through `construct_topic`.
 `praxis/checks.py` is the **fourth write**, and the reason `construct_topic` is not the
 end of the story: a notebook that passes the rubric is still ungated until the questions
 that unlock the next section exist. They live *beside* the notebook as
-`<slug>.checks.json` (`checks_path()`), never inside it — the answer key must not sit in
-a cell the learner is reading, and the seed library gains checks without being rewritten.
+`<slug>.checks.json` (`checks_path()`), while learner-facing graded regions carry the
+standard nbgrader cell metadata. The answer key must not sit in a cell the learner is
+reading; reference answers remain in the sidecar until release mechanics produce an
+assignment. `migrate_checks_to_nbgrader()` is the idempotent conversion pass for seeds.
 
 Everything about it is the constructor's shape one level up, deliberately: ask for JSON,
 normalize leniently (`checks_from_reply`), grade strictly (`checkset_failures`), repair
 with the grader's own sentences, and **never write a set that fails**. Sections come from
 `GATED_SECTIONS`, derived from `rubric.RUBRIC_SECTIONS` minus Setup/Resources, so adding
 a rubric section adds a gate.
+
+The validation split is deliberate: `praxis/rubric.py` owns Praxis's eight sections,
+placeholder/resource/badge/size/code-shape rules; `nbgrader validate` owns nbgrader
+metadata well-formedness and execution of authored solution/test regions. The adapter
+`praxis.checks.nbgrader_validate()` is the authoritative write gate for graded cells.
+Do not add a parallel pytest implementation of nbgrader's validation rules.
 
 The one rule that carries the anti-fabrication weight: a `code` check's reference
 `solution` is **run against its own `test`** in a subprocess before the set may be
@@ -276,8 +284,15 @@ Same reason `launcher.app.library_path()` exists for `/render`.
 ## Gates
 
 `python3 -m pytest -q tests/` (notebook core + launcher API), `npm run build` in `ui/`,
-`cargo build` in `src-tauri/`. `.chief/verify.sh` runs them path-scoped. The launcher tests
+`cargo build` in `src-tauri/`. `.chief/verify.sh` runs them path-scoped, plus
+`scripts/validate_nbgrader.py notebooks` — the authoritative graded-cell gate. The launcher tests
 skip themselves without the launch extra: `uv pip install --python .venv/bin/python -e '.[launch]'`.
+
+`nbgrader` is a pinned **core** dependency, not an extra, so an environment without it does not
+skip the graded-cell gate — it fails it. `verify.sh` probes for it alongside pytest/nbformat and
+repairs a `.venv` predating the pin with the same editable install CI runs, because
+`praxis.checks` resolves nbgrader's console script beside the *running* interpreter: the
+interpreter that runs the tests must be the one that has it.
 
 `.github/workflows/ci.yml` is the same three checks on every PR to `main`, with the same
 path predicates — change one and change the other. Its Rust job builds the frontend first

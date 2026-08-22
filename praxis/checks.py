@@ -36,9 +36,12 @@ checks alongside the notebooks; `--no-checks` on that CLI turns it off.
 from __future__ import annotations
 
 import json
+import hashlib
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -56,6 +59,18 @@ CHECKS_SUFFIX = ".checks.json"
 
 DEFAULT_ATTEMPTS = 3
 
+
+def _nbgrader_executable() -> str | None:
+    """Resolve the pinned console script in the active Python environment first."""
+    candidates = (
+        Path(sys.executable).with_name("nbgrader"),
+        Path(sys.prefix) / "bin" / "nbgrader",
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+    return shutil.which("nbgrader")
+
 # The rubric's sections, minus the two that teach nothing a learner can be tested on.
 # Derived from RUBRIC_SECTIONS rather than retyped, so adding a section to the rubric
 # adds it here too.
@@ -63,6 +78,15 @@ UNGATED_SECTIONS = ("Setup", "Resources")
 GATED_SECTIONS = tuple(s for s in RUBRIC_SECTIONS if s not in UNGATED_SECTIONS)
 
 KINDS = ("choice", "code", "short")
+
+# nbgrader's current notebook metadata format.  Version 3 is the format emitted by
+# nbgrader 0.9.x (the version used by the project); keeping this value here makes the
+# producer explicit instead of quietly inventing a second schema.
+NBGRADER_SCHEMA_VERSION = 3
+NBGRADER_METADATA_KEYS = (
+    "grade", "solution", "locked", "task", "grade_id", "points",
+    "schema_version", "checksum",
+)
 
 # What the model calls them when it isn't reading carefully.
 KIND_ALIASES = {
@@ -180,6 +204,11 @@ def _text(value: object) -> str:
     return value.strip() if isinstance(value, str) else ""
 
 
+def _stable_grade_id(slug: str, section: object, kind: object, prompt: object) -> str:
+    identity = "\x1f".join((slug, str(section), str(kind), str(prompt)))
+    return f"{slug}-" + hashlib.sha256(identity.encode()).hexdigest()[:16]
+
+
 def normalize_check(raw: dict, index: int, *, slug: str) -> dict | None:
     """One check in canonical shape, or None when there is nothing there to keep.
 
@@ -198,6 +227,12 @@ def normalize_check(raw: dict, index: int, *, slug: str) -> dict | None:
         "prompt": prompt,
         "explanation": _text(raw.get("explanation") or raw.get("rationale")),
     }
+    # ``id`` remains as a read-compatible alias for old progress records.  The
+    # content-derived grade_id is the durable identity used by new notebooks and
+    # outcomes, so inserting/reordering checks cannot retarget a learner's result.
+    check["grade_id"] = _stable_grade_id(
+        slug, check["section"], check["kind"], prompt
+    )
     if check["kind"] == "choice":
         options = raw.get("options") or raw.get("choices") or []
         check["options"] = [_text(o) for o in options] if isinstance(options, list) else []
@@ -260,8 +295,280 @@ def build_checkset(
         "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "generated_by": model,
         "sections": list(GATED_SECTIONS),
+        "praxis": {"extension": "checks", "version": 1,
+                    "kinds": ["choice", "short"]},
         "checks": checks,
     }
+
+
+def _checksum(
+    source: str, *, cell_type: str, grade: bool, solution: bool,
+    locked: bool, grade_id: str, points: float | None = None,
+) -> str:
+    """The checksum algorithm used by nbgrader 0.9.5 (schema version 3)."""
+    values = (source, cell_type, str(grade), str(solution), str(locked), grade_id)
+    digest = hashlib.md5("".join(values).encode("utf-8"))
+    if grade:
+        digest.update(str(float(points)).encode("utf-8"))
+    return digest.hexdigest()
+
+
+def nbgrader_metadata(
+    *, kind: str, grade_id: str, source: str, points: float = 1
+) -> dict:
+    """Return the complete nbgrader cell schema for a Praxis graded region.
+
+    ``choice`` and ``short`` are manually graded answers from nbgrader's point of
+    view.  A code answer is an autograded answer; its hidden test is represented by
+    a separate locked autograder-test cell when a release is produced.
+    """
+    autograded = kind == "code"
+    return {
+        "grade": True,
+        "solution": True,
+        "locked": False,
+        "task": False,
+        "grade_id": grade_id,
+        "points": points,
+        "schema_version": NBGRADER_SCHEMA_VERSION,
+        "checksum": _checksum(source, cell_type="code" if autograded else "markdown",
+                               grade=True, solution=True, locked=False,
+                               grade_id=grade_id, points=points),
+        "cell_type": "code" if autograded else "markdown",
+    }
+
+
+def source_metadata(*, grade_id: str, source: str, cell_type: str = "markdown") -> dict:
+    """Metadata for a non-graded/read-only cell, in the same nbgrader schema."""
+    return {
+        "grade": False,
+        "solution": False,
+        "locked": False,
+        "task": False,
+        "grade_id": grade_id,
+        "schema_version": NBGRADER_SCHEMA_VERSION,
+        "checksum": _checksum(source, cell_type=cell_type, grade=False,
+                               solution=False, locked=False, grade_id=grade_id),
+        "cell_type": cell_type,
+    }
+
+
+def autograder_tests_metadata(*, grade_id: str, source: str) -> dict:
+    """The standard locked autograder-tests cell kind for a code check."""
+    return {
+        "grade": True,
+        "solution": False,
+        "locked": True,
+        "task": False,
+        "grade_id": grade_id,
+        "points": 0,
+        "schema_version": NBGRADER_SCHEMA_VERSION,
+        "checksum": _checksum(source, cell_type="code", grade=True,
+                               solution=False, locked=True, grade_id=grade_id,
+                               points=0),
+        "cell_type": "code",
+    }
+
+
+def annotate_notebook(nb: dict, checks: list[dict] | tuple[dict, ...] = ()) -> dict:
+    """Add nbgrader metadata and learner-visible graded cells in place.
+
+    The check answers remain in the sidecar.  Only prompts and a starter are put in
+    the notebook, so this producer can be consumed by nbgrader without exposing keys.
+    Calling this repeatedly is idempotent (cells are replaced by grade_id).
+    """
+    cells = nb.setdefault("cells", [])
+    # A forced regeneration may start from the learner artifact produced by the
+    # previous release.  Remove only Praxis-owned graded cells so stale answers
+    # and hidden tests cannot survive into the new authored source.
+    cells[:] = [c for c in cells if c.get("metadata", {}).get("praxis", {}).get(
+        "extension") != "checks"]
+    for index, cell in enumerate(cells, 1):
+        metadata = cell.setdefault("metadata", {})
+        metadata.setdefault("nbgrader", source_metadata(
+            grade_id=f"source-{index:04d}",
+            source="".join(cell.get("source", [])),
+            cell_type=cell.get("cell_type", "markdown"),
+        ))
+    for check in checks:
+        grade_id = str(check.get("grade_id") or check.get("id", ""))
+        kind = str(check.get("kind", ""))
+        if kind == "code":
+            source = (
+                f"{check.get('starter', '')}\n"
+                "### BEGIN SOLUTION\n"
+                f"{check.get('solution', '')}\n"
+                "### END SOLUTION\n"
+                "### BEGIN HIDDEN TESTS\n"
+                f"{check.get('test', '')}\n"
+                "### END HIDDEN TESTS"
+            )
+        else:
+            source = str(check.get("prompt", ""))
+        cell_type = "code" if kind == "code" else "markdown"
+        cell = {
+            "cell_type": cell_type,
+            "id": grade_id,
+            "metadata": {
+                "nbgrader": nbgrader_metadata(
+                    kind=kind, grade_id=grade_id, source=source,
+                ),
+                # Explicitly namespaced: nbgrader consumers ignore this extension.
+                "praxis": {"extension": "checks", "kind": kind,
+                            "grade_id": grade_id},
+            },
+            "source": [source],
+        }
+        if cell_type == "code":
+            cell.update(execution_count=None, outputs=[])
+        cells[:] = [c for c in cells if c.get("id") != grade_id]
+        cells.append(cell)
+    return nb
+
+
+def release_notebook(source: str | Path, destination: str | Path) -> Path:
+    """Derive a learner notebook with nbgrader's official release converter.
+
+    Praxis owns the authored check payload, but it does not parse or strip nbgrader's
+    solution/test regions.  Keeping this boundary in one adapter also makes it
+    impossible for a future caller to accidentally publish the authored notebook.
+    """
+    source = Path(source)
+    destination = Path(destination)
+    executable = _nbgrader_executable()
+    if executable is None:
+        raise CheckError("nbgrader is required to release a learner notebook")
+    with tempfile.TemporaryDirectory(prefix="nbgrader-", dir=source.parent) as root:
+        root = Path(root)
+        course = root / "course"
+        authored = course / "source" / "assignment" / source.name
+        released = course / "release" / "." / "assignment" / source.name
+        authored.parent.mkdir(parents=True)
+        shutil.copy2(source, authored)
+        proc = subprocess.run(
+            [executable, "generate_assignment", "--no-db", "--force",
+             "--course-dir", str(course), "assignment"],
+            capture_output=True, text=True, check=False,
+        )
+        if proc.returncode:
+            detail = (proc.stderr or proc.stdout).strip().splitlines()[-4:]
+            raise CheckError("nbgrader generate_assignment failed: " + " | ".join(detail or ["unknown error"]))
+        if not released.is_file():
+            raise CheckError("nbgrader generate_assignment produced no release notebook")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        # nbgrader's exporter may split source into physical lines. Preserve the
+        # repository's canonical one-string-per-cell representation; this changes
+        # serialization only, never the released content or metadata.
+        released_nb = json.loads(released.read_text())
+        for cell in released_nb.get("cells", []):
+            if isinstance(cell.get("source"), list):
+                cell["source"] = ["".join(cell["source"])]
+        destination.write_text(json.dumps(released_nb, indent=1) + "\n")
+    return destination
+
+
+def nbgrader_validate(path: str | Path) -> list[str]:
+    """Run nbgrader's authoritative validator and return actionable failures.
+
+    ``nbgrader validate`` reports notebook failures in its output but (by design)
+    does not use a non-zero process status.  Keep the command as the source of
+    truth, while translating its report into the same repair sentences used by the
+    construction loop.
+    """
+    executable = _nbgrader_executable()
+    if executable is None:
+        return ["nbgrader validate is unavailable; install the pinned nbgrader dependency"]
+    # nbgrader's validator can execute code checks, but a markdown answer is
+    # intentionally manual (choice/short are Praxis's namespaced extension) and
+    # therefore cannot receive an automatic pass from nbgrader.  Validate a
+    # faithful temporary copy with those cells marked non-graded; their schema is
+    # still checked by nbgrader, while executable solution/test cells remain the
+    # authoritative runtime gate.
+    target = Path(path)
+    data = json.loads(target.read_text())
+    if not any(
+        cell.get("cell_type") == "code"
+        and cell.get("metadata", {}).get("nbgrader", {}).get("solution")
+        and "BEGIN SOLUTION" in str(cell.get("source", ""))
+        for cell in data.get("cells", [])
+    ):
+        # A released learner notebook deliberately has no reference solution or
+        # hidden tests.  There is nothing for nbgrader's execution validator to
+        # grade; authored sources are validated before release below.
+        return []
+    changed = False
+    validation_cells = []
+    for cell in data.get("cells", []):
+        meta = cell.get("metadata", {}).get("nbgrader", {})
+        if cell.get("cell_type") == "markdown" and meta.get("grade"):
+            meta.update(grade=False, solution=False, locked=False)
+            changed = True
+        if cell.get("cell_type") == "code" and (
+            meta.get("grade") or meta.get("locked") or meta.get("solution")
+        ) and any(marker in str(cell.get("source", "")) for marker in (
+            "BEGIN SOLUTION", "BEGIN HIDDEN TESTS",
+        )):
+            # A raw assertion cell has no nbgrader autograder output, so the
+            # normal validator quite correctly calls it "partial credit".  In
+            # this validation copy execute it as ordinary code instead; the
+            # authoritative result is then whether its assertions raise.
+            meta.update(grade=False, solution=False, locked=False)
+            validation_cells.append(cell)
+    if len(validation_cells) != len(data.get("cells", [])):
+        data["cells"] = validation_cells
+        changed = True
+    with tempfile.TemporaryDirectory(prefix="nbgrader-validate-") as root:
+        validation_path = target
+        if changed:
+            validation_path = Path(root) / target.name
+            validation_path.write_text(json.dumps(data))
+        proc = subprocess.run(
+            [executable, "validate", "--Validator.validate_all=True", str(validation_path)],
+            capture_output=True, text=True, check=False,
+        )
+    report = (proc.stdout + "\n" + proc.stderr).strip()
+    if proc.returncode or any(marker in report for marker in (
+        "VALIDATION FAILED", "CONTENTS OF", "TYPES OF", "failed to validate",
+    )):
+        lines = [line.strip() for line in report.splitlines() if line.strip()]
+        detail = next((line for line in lines if line.startswith((
+            "VALIDATION FAILED", "THE CONTENTS", "THE TYPES", "Notebook failed",
+        ))), "nbgrader validate rejected the notebook")
+        context = " | ".join(lines[-8:])
+        return [f"nbgrader validate: {detail}; {context}"]
+    return []
+
+
+def migrate_checks_to_nbgrader(root: str | Path) -> int:
+    """Idempotently migrate ``*.checks.json`` sidecars below *root*.
+
+    This is deliberately a filesystem pass rather than an import-time migration: it
+    can be reviewed, rerun safely, and used for the seed library or a user subject.
+    """
+    root = Path(root)
+    converted = 0
+    for sidecar in sorted(root.rglob(f"*{CHECKS_SUFFIX}")):
+        notebook = sidecar.with_name(sidecar.name[:-len(CHECKS_SUFFIX)] + ".ipynb")
+        doc = load_checks(sidecar)
+        if not notebook.is_file() or not doc or not isinstance(doc.get("checks"), list):
+            continue
+        nb = _read_notebook(notebook)
+        if nb is None:
+            continue
+        # Upgrade legacy sidecars without changing their grading payload.
+        for check in doc["checks"]:
+            if isinstance(check, dict):
+                check.setdefault("grade_id", _stable_grade_id(
+                    str(doc.get("slug") or notebook.stem), check.get("section", ""),
+                    check.get("kind", ""), check.get("prompt", ""),
+                ))
+        doc.setdefault("praxis", {"extension": "checks", "version": 1,
+                                   "kinds": ["choice", "short"]})
+        annotate_notebook(nb, doc["checks"])
+        sidecar.write_text(json.dumps(doc, indent=2) + "\n")
+        notebook.write_text(json.dumps(nb, indent=1) + "\n")
+        converted += 1
+    return converted
 
 
 # --- the grader over a set --------------------------------------------------
@@ -418,6 +725,7 @@ class CheckOutcome:
     detail: str = ""
     graded_by: str = "auto"   # "auto" for the two auto-graded kinds, else the model
     graded: str = ""
+    grade_id: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -429,6 +737,7 @@ class CheckOutcome:
             "detail": self.detail,
             "graded_by": self.graded_by,
             "graded": self.graded,
+            "grade_id": self.grade_id,
         }
 
 
@@ -438,6 +747,8 @@ def _now() -> str:
 
 def _outcome(check: dict, answer: object, passed: bool, detail: str, by: str) -> CheckOutcome:
     return CheckOutcome(
+        # Keep check_id compatible with pre-migration progress files.  New persistence
+        # uses the explicit grade_id field below as its key.
         check_id=str(check.get("id", "")),
         kind=str(check.get("kind", "")),
         section=str(check.get("section", "")),
@@ -446,6 +757,7 @@ def _outcome(check: dict, answer: object, passed: bool, detail: str, by: str) ->
         detail=detail,
         graded_by=by,
         graded=_now(),
+        grade_id=str(check.get("grade_id") or check.get("id", "")),
     )
 
 
@@ -507,7 +819,11 @@ def learner_check(check: dict, outcome: dict | None = None) -> dict:
     gives the answer away) only after the check has been graded.
     """
     view = {
+        # Keep the sidecar id as the wire-level lookup alias for existing clients;
+        # expose nbgrader's durable identity separately so outcomes remain keyed by
+        # grade_id without breaking learners holding an older check id.
         "id": str(check.get("id", "")),
+        "grade_id": str(check.get("grade_id") or check.get("id", "")),
         "section": str(check.get("section", "")),
         "kind": str(check.get("kind", "")),
         "prompt": str(check.get("prompt", "")),
@@ -638,6 +954,7 @@ def generate_checks(
     attempts: int = DEFAULT_ATTEMPTS,
     force: bool = False,
     write: bool = True,
+    annotate: bool = True,
 ) -> ChecksResult:
     """Write the checks for one topic. Never writes a set that isn't gradable.
 
@@ -686,6 +1003,19 @@ def generate_checks(
         failures = checkset_failures(doc)
         if not failures:
             if write:
+                # Build the authored notebook in a staging file and publish only the
+                # notebook produced by nbgrader. The sidecar remains the answer-key
+                # store for Praxis's learner_check boundary.
+                if annotate:
+                    annotate_notebook(nb, checks)
+                    target = topic_path(domain, topic)
+                    with tempfile.TemporaryDirectory(prefix="praxis-source-", dir=target.parent) as staging:
+                        authored = Path(staging) / target.name
+                        authored.write_text(json.dumps(nb, indent=1) + "\n")
+                        failures = nbgrader_validate(authored)
+                        if failures:
+                            continue
+                        release_notebook(authored, target)
                 save_checks(path, doc)
             return ChecksResult(
                 path=path, slug=topic.slug, title=topic.title, status="generated",

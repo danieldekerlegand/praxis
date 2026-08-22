@@ -1,15 +1,860 @@
-# Chief Progress — 83-seed-library-refresh
-Started: Fri Aug 21 19:06:42 CDT 2026
+# Chief Progress — 84-nbgrader-cell-schema-adoption
+Started: Sat Aug 22 08:04:03 CDT 2026
 ---
 
-## Codebase Patterns
+## ⚠️ PRIOR VERIFICATION FAILED — FIX THESE BEFORE REPORTING COMPLETE
+```
+doc-links: 0 dead vs 0 on main
+== .venv/bin/python scripts/validate_nbgrader.py notebooks ==
+notebooks/02-ai-ml-tooling/diffusers.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/03-llm-inference-training-optimization/knowledge-distillation.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/03-llm-inference-training-optimization/low-rank-factorization.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/03-llm-inference-training-optimization/model-ensembling.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/03-llm-inference-training-optimization/pruning.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/03-llm-inference-training-optimization/sparsity-induction.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/08-architectures/video-diffusion.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/11-devops-mlops-infra/techniques/inference-observability.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/12-model-evaluation/benchmark-contamination.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/12-model-evaluation/eval-harness-design.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/12-model-evaluation/eval-statistics.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/12-model-evaluation/llm-as-judge.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/13-interpretability/activation-steering.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/13-interpretability/linear-probes.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/13-interpretability/sparse-autoencoders.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/14-pretraining/data-deduplication.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/14-pretraining/mixed-precision-numerics.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/14-pretraining/scaling-laws.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/14-pretraining/tokenization-bpe.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/15-rl-and-training-dynamics/grpo-rlvr.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/15-rl-and-training-dynamics/optimizer-internals.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/15-rl-and-training-dynamics/ppo-from-scratch.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/15-rl-and-training-dynamics/reward-models-and-hacking.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+notebooks/15-rl-and-training-dynamics/training-dynamics.ipynb: nbgrader validate is unavailable; install the pinned nbgrader dependency
+nbgrader validate: 24 notebooks, 24 failures
+FAIL: .venv/bin/python scripts/validate_nbgrader.py notebooks
+== .venv/bin/python -m pytest -q tests/ ==
+...F.FFFF...............F.FFF....................................FF..... [  7%]
+.......................F...FF...........FF.............................. [ 14%]
+........................................................................ [ 22%]
+.................................F......EEEEEEEEEEE.E................... [ 29%]
+........................................................................ [ 36%]
+........................................................................ [ 44%]
+........................................................................ [ 51%]
+........................................................................ [ 59%]
+........................................................................ [ 66%]
+........................................................................ [ 73%]
+........................................................................ [ 81%]
+........................................................................ [ 88%]
+........................................................................ [ 96%]
+......................................                                   [100%]
+==================================== ERRORS ====================================
+__ ERROR at setup of test_a_new_learner_sees_only_the_first_section_unlocked ___
 
-- Promotion must remain a policy layer over `construct_topic`; the constructor and checks grader are the only accepted gates before documentation records a seed as covered.
+client = <starlette.testclient.TestClient object at 0x108b2e0f0>
+scaffolded = 'sailing-navigation'
+model = <function model.<locals>.install at 0x10caff9c0>
 
-## Iteration US-3
+    @pytest.fixture
+    def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
+        """One constructed, gated notebook — a real set of checks written beside it."""
+        model()
+        await_job(client, client.post("/api/construct", json={"rel": FIRST_REL}).json()["id"])
+>       return stored_checks(FIRST_REL)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
 
-Implemented `praxis.promote` with a repository-only promotion path for recommended topics. It requires the constructor result, `gate_failures`, the complete badge, and a valid checkset before moving a topic from gap-analysis §2 into its domain's §1 coverage section. Added `docs/explanation/domain-addition-policy.md`, reserving domain 06 and validating `DOMAINS` against numbered directories, plus focused promotion tests.
+tests/test_launcher_api.py:839: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
 
-Verification observed: `python3 -m pytest -q tests/` — 917 passed, 1 skipped; promotion/refresh tests — 6 passed.
+rel = 'subjects/sailing-navigation/01-charts/dead-reckoning.ipynb'
 
-Learnings for future iterations: the manifest includes a filesystem-backed legacy domain, so numbering validation must compare only top-level numbered directories while allowing nested legacy notebooks.
+    def stored_checks(rel: str) -> list[dict]:
+        """The set on disk, answer key and all — what a learner is never served."""
+        from praxis.checks import checks_path, load_checks
+    
+>       return load_checks(checks_path(launcher_app.library_path(rel)))["checks"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'NoneType' object is not subscriptable
+
+tests/test_launcher_api.py:809: TypeError
+_______ ERROR at setup of test_the_answer_key_never_reaches_the_learner ________
+
+client = <starlette.testclient.TestClient object at 0x108b2e0f0>
+scaffolded = 'sailing-navigation'
+model = <function model.<locals>.install at 0x10cafe8e0>
+
+    @pytest.fixture
+    def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
+        """One constructed, gated notebook — a real set of checks written beside it."""
+        model()
+        await_job(client, client.post("/api/construct", json={"rel": FIRST_REL}).json()["id"])
+>       return stored_checks(FIRST_REL)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_launcher_api.py:839: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+rel = 'subjects/sailing-navigation/01-charts/dead-reckoning.ipynb'
+
+    def stored_checks(rel: str) -> list[dict]:
+        """The set on disk, answer key and all — what a learner is never served."""
+        from praxis.checks import checks_path, load_checks
+    
+>       return load_checks(checks_path(launcher_app.library_path(rel)))["checks"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'NoneType' object is not subscriptable
+
+tests/test_launcher_api.py:809: TypeError
+_ ERROR at setup of test_a_failed_check_keeps_the_next_section_locked_and_a_passed_one_opens_it _
+
+client = <starlette.testclient.TestClient object at 0x108b2e0f0>
+scaffolded = 'sailing-navigation'
+model = <function model.<locals>.install at 0x10cd4ec00>
+
+    @pytest.fixture
+    def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
+        """One constructed, gated notebook — a real set of checks written beside it."""
+        model()
+        await_job(client, client.post("/api/construct", json={"rel": FIRST_REL}).json()["id"])
+>       return stored_checks(FIRST_REL)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_launcher_api.py:839: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+rel = 'subjects/sailing-navigation/01-charts/dead-reckoning.ipynb'
+
+    def stored_checks(rel: str) -> list[dict]:
+        """The set on disk, answer key and all — what a learner is never served."""
+        from praxis.checks import checks_path, load_checks
+    
+>       return load_checks(checks_path(launcher_app.library_path(rel)))["checks"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'NoneType' object is not subscriptable
+
+tests/test_launcher_api.py:809: TypeError
+_____ ERROR at setup of test_a_locked_check_is_refused_rather_than_graded ______
+
+client = <starlette.testclient.TestClient object at 0x108b2e0f0>
+scaffolded = 'sailing-navigation'
+model = <function model.<locals>.install at 0x10cd4fd80>
+
+    @pytest.fixture
+    def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
+        """One constructed, gated notebook — a real set of checks written beside it."""
+        model()
+        await_job(client, client.post("/api/construct", json={"rel": FIRST_REL}).json()["id"])
+>       return stored_checks(FIRST_REL)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_launcher_api.py:839: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+rel = 'subjects/sailing-navigation/01-charts/dead-reckoning.ipynb'
+
+    def stored_checks(rel: str) -> list[dict]:
+        """The set on disk, answer key and all — what a learner is never served."""
+        from praxis.checks import checks_path, load_checks
+    
+>       return load_checks(checks_path(launcher_app.library_path(rel)))["checks"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'NoneType' object is not subscriptable
+
+tests/test_launcher_api.py:809: TypeError
+___ ERROR at setup of test_every_kind_of_check_grades_and_the_topic_finishes ___
+
+client = <starlette.testclient.TestClient object at 0x108b2e0f0>
+scaffolded = 'sailing-navigation'
+model = <function model.<locals>.install at 0x10cd4fa60>
+
+    @pytest.fixture
+    def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
+        """One constructed, gated notebook — a real set of checks written beside it."""
+        model()
+        await_job(client, client.post("/api/construct", json={"rel": FIRST_REL}).json()["id"])
+>       return stored_checks(FIRST_REL)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_launcher_api.py:839: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+rel = 'subjects/sailing-navigation/01-charts/dead-reckoning.ipynb'
+
+    def stored_checks(rel: str) -> list[dict]:
+        """The set on disk, answer key and all — what a learner is never served."""
+        from praxis.checks import checks_path, load_checks
+    
+>       return load_checks(checks_path(launcher_app.library_path(rel)))["checks"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'NoneType' object is not subscriptable
+
+tests/test_launcher_api.py:809: TypeError
+__ ERROR at setup of test_a_code_check_is_graded_by_running_the_learners_code __
+
+client = <starlette.testclient.TestClient object at 0x108b2e0f0>
+scaffolded = 'sailing-navigation'
+model = <function model.<locals>.install at 0x10caffa60>
+
+    @pytest.fixture
+    def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
+        """One constructed, gated notebook — a real set of checks written beside it."""
+        model()
+        await_job(client, client.post("/api/construct", json={"rel": FIRST_REL}).json()["id"])
+>       return stored_checks(FIRST_REL)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_launcher_api.py:839: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+rel = 'subjects/sailing-navigation/01-charts/dead-reckoning.ipynb'
+
+    def stored_checks(rel: str) -> list[dict]:
+        """The set on disk, answer key and all — what a learner is never served."""
+        from praxis.checks import checks_path, load_checks
+    
+>       return load_checks(checks_path(launcher_app.library_path(rel)))["checks"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'NoneType' object is not subscriptable
+
+tests/test_launcher_api.py:809: TypeError
+_ ERROR at setup of test_a_short_answer_is_graded_by_the_model_and_recorded_verbatim _
+
+client = <starlette.testclient.TestClient object at 0x108b2e0f0>
+scaffolded = 'sailing-navigation'
+model = <function model.<locals>.install at 0x10cdc1c60>
+
+    @pytest.fixture
+    def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
+        """One constructed, gated notebook — a real set of checks written beside it."""
+        model()
+        await_job(client, client.post("/api/construct", json={"rel": FIRST_REL}).json()["id"])
+>       return stored_checks(FIRST_REL)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_launcher_api.py:839: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+rel = 'subjects/sailing-navigation/01-charts/dead-reckoning.ipynb'
+
+    def stored_checks(rel: str) -> list[dict]:
+        """The set on disk, answer key and all — what a learner is never served."""
+        from praxis.checks import checks_path, load_checks
+    
+>       return load_checks(checks_path(launcher_app.library_path(rel)))["checks"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'NoneType' object is not subscriptable
+
+tests/test_launcher_api.py:809: TypeError
+_ ERROR at setup of test_a_short_answer_needs_a_key_but_the_auto_graded_kinds_do_not _
+
+client = <starlette.testclient.TestClient object at 0x108b2e0f0>
+scaffolded = 'sailing-navigation'
+model = <function model.<locals>.install at 0x10cd4c900>
+
+    @pytest.fixture
+    def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
+        """One constructed, gated notebook — a real set of checks written beside it."""
+        model()
+        await_job(client, client.post("/api/construct", json={"rel": FIRST_REL}).json()["id"])
+>       return stored_checks(FIRST_REL)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_launcher_api.py:839: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+rel = 'subjects/sailing-navigation/01-charts/dead-reckoning.ipynb'
+
+    def stored_checks(rel: str) -> list[dict]:
+        """The set on disk, answer key and all — what a learner is never served."""
+        from praxis.checks import checks_path, load_checks
+    
+>       return load_checks(checks_path(launcher_app.library_path(rel)))["checks"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'NoneType' object is not subscriptable
+
+tests/test_launcher_api.py:809: TypeError
+________ ERROR at setup of test_progress_survives_a_restart_of_the_app _________
+
+client = <starlette.testclient.TestClient object at 0x108b2e0f0>
+scaffolded = 'sailing-navigation'
+model = <function model.<locals>.install at 0x10cdc2f20>
+
+    @pytest.fixture
+    def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
+        """One constructed, gated notebook — a real set of checks written beside it."""
+        model()
+        await_job(client, client.post("/api/construct", json={"rel": FIRST_REL}).json()["id"])
+>       return stored_checks(FIRST_REL)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_launcher_api.py:839: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+rel = 'subjects/sailing-navigation/01-charts/dead-reckoning.ipynb'
+
+    def stored_checks(rel: str) -> list[dict]:
+        """The set on disk, answer key and all — what a learner is never served."""
+        from praxis.checks import checks_path, load_checks
+    
+>       return load_checks(checks_path(launcher_app.library_path(rel)))["checks"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'NoneType' object is not subscriptable
+
+tests/test_launcher_api.py:809: TypeError
+______________ ERROR at setup of test_two_learners_progress_apart ______________
+
+client = <starlette.testclient.TestClient object at 0x108b2e0f0>
+scaffolded = 'sailing-navigation'
+model = <function model.<locals>.install at 0x10cdc37e0>
+
+    @pytest.fixture
+    def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
+        """One constructed, gated notebook — a real set of checks written beside it."""
+        model()
+        await_job(client, client.post("/api/construct", json={"rel": FIRST_REL}).json()["id"])
+>       return stored_checks(FIRST_REL)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_launcher_api.py:839: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+rel = 'subjects/sailing-navigation/01-charts/dead-reckoning.ipynb'
+
+    def stored_checks(rel: str) -> list[dict]:
+        """The set on disk, answer key and all — what a learner is never served."""
+        from praxis.checks import checks_path, load_checks
+    
+>       return load_checks(checks_path(launcher_app.library_path(rel)))["checks"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'NoneType' object is not subscriptable
+
+tests/test_launcher_api.py:809: TypeError
+__ ERROR at setup of test_the_next_topic_is_locked_until_this_one_is_finished __
+
+client = <starlette.testclient.TestClient object at 0x108b2e0f0>
+scaffolded = 'sailing-navigation'
+model = <function model.<locals>.install at 0x10cd42700>
+
+    @pytest.fixture
+    def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
+        """One constructed, gated notebook — a real set of checks written beside it."""
+        model()
+        await_job(client, client.post("/api/construct", json={"rel": FIRST_REL}).json()["id"])
+>       return stored_checks(FIRST_REL)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_launcher_api.py:839: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+rel = 'subjects/sailing-navigation/01-charts/dead-reckoning.ipynb'
+
+    def stored_checks(rel: str) -> list[dict]:
+        """The set on disk, answer key and all — what a learner is never served."""
+        from praxis.checks import checks_path, load_checks
+    
+>       return load_checks(checks_path(launcher_app.library_path(rel)))["checks"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'NoneType' object is not subscriptable
+
+tests/test_launcher_api.py:809: TypeError
+_______ ERROR at setup of test_study_refuses_what_is_not_in_the_library ________
+
+client = <starlette.testclient.TestClient object at 0x108b2e0f0>
+scaffolded = 'sailing-navigation'
+model = <function model.<locals>.install at 0x10cd42a20>
+
+    @pytest.fixture
+    def gated(client: TestClient, scaffolded: str, model) -> list[dict]:
+        """One constructed, gated notebook — a real set of checks written beside it."""
+        model()
+        await_job(client, client.post("/api/construct", json={"rel": FIRST_REL}).json()["id"])
+>       return stored_checks(FIRST_REL)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_launcher_api.py:839: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+rel = 'subjects/sailing-navigation/01-charts/dead-reckoning.ipynb'
+
+    def stored_checks(rel: str) -> list[dict]:
+        """The set on disk, answer key and all — what a learner is never served."""
+        from praxis.checks import checks_path, load_checks
+    
+>       return load_checks(checks_path(launcher_app.library_path(rel)))["checks"]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'NoneType' object is not subscriptable
+
+tests/test_launcher_api.py:809: TypeError
+=================================== FAILURES ===================================
+______________ test_the_notebook_and_the_sections_reach_the_model ______________
+
+constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
+subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-22T12:28:24+00:00', model='', source='generated')
+
+    def test_the_notebook_and_the_sections_reach_the_model(constructed, subject):
+        module, topic = constructed
+        client = FakeClient(reply(good_checks()))
+    
+        generate_checks(module, topic, client=client, subject=subject)
+    
+>       (call,) = client.calls
+        ^^^^^^^
+E       ValueError: too many values to unpack (expected 1)
+
+tests/test_checks.py:178: ValueError
+______ test_a_generated_set_lands_beside_the_notebook_and_is_well_formed _______
+
+constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
+
+    def test_a_generated_set_lands_beside_the_notebook_and_is_well_formed(constructed):
+        module, topic = constructed
+        result = generate_checks(module, topic, client=FakeClient(reply(good_checks())))
+    
+>       assert result.status == "generated" and result.ok
+E       AssertionError: assert ('failed' == 'generated'
+E         
+E         - generated
+E         + failed)
+
+tests/test_checks.py:204: AssertionError
+__________ test_every_gated_section_is_covered_by_at_least_one_check ___________
+
+constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
+
+    def test_every_gated_section_is_covered_by_at_least_one_check(constructed):
+        module, topic = constructed
+        generate_checks(module, topic, client=FakeClient(reply(good_checks())))
+    
+        by_section = checks_by_section(checks_for_topic(module, topic))
+    
+        assert set(by_section) == set(GATED_SECTIONS)
+>       assert all(by_section[s] for s in GATED_SECTIONS)
+E       assert False
+E        +  where False = all(<generator object test_every_gated_section_is_covered_by_at_least_one_check.<locals>.<genexpr> at 0x10b2929b0>)
+
+tests/test_checks.py:225: AssertionError
+_____________________ test_the_set_carries_a_mix_of_kinds ______________________
+
+constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
+
+    def test_the_set_carries_a_mix_of_kinds(constructed):
+        module, topic = constructed
+        generate_checks(module, topic, client=FakeClient(reply(good_checks())))
+    
+>       kinds = {c["kind"] for c in checks_for_topic(module, topic)["checks"]}
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'NoneType' object is not subscriptable
+
+tests/test_checks.py:232: TypeError
+_________________ test_a_conceptual_topic_gets_no_code_checks __________________
+
+conceptual = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...'subject'), Topic(slug='wiring', title='Wiring a Dev Board', runnable=False, recommended=False, note='needs hardware'))
+
+    def test_a_conceptual_topic_gets_no_code_checks(conceptual):
+        module, topic = conceptual
+        result = generate_checks(module, topic, client=FakeClient(reply(good_checks(False))))
+    
+>       assert result.status == "generated"
+E       AssertionError: assert 'failed' == 'generated'
+E         
+E         - generated
+E         + failed
+
+tests/test_checks.py:241: AssertionError
+_______ test_a_failing_set_is_sent_back_with_the_validator_s_complaints ________
+
+constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
+
+    def test_a_failing_set_is_sent_back_with_the_validator_s_complaints(constructed):
+        module, topic = constructed
+        thin = [choice(GATED_SECTIONS[0])]
+        client = FakeClient(reply(thin), reply(good_checks()))
+    
+        result = generate_checks(module, topic, client=client, attempts=3)
+    
+>       assert result.status == "generated" and result.attempts == 2
+E       AssertionError: assert ('failed' == 'generated'
+E         
+E         - generated
+E         + failed)
+
+tests/test_checks.py:358: AssertionError
+________________ test_an_existing_set_is_skipped_not_rewritten _________________
+
+constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
+
+    def test_an_existing_set_is_skipped_not_rewritten(constructed):
+        module, topic = constructed
+        client = FakeClient(reply(good_checks()))
+        first = generate_checks(module, topic, client=client)
+>       written = first.path.read_text()
+                  ^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_checks.py:383: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-363/test_an_existing_set_is_skippe0/notebooks/subjects/embedded-rust/01-foundations/ownership.checks.json')
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-363/test_an_existing_set_is_skippe0/notebooks/subjects/embedded-rust/01-foundations/ownership.checks.json'
+
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py:1013: FileNotFoundError
+____________________ test_force_regenerates_an_existing_set ____________________
+
+constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
+
+    def test_force_regenerates_an_existing_set(constructed):
+        module, topic = constructed
+        generate_checks(module, topic, client=FakeClient(reply(good_checks())))
+    
+        rebuilt = generate_checks(
+            module, topic, force=True,
+            client=FakeClient(reply(good_checks()[:-1] + [
+                dict(code(GATED_SECTIONS[3]), prompt="Write `owned(values)` — second pass."),
+            ])),
+        )
+    
+>       assert rebuilt.status == "generated"
+E       AssertionError: assert 'failed' == 'generated'
+E         
+E         - generated
+E         + failed
+
+tests/test_checks.py:404: AssertionError
+______________ test_a_set_that_no_longer_validates_is_regenerated ______________
+
+constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
+
+    def test_a_set_that_no_longer_validates_is_regenerated(constructed):
+        """A hand-edited or truncated file must not be trusted just because it exists."""
+        module, topic = constructed
+        path = topic_checks_path(module, topic)
+        generate_checks(module, topic, client=FakeClient(reply(good_checks())))
+>       doc = json.loads(path.read_text())
+                         ^^^^^^^^^^^^^^^^
+
+tests/test_checks.py:413: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-363/test_a_set_that_no_longer_vali0/notebooks/subjects/embedded-rust/01-foundations/ownership.checks.json')
+mode = 'r', buffering = -1, encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-363/test_a_set_that_no_longer_vali0/notebooks/subjects/embedded-rust/01-foundations/ownership.checks.json'
+
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/pathlib.py:1013: FileNotFoundError
+________________ test_the_structural_pass_does_not_run_any_code ________________
+
+constructed = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b5eee10>
+
+    def test_the_structural_pass_does_not_run_any_code(constructed, monkeypatch):
+        """Validating a stored set on load must stay cheap — no subprocess per check."""
+        module, topic = constructed
+        generate_checks(module, topic, client=FakeClient(reply(good_checks())))
+    
+        def no_run(*args, **kwargs):
+            raise AssertionError("the structural pass must not run code")
+    
+        monkeypatch.setattr(checks_mod, "run_code_check", no_run)
+    
+>       assert checkset_failures(checks_for_topic(module, topic), verify_code=False) == []
+E       AssertionError: assert ['the checks ... JSON object'] == []
+E         
+E         Left contains one more item: 'the checks file does not hold a JSON object'
+E         Use -v to get more diff
+
+tests/test_checks.py:624: AssertionError
+_____ test_nbgrader_release_removes_authored_regions_but_code_still_grades _____
+
+tmp_path = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-363/test_nbgrader_release_removes_0')
+
+    def test_nbgrader_release_removes_authored_regions_but_code_still_grades(tmp_path):
+        source = tmp_path / "assignment.ipynb"
+        released = tmp_path / "released.ipynb"
+        source.write_text(json.dumps({
+            "cells": [
+                {"cell_type": "code", "metadata": {"nbgrader": checks_mod.nbgrader_metadata(
+                    kind="code", grade_id="answer-01", source="def add(a, b):\n",
+                )}, "source": [
+                    "def add(a, b):\n",
+                    "    ### BEGIN SOLUTION\n",
+                    "    return a + b\n",
+                    "    ### END SOLUTION\n",
+                ], "execution_count": None, "outputs": []},
+                {"cell_type": "code", "metadata": {"nbgrader": checks_mod.autograder_tests_metadata(
+                    grade_id="answer-01-tests", source="assert add(2, 3) == 5\n",
+                )}, "source": [
+                    "### BEGIN HIDDEN TESTS\n",
+                    "assert add(2, 3) == 5\n",
+                    "### END HIDDEN TESTS\n",
+                ], "execution_count": None, "outputs": []},
+            ], "metadata": {}, "nbformat": 4, "nbformat_minor": 5,
+        }))
+    
+>       release_notebook(source, released)
+
+tests/test_checks.py:651: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+source = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-363/test_nbgrader_release_removes_0/assignment.ipynb')
+destination = PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-363/test_nbgrader_release_removes_0/released.ipynb')
+
+    def release_notebook(source: str | Path, destination: str | Path) -> Path:
+        """Derive a learner notebook with nbgrader's official release converter.
+    
+        Praxis owns the authored check payload, but it does not parse or strip nbgrader's
+        solution/test regions.  Keeping this boundary in one adapter also makes it
+        impossible for a future caller to accidentally publish the authored notebook.
+        """
+        source = Path(source)
+        destination = Path(destination)
+        executable = _nbgrader_executable()
+        if executable is None:
+>           raise CheckError("nbgrader is required to release a learner notebook")
+E           praxis.checks.CheckError: nbgrader is required to release a learner notebook
+
+praxis/checks.py:440: CheckError
+__________ test_constructing_a_topic_also_writes_its_knowledge_checks __________
+
+runnable = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
+subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-22T12:28:28+00:00', model='', source='generated')
+
+    def test_constructing_a_topic_also_writes_its_knowledge_checks(runnable, subject):
+        module, topic = runnable
+        client = FakeClient(reply(good_cells()))
+    
+        result = construct_topic(module, topic, client=client, subject=subject)
+    
+>       assert result.status == "constructed" and result.checks_ok
+E       AssertionError: assert ('constructed' == 'constructed'
+E         
+E           constructed and False)
+E        +  where False = ConstructionResult(path=PosixPath('/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/py...ttempts=3, count=7, failures=('nbgrader validate is unavailable; install the pinned nbgrader dependency',), detail='')).checks_ok
+
+tests/test_construct.py:537: AssertionError
+_________________ test_a_batch_gates_every_topic_it_constructs _________________
+
+subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-22T12:28:28+00:00', model='', source='generated')
+
+    def test_a_batch_gates_every_topic_it_constructs(subject):
+        client = TopicClient()
+    
+        results = construct.construct_subject(subject, client=client)
+    
+>       assert [r.checks.status for r in results] == ["generated", "generated"]
+E       AssertionError: assert ['failed', 'failed'] == ['generated', 'generated']
+E         
+E         At index 0 diff: 'failed' != 'generated'
+E         Use -v to get more diff
+
+tests/test_construct.py:596: AssertionError
+_________________ test_rerunning_a_batch_regenerates_no_checks _________________
+
+subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-22T12:28:28+00:00', model='', source='generated')
+
+    def test_rerunning_a_batch_regenerates_no_checks(subject):
+        construct.construct_subject(subject, client=TopicClient())
+        before = {p: p.read_bytes() for p in subject.dir.rglob("*.checks.json")}
+>       assert len(before) == 2
+E       assert 0 == 2
+E        +  where 0 = len({})
+
+tests/test_construct.py:610: AssertionError
+____________________ test_end_to_end_over_a_mocked_provider ____________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b5ba1b0>
+runnable = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
+subject = Subject(slug='embedded-rust', title='Embedded Rust', goal='drive a microcontroller from Rust', blurb='Drive real hardw...False, note='needs hardware')), source='subject'),), created='2026-08-22T12:28:29+00:00', model='', source='generated')
+
+    def test_end_to_end_over_a_mocked_provider(monkeypatch, runnable, subject):
+        """The real LLMClient, the real wire format, canned replies — and no network."""
+        module, topic = runnable
+        sent = []
+    
+        def fake_urlopen(request, timeout):
+            body = json.loads(request.data)
+            sent.append({"url": request.full_url, "body": body})
+            system = body["messages"][0]["content"]
+            user = body["messages"][1]["content"]
+            answer = checks_for(user) if system == checks_mod.SYSTEM_PROMPT else reply(good_cells())
+            return _Response(json.dumps(
+                {"choices": [{"message": {"content": f"```json\n{answer}\n```"}}]}
+            ).encode())
+    
+        monkeypatch.setattr(llm, "_urlopen", fake_urlopen)
+        config = llm.LLMConfig(provider="openai", model="gpt-4o", api_key="test-key")
+    
+        result = construct_topic(module, topic, client=llm.LLMClient(config), subject=subject)
+    
+>       assert [s["url"] for s in sent] == ["https://api.openai.com/v1/chat/completions"] * 2
+E       AssertionError: assert ['https://api.../completions'] == ['https://api.../completions']
+E         
+E         Left contains 2 more items, first extra item: 'https://api.openai.com/v1/chat/completions'
+E         Use -v to get more diff
+
+tests/test_construct.py:742: AssertionError
+____________________ test_cli_constructs_a_notebook_by_path ____________________
+
+runnable = (Domain(dir='subjects/embedded-rust/01-foundations', title='Foundations', blurb='The language guarantees that matter o...source='subject'), Topic(slug='ownership', title='Ownership and Borrowing', runnable=True, recommended=False, note=''))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b5b5100>
+capsys = <_pytest.capture.CaptureFixture object at 0x10b5aadb0>
+
+    def test_cli_constructs_a_notebook_by_path(runnable, monkeypatch, capsys):
+        module, topic = runnable
+        monkeypatch.setattr(construct, "LLMClient", lambda: FakeClient(reply(good_cells())))
+    
+>       assert construct._main([str(topic_path(module, topic))]) == 0
+E       AssertionError: assert 1 == 0
+E        +  where 1 = <function _main at 0x109fe0fe0>(['/private/var/folders/9k/xdzjsfds05j_wfmhs2yr176m0000gp/T/pytest-of-dldekerlegand/pytest-363/test_cli_constructs_a_notebook0/notebooks/subjects/embedded-rust/01-foundations/ownership.ipynb'])
+E        +    where <function _main at 0x109fe0fe0> = construct._main
+
+tests/test_construct.py:759: AssertionError
+----------------------------- Captured stdout call -----------------------------
+✅ Ownership and Borrowing (constructed, 13215 chars)  ·  7 checks failed
+----------------------------- Captured stderr call -----------------------------
+    - checks: nbgrader validate is unavailable; install the pinned nbgrader dependency
+__________________ test_a_constructed_topic_comes_back_gated ___________________
+
+client = <starlette.testclient.TestClient object at 0x108b2e0f0>
+scaffolded = 'sailing-navigation'
+model = <function model.<locals>.install at 0x10cb8e520>
+
+    def test_a_constructed_topic_comes_back_gated(
+        client: TestClient, scaffolded: str, model
+    ) -> None:
+        """A run reports the gate it wrote — counted off the file, the way the badge is."""
+        from praxis.checks import GATED_SECTIONS, checks_path, checkset_failures, load_checks
+    
+        model()
+        rel = "subjects/sailing-navigation/01-charts/dead-reckoning.ipynb"
+    
+        job = await_job(client, client.post("/api/construct", json={"rel": rel}).json()["id"])
+    
+        item = job["items"][0]
+>       assert item["checksPhase"] == "generated"
+E       AssertionError: assert 'failed' == 'generated'
+E         
+E         - generated
+E         + failed
+
+tests/test_launcher_api.py:692: AssertionError
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /Users/dldekerlegand/Development/praxis/.venv/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_checks.py::test_the_notebook_and_the_sections_reach_the_model
+FAILED tests/test_checks.py::test_a_generated_set_lands_beside_the_notebook_and_is_well_formed
+FAILED tests/test_checks.py::test_every_gated_section_is_covered_by_at_least_one_check
+FAILED tests/test_checks.py::test_the_set_carries_a_mix_of_kinds - TypeError:...
+FAILED tests/test_checks.py::test_a_conceptual_topic_gets_no_code_checks - As...
+FAILED tests/test_checks.py::test_a_failing_set_is_sent_back_with_the_validator_s_complaints
+FAILED tests/test_checks.py::test_an_existing_set_is_skipped_not_rewritten - ...
+FAILED tests/test_checks.py::test_force_regenerates_an_existing_set - Asserti...
+FAILED tests/test_checks.py::test_a_set_that_no_longer_validates_is_regenerated
+FAILED tests/test_checks.py::test_the_structural_pass_does_not_run_any_code
+FAILED tests/test_checks.py::test_nbgrader_release_removes_authored_regions_but_code_still_grades
+FAILED tests/test_construct.py::test_constructing_a_topic_also_writes_its_knowledge_checks
+FAILED tests/test_construct.py::test_a_batch_gates_every_topic_it_constructs
+FAILED tests/test_construct.py::test_rerunning_a_batch_regenerates_no_checks
+FAILED tests/test_construct.py::test_end_to_end_over_a_mocked_provider - Asse...
+FAILED tests/test_construct.py::test_cli_constructs_a_notebook_by_path - Asse...
+FAILED tests/test_launcher_api.py::test_a_constructed_topic_comes_back_gated
+ERROR tests/test_launcher_api.py::test_a_new_learner_sees_only_the_first_section_unlocked
+ERROR tests/test_launcher_api.py::test_the_answer_key_never_reaches_the_learner
+ERROR tests/test_launcher_api.py::test_a_failed_check_keeps_the_next_section_locked_and_a_passed_one_opens_it
+ERROR tests/test_launcher_api.py::test_a_locked_check_is_refused_rather_than_graded
+ERROR tests/test_launcher_api.py::test_every_kind_of_check_grades_and_the_topic_finishes
+ERROR tests/test_launcher_api.py::test_a_code_check_is_graded_by_running_the_learners_code
+ERROR tests/test_launcher_api.py::test_a_short_answer_is_graded_by_the_model_and_recorded_verbatim
+ERROR tests/test_launcher_api.py::test_a_short_answer_needs_a_key_but_the_auto_graded_kinds_do_not
+ERROR tests/test_launcher_api.py::test_progress_survives_a_restart_of_the_app
+ERROR tests/test_launcher_api.py::test_two_learners_progress_apart - TypeErro...
+ERROR tests/test_launcher_api.py::test_the_next_topic_is_locked_until_this_one_is_finished
+ERROR tests/test_launcher_api.py::test_study_refuses_what_is_not_in_the_library
+17 failed, 945 passed, 1 warning, 12 errors in 31.14s
+FAIL: .venv/bin/python -m pytest -q tests/
+verify: FAIL
+```
+
+---
+
+## Iteration — merge-gate recovery (all three stories already landed)
+
+All of US-1/US-2/US-3 were already `passes: true` and their code was on the branch, so no
+story was re-implemented. The open item was the `⚠️ PRIOR VERIFICATION FAILED` block at the
+top of this file.
+
+**Diagnosis — the failure was environmental, not a code regression.** Every listed failure
+reduced to one sentence: `nbgrader validate is unavailable; install the pinned nbgrader
+dependency`. `pyproject.toml` pins `nbgrader==0.9.5` as a *core* dependency (US-3), but
+`.chief/verify.sh` probed the interpreter for only `pytest, nbformat` before running the
+gate — so a `.venv` created before that pin ran `scripts/validate_nbgrader.py` (24/24
+notebooks "failing") and 17 tests + 12 errors in `tests/test_checks.py`,
+`tests/test_construct.py`, `tests/test_launcher_api.py`. The previous iteration recorded
+green because the *worktree* had no `.venv` and fell through to the system `python3`, which
+happened to have nbgrader installed; the merge-time run used the project checkout's `.venv`,
+which did not. Two interpreters, two answers, and the probe could not tell them apart.
+
+**Fix.**
+- `.chief/verify.sh` — the toolchain probe is now `import pytest, nbformat, nbgrader`, and a
+  `.venv` that fails it is *repaired in place* (`uv pip install --python … -e .`, falling
+  back to `python -m pip`) rather than skipped, because nbgrader is a core dep and the
+  graded-cell gate is authoritative. Only if the repair fails does it try the system
+  interpreter, and only if that fails too does it skip — with the full install command.
+- `.github/workflows/ci.yml` — comment recording that nbgrader arrives with the core deps
+  (`pip install -e '.[launch,dev]'`), which is what makes the validate step runnable; the
+  two files stay mirrors per the repo's stated rule.
+- `CLAUDE.md` **Gates** — the nbgrader gate is named alongside pytest, with the reason the
+  interpreter identity matters: `praxis.checks._nbgrader_executable()` resolves the console
+  script *beside the running interpreter*, so the interpreter that runs the tests must be
+  the one that has nbgrader.
+
+**Verified (not assumed).** Created a `.venv` with `.[launch,dev]`, then deliberately
+`uv pip uninstall nbgrader` to reproduce the exact stale environment, and ran
+`CHIEF_BASE_BRANCH=main .chief/verify.sh`: it printed `verify: installing the pinned python
+deps into .venv/bin/python`, self-healed, and finished `verify: PASS` — doc-links 0 dead vs
+0 on main, `nbgrader validate: 24 notebooks, 0 failures`, `974 passed`. Re-ran after the
+doc/CI edits: `verify: PASS`, 974 passed again.
+
+### Learnings for future iterations
+- **A green gate proves the environment as much as the code.** When a check depends on a
+  console script or an import, the probe that guards it must name *every* dependency it
+  needs — otherwise the gate silently runs on whichever interpreter happens to answer, and
+  the worktree and the project checkout can disagree. Reproduce the broken environment
+  before claiming the fix.
+- Chief worktrees have **no `.venv`**, so `verify.sh` falls through to system `python3`
+  there while the merge-time run uses the project checkout's `.venv`. If a story adds a
+  Python dependency, assume those two environments differ until proven otherwise.
+- `praxis/checks.py` resolves nbgrader as `Path(sys.executable).with_name("nbgrader")` then
+  `sys.prefix/bin`, then `shutil.which` — importability alone is not enough; the console
+  script must sit beside the interpreter running the tests.

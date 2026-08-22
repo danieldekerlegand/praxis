@@ -27,7 +27,8 @@
       ],
       "answer": 0,
       "explanation": "Decodability is exactly what a probe measures. Representation is a stretch, use is unsupported without intervention, and the residual stream is cumulative so location claims need more work.",
-      "id": "linear-probes-01"
+      "id": "linear-probes-01",
+      "grade_id": "linear-probes-d56a105f937c7293"
     },
     {
       "section": "Mental Model",
@@ -35,7 +36,8 @@
       "prompt": "Explain the metal-detector analogy for probing, and use it to justify two specific methodological rules the notebook insists on.",
       "expected": "A correct answer must convey that a beep signals the PRESENCE of metal near the surface, not that the beach USES it for anything, and not what the object is. It must then derive at least two rules: (1) keep the probe WEAK (linear, regularised) and report held-out accuracy, because turning the sensitivity up far enough makes it beep everywhere \u2014 a high-capacity probe fits random labels; (2) run a CONTROL TASK, because you cannot interpret a reading without knowing what the detector registers on a beach with no metal in it; and/or (3) to establish that the metal MATTERS you must remove it and see what changes \u2014 i.e. intervene causally.",
       "explanation": "Presence versus function, sensitivity versus signal, and correlation versus intervention \u2014 all three follow from the same image.",
-      "id": "linear-probes-02"
+      "id": "linear-probes-02",
+      "grade_id": "linear-probes-be8dea12590dbf59"
     },
     {
       "section": "Key Concepts",
@@ -49,7 +51,8 @@
       ],
       "answer": 0,
       "explanation": "The control task has the same label structure with no representational basis, so whatever accuracy the probe achieves on it is pure capacity. Subtracting isolates the signal.",
-      "id": "linear-probes-03"
+      "id": "linear-probes-03",
+      "grade_id": "linear-probes-ba584bd45e5d3dff"
     },
     {
       "section": "Worked Examples",
@@ -59,7 +62,8 @@
       "solution": "def majority_baseline(labels):\n    labels = list(labels)\n    if not labels:\n        return 0.0\n    counts = {}\n    for x in labels:\n        counts[x] = counts.get(x, 0) + 1\n    return max(counts.values()) / len(labels)\n",
       "test": "assert abs(majority_baseline([1, 1, 1, 0]) - 0.75) < 1e-9\nassert abs(majority_baseline([0, 1]) - 0.5) < 1e-9\nassert abs(majority_baseline(['a'] * 19 + ['b']) - 0.95) < 1e-9\nassert majority_baseline([]) == 0.0, 'must handle the empty case'\nassert abs(majority_baseline([7, 7, 7]) - 1.0) < 1e-9\nfor labs in ([1,0,0,0], ['x','y','y'], [True, False, False]):\n    assert 0.0 <= majority_baseline(labs) <= 1.0\n",
       "explanation": "This is the floor any probe result must be read against. A probe scoring 95% on labels that are 95/5 has demonstrated nothing at all \u2014 the same reasoning behind chance-corrected agreement statistics.",
-      "id": "linear-probes-04"
+      "id": "linear-probes-04",
+      "grade_id": "linear-probes-fe9423a2e810d447"
     },
     {
       "section": "Gotchas",
@@ -73,7 +77,8 @@
       ],
       "answer": 0,
       "explanation": "Reaching for a more powerful probe to rescue a null result is how probing studies become unfalsifiable \u2014 and a high-capacity probe will find structure in random labels, so it cannot settle the question either.",
-      "id": "linear-probes-05"
+      "id": "linear-probes-05",
+      "grade_id": "linear-probes-695a3f4e0b5f9aea"
     },
     {
       "section": "When to Use",
@@ -81,7 +86,16 @@
       "prompt": "Describe the right role for a probe in an interpretability workflow, and name what must follow it before you can claim the model uses a property.",
       "expected": "A correct answer must position the probe as a CHEAP FIRST PASS that answers one narrow question \u2014 is this linearly decodable \u2014 and is especially informative as a LAYER SWEEP, where the pattern across depth matters more than the peak value. It must state that a CAUSAL follow-up is required to claim use: intervening on the representation via ABLATION (projecting the direction out) or STEERING (adding it) and measuring whether the model's OUTPUT changes. It should convey that this limitation is not fixable by better probing, because activations carry far more information than downstream computation consumes, so decodability will always over-report.",
       "explanation": "Probe to locate, intervene to establish. A probing result reported with neither a control task nor a causal follow-up is a hypothesis.",
-      "id": "linear-probes-06"
+      "id": "linear-probes-06",
+      "grade_id": "linear-probes-016ea9f836b5fa77"
     }
-  ]
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  }
 }
