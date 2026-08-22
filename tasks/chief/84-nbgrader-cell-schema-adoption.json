@@ -60,7 +60,7 @@
         "Gate green: `python3 -m pytest -q tests/` passes, `nbgrader validate` passes on the converted seed notebooks, and a test asserts a deliberately broken graded cell is rejected by `nbgrader validate` and never written."
       ],
       "passes": true,
-      "notes": "nbgrader validate passed for 24/24 converted notebooks; checks + construct 113/113, remaining core tests 796/796, launcher API 56/56. Fixed legacy sidecar-id compatibility at the launcher boundary while outcomes remain keyed by durable grade_id."
+      "notes": "nbgrader validate passed for 24/24 converted notebooks; checks + construct 113/113, remaining core tests 796/796, launcher API 56/56. Fixed legacy sidecar-id compatibility at the launcher boundary while outcomes remain keyed by durable grade_id. Recovery verification: CHIEF_BASE_BRANCH=main .chief/verify.sh green; 909 passed, 1 skipped."
     }
   ]
 }
