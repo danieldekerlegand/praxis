@@ -14,6 +14,6 @@ The previous verification failure was caused by the local environment lacking th
 Observed verification after recovery:
 - `uv run --extra dev python scripts/validate_nbgrader.py notebooks`: `nbgrader validate: 24 notebooks, 0 failures`.
 - `uv run --extra dev pytest -q tests/`: `909 passed, 1 skipped`.
-- `CHIEF_BASE_BRANCH=main .chief/verify.sh`: `doc-links: 0 dead vs 0 on main`, nbgrader validation 24/24 with 0 failures, `909 passed, 1 skipped`, `verify: PASS`.
+- `CHIEF_BASE_BRANCH=main .chief/verify.sh`: `doc-links: 0 dead vs 0 on main`, nbgrader validation 24/24 with 0 failures, `918 passed, 1 skipped`, `verify: PASS` after rebasing onto main.
 
 Learnings for future iterations: a missing `.venv` can masquerade as widespread nbgrader and constructor regressions; install from the locked project environment before debugging application failures. Rebase conflicts in ignored Chief state files require force-adding the resolved runtime/task progress files during the rebase.
