@@ -200,6 +200,40 @@ holds is never a regeneration target even with `force=True`, so an unattended re
 costs no model call. `python3 -m praxis.regate` prints it; the 24 seed gates, all written
 before the bar, hold it, and a test pins that.
 
+## Driving the batch unattended: Chief tasklists
+
+`praxis/tasklist.py` is a **generator, not a second batch**. Praxis already owns the loop
+(`construct_each`, and `backfill_domain` in front of it); what it does not own is running
+that loop with nobody in front of the app. So this module cuts the live library into
+*units* — one seed domain's gate (`gate-<domain.dir>`) or one generated subject's build
+(`build-<subject.slug>`) — and emits `tasks/chief/<name>.json` whose stories run the
+**shipped** commands, `python3 -m praxis.backfill <dir>` and `python3 -m praxis.construct
+--subject <slug>`. It constructs nothing and gates nothing; a tasklist that drove its own
+construction would be a second definition of "complete" and the two would drift.
+
+Three rules do the work. Resumability is **not written here** — it falls out of
+skip-if-✅ (`construct_topic`) and skip-if-gated (`backfill.is_gated`), which is why
+`iters` scales with the backlog: another iteration is another resumed pass, not a harder
+story. A unit with an empty backlog is **refused** (`unit_for`), because an empty tasklist
+is a Chief run that ends `EMPTY-NO-WORK` having proved the domain was already gated. And
+the document is **graded before it is written**, the constructor's rule one level up:
+`tasklist_failures()` is the machine-readable half of chief's `docs/reference/tasklist-schema.md`
+(branch is `chief/<name>`, a category `scripts/check-tasklist-categories.mjs` accepts, every
+story `passes: false`, no `mergedToMain`), and `write_tasklist` writes nothing that fails
+it — nor over a tasklist that is already active or retired, whose `passes` flags are
+chief's bookkeeping and not this module's to reset.
+
+`touches` is the one scheduler field carrying a decision: a unit declares the notebook
+tree it writes (`notebooks/<dir>`, `subjects/<slug>`), so fourteen domain gates run in
+parallel while two tasklists on the *same* domain never co-schedule. The one asymmetry
+worth knowing: a backfill's notebooks are in the branch, but a generated subject is the
+user's data and is written **outside the repo** under `storage`'s root, so a subject
+tasklist's evidence is the recorded badge/gate counts, not a diff.
+
+`python3 -m praxis.backfill [--list] [DIR…]` is the entry point those tasklists name —
+`--list` prints the selection with no model call and no key, which is what a generated
+tasklist's `warmup` (`python3 -m praxis.tasklist show <name>`) is for.
+
 ## Progression: what the checks actually gate
 
 `praxis/progress.py` is the learner's side, and it is deliberately *only* bookkeeping and
