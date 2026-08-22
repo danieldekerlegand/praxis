@@ -1,19 +1,24 @@
 # Chief Progress — 84-nbgrader-cell-schema-adoption
-Started: Fri Aug 21 19:10:28 CDT 2026
+Started: Fri Aug 21 19:20:32 CDT 2026
 ---
 
 ## Codebase Patterns
 
-- `uv run --extra dev` is the reproducible project environment; it creates `.venv` with the pinned `nbgrader==0.9.5` dependency used by the validation gate.
-- The branch's `.chief/state/prd.json` is the runtime source of truth; the tracked tasklist mirror must be kept in sync when it exists.
+- `uv sync --extra dev` creates the repository-local `.venv` with the pinned `nbgrader==0.9.5` dependency and editable Praxis install; use that environment for the Python gate.
+- `.chief/verify.sh` selects `.venv/bin/python` when present, runs `scripts/validate_nbgrader.py` before the full pytest suite, and uses `CHIEF_BASE_BRANCH=main` for branch verification.
+- The runtime PRD is the source of truth; the matching `tasks/chief/84-nbgrader-cell-schema-adoption.json` mirror must remain synchronized when it exists.
 
 ## Verification recovery
 
-The previous verification failure was caused by the local environment lacking the pinned nbgrader executable, which made all 24 converted notebooks unavailable to the gate and caused construction checks to fail. Recreated the project environment with `uv run --extra dev`, then rebased the branch onto `main` and resolved the tasklist/progress conflicts while retaining this branch's nbgrader stories.
+The previous verification run was invalid because this fresh worktree did not yet have `.venv`; without the pinned nbgrader install, all 24 converted notebooks were reported unavailable and dependent tests failed. Recreated the environment with `uv sync --extra dev`.
 
 Observed verification after recovery:
-- `uv run --extra dev python scripts/validate_nbgrader.py notebooks`: `nbgrader validate: 24 notebooks, 0 failures`.
-- `uv run --extra dev pytest -q tests/`: `909 passed, 1 skipped`.
-- `CHIEF_BASE_BRANCH=main .chief/verify.sh`: `doc-links: 0 dead vs 0 on main`, nbgrader validation 24/24 with 0 failures, `918 passed, 1 skipped`, `verify: PASS` after rebasing onto main.
 
-Learnings for future iterations: a missing `.venv` can masquerade as widespread nbgrader and constructor regressions; install from the locked project environment before debugging application failures. Rebase conflicts in ignored Chief state files require force-adding the resolved runtime/task progress files during the rebase.
+- `CHIEF_BASE_BRANCH=main .chief/verify.sh`: PASS
+- `scripts/validate_nbgrader.py notebooks`: 24 notebooks, 0 failures
+- `python -m pytest -q tests/`: 918 passed, 1 skipped
+- Documentation links: 0 dead vs 0 on main
+
+## Learnings for future iterations
+
+A clean worktree may omit the ignored repository environment even when the project is correctly configured. Install from the project manifest before diagnosing nbgrader-dependent failures; the failure was environmental, not a regression in the already-completed stories.
