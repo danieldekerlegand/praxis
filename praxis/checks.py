@@ -62,8 +62,14 @@ DEFAULT_ATTEMPTS = 3
 
 def _nbgrader_executable() -> str | None:
     """Resolve the pinned console script in the active Python environment first."""
-    sibling = Path(sys.executable).with_name("nbgrader")
-    return str(sibling) if sibling.is_file() else shutil.which("nbgrader")
+    candidates = (
+        Path(sys.executable).with_name("nbgrader"),
+        Path(sys.prefix) / "bin" / "nbgrader",
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+    return shutil.which("nbgrader")
 
 # The rubric's sections, minus the two that teach nothing a learner can be tested on.
 # Derived from RUBRIC_SECTIONS rather than retyped, so adding a section to the rubric
