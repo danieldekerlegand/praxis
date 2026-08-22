@@ -28,4 +28,9 @@ src-tauri/gen/
 
 # Staged by scripts/embed-python.sh: the Python runtime an embedded bundle carries.
 # Hundreds of MB of downloaded interpreter and a copy of the core — built, never tracked.
+# scripts/build-jupyterlite.sh writes the JupyterLite site (~72 MB) in here too.
 src-tauri/resources/
+
+# The isolated builder for that site: jupyterlite-core is a BUILD dependency of the
+# site, never of the product (docs/reference/jupyterlite.md).
+.lite-venv/

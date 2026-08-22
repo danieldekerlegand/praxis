@@ -2,10 +2,18 @@ import { useEffect, useState } from "react";
 import DefineSubject from "./DefineSubject";
 import ImportJD from "./ImportJD";
 import KnowledgeChecks from "./KnowledgeChecks";
+import LiteLibrary from "./LiteLibrary";
 import StorageSettings from "./StorageSettings";
 import { itemFor, jobSummary, phaseBadge, useConstruction } from "./construct";
 import { appInfo, isTauri, launcherStatus, type AppInfo, type LauncherStatus } from "./tauri";
 import { fetchLibrary, labUrl, renderUrl, type Domain, type Library, type Topic } from "./library";
+import {
+  liteNotebookUrl,
+  liteStatus,
+  runsInBrowser,
+  whyNotInBrowser,
+  type LiteStatus,
+} from "./lite";
 import { fetchStorage, storageSummary, type StorageInfo } from "./storage";
 
 /** The core this shell is built on — mirrors the map in README.md. */
@@ -17,11 +25,16 @@ const CORE = [
   ["notebooks/", "221 seed tutorials across 10 domains"],
 ];
 
-/** Read it, run it, or answer for it — the third is where progression is earned. */
+/** Read it, run it, or answer for it — the third is where progression is earned.
+ *
+ * `run` is the bundled JupyterLite site: a Pyodide kernel in this window, no local
+ * Python and no kernel to register (docs/reference/jupyterlite.md). It replaces the old
+ * "live in Lab" tab for a learner — `praxis-lab` is still the authoring path, and the
+ * pane names it when a tutorial cannot run in the browser. */
 const MODES = {
   render: "rendered",
   checks: "knowledge checks",
-  lab: "live in Lab",
+  run: "run it here",
 } as const;
 
 type Mode = keyof typeof MODES;
@@ -54,9 +67,26 @@ export default function App() {
   const [activeDir, setActiveDir] = useState<string | null>(null);
   const [reading, setReading] = useState<Reading | null>(null);
   const [acceptedSubject, setAcceptedSubject] = useState<string | null>(null);
+  const [lite, setLite] = useState<LiteStatus>({
+    state: "missing",
+    url: null,
+    detail: "looking for the in-browser tutorial runtime…",
+    manifest: null,
+  });
 
   useEffect(() => {
     appInfo().then(setInfo).catch(() => setInfo(null));
+  }, []);
+
+  // The learner's runtime. Read once and separately from the launcher: the site is static
+  // files on a loopback port, so it is up before the window paints and stays up whether or
+  // not the Python core ever resolves.
+  useEffect(() => {
+    liteStatus()
+      .then(setLite)
+      .catch((err) =>
+        setLite({ state: "missing", url: null, detail: String(err), manifest: null }),
+      );
   }, []);
 
   // Poll until the launcher is up (Rust starts it in the background at boot), then load
@@ -264,19 +294,39 @@ export default function App() {
                     }}
                   />
                 </div>
+              ) : reading.mode === "run" && !runsInBrowser(lite, open!.rel) ? (
+                // Not an empty iframe: a tutorial Pyodide cannot serve says which modules
+                // made it so, and points at the authoring path that can run it.
+                <div className="readerpane">
+                  <p className="status error">{whyNotInBrowser(lite, open!.rel)}</p>
+                  <p className="legend">
+                    Read it in the <b>rendered</b> tab, or run it in a local JupyterLab —{" "}
+                    <code>praxis-lab</code>, which is the authoring path and needs the
+                    Python core with the <code>launch</code> extra.
+                  </p>
+                  {library.lab_base && (
+                    <p className="legend">
+                      <a href={labUrl(library, open!.rel)} target="_blank" rel="noreferrer">
+                        {labUrl(library, open!.rel)}
+                      </a>
+                    </p>
+                  )}
+                </div>
               ) : (
                 <iframe
                   title={open!.title}
                   src={
                     reading.mode === "render"
                       ? renderUrl(status.url!, open!.rel)
-                      : labUrl(library, open!.rel)
+                      : liteNotebookUrl(lite.url!, open!.rel)
                   }
                 />
               )}
-              {reading.mode === "lab" && (
+              {reading.mode === "run" && runsInBrowser(lite, open!.rel) && (
                 <p className="hint">
-                  Live notebooks need JupyterLab running: <code>praxis-lab</code>
+                  Running in this window on a Pyodide kernel — no local Python, no kernel to
+                  register. Answering the checks that gate this tutorial is the{" "}
+                  <b>knowledge checks</b> tab.
                 </p>
               )}
             </main>
@@ -402,9 +452,14 @@ export default function App() {
                         <button
                           className="ghost"
                           disabled={t.locked}
-                          onClick={() => setReading({ topic: t, mode: "lab" })}
+                          title={
+                            runsInBrowser(lite, t.rel)
+                              ? "run this tutorial here, on a Pyodide kernel — no local Python"
+                              : whyNotInBrowser(lite, t.rel)
+                          }
+                          onClick={() => setReading({ topic: t, mode: "run" })}
                         >
-                          in Lab
+                          run
                         </button>
                       </span>
                     </li>
@@ -414,6 +469,18 @@ export default function App() {
             </main>
           )}
         </div>
+      ) : lite.state === "ready" && (status.state === "failed" || error) ? (
+        // No Python core, and the learner path still works: the site is static and its
+        // kernel is the browser's. What the launcher owns — checks, progression,
+        // construction — is named as unavailable rather than quietly missing.
+        <LiteLibrary
+          lite={lite}
+          why={
+            error
+              ? `The Python core is not answering: ${error}`
+              : `The Python core is not running — ${status.detail}`
+          }
+        />
       ) : (
         <main>
           <h1>Praxis constructs interactive, gated notebook tutorials.</h1>
@@ -450,6 +517,7 @@ export default function App() {
           ? `${info.name} v${info.version} · ${info.tauri ? "Tauri" : "browser"}`
           : "Praxis · running outside the desktop shell"}
         {status.state === "ready" && ` · library via ${status.url}`}
+        {lite.state === "ready" && ` · notebooks run here via ${lite.url}`}
         {storage && (
           <>
             {" · "}

@@ -16,40 +16,83 @@ freely rather than gating progression.
 
 ## Install
 
-**Prerequisites.** Python ≥ 3.10 is the only hard one. The rest depend on how far you
-want to go:
+### If you are here to learn: open the app
+
+A learner installs **nothing**. The desktop bundle carries its own tutorial runtime — a
+[JupyterLite](https://github.com/jupyterlite/jupyterlite) site on a Pyodide kernel, which
+is CPython compiled to WebAssembly — so reading a tutorial *and running its code cells*
+needs no Python on the machine, no `pip install`, and no Jupyter kernel to register
+([docs/reference/jupyterlite.md](docs/reference/jupyterlite.md)).
+
+1. Open **Praxis.app** ([build one](#packaging--distribution) — on first launch macOS
+   Gatekeeper wants a right-click → *Open*).
+2. Pick a tutorial and hit **run**. It opens in the window, on the in-browser kernel.
+
+That is the whole first run, measured against what it replaced:
+
+| to reach a first running tutorial | before | now |
+|---|---|---|
+| steps | 7 | 2 |
+| terminals | 2 | 0 |
+| Python installs · kernel registrations | 1 · 1 | 0 · 0 |
+
+(The seven were: install Python, create a venv, `pip install -e '.[launch,dev]'`, run
+`praxis-lab`, run `praxis-launch` in a second terminal, open `localhost:8000`, pick a
+topic and *open in Lab*.)
+
+Two honest caveats, neither of them a step:
+
+- The pinned kernel fetches Pyodide from a CDN the **first** time it runs, so a first run
+  needs network; everything after it is cached.
+- Pyodide has numpy, pandas, matplotlib, scipy and scikit-learn; it does not have `torch`
+  or `transformers`. **101 of the 245 seed tutorials run in the browser.** The rest are
+  listed as *unavailable in the browser*, naming the modules that made it so, rather than
+  opened and left to fail at their first import.
+
+### If you are here to build tutorials: install the core
+
+Constructing a tutorial is a **model-backed write** — it asks a model for the notebook's
+cells, grades the result against the rubric, and writes only what passes. That needs the
+Python core and a key, and this is the line the app draws too: *reading and answering need
+nothing; constructing does.*
 
 | you want | you need |
 |---|---|
-| the launcher UI in a browser | Python ≥ 3.10 |
-| to **run** a tutorial's code cells | the same Python, with a Jupyter kernel — the `launch` extra pulls in JupyterLab and `ipykernel`, which registers the venv itself as the `python3` kernel (`jupyter kernelspec list` to confirm) |
-| the desktop window | Node ≥ 18 and a Rust toolchain (see [the desktop shell](#the-desktop-shell)) |
-| AI-defined subjects and AI-constructed tutorials | a model you can call — your own key, or a local server ([below](#llm-access-bring-your-own-key)) |
-
-Browsing, rendering and knowledge checks need **no** model and no key. Only the two
-writes that ask a model for content — defining a subject and constructing a tutorial —
-plus grading a written (`short`) answer, do.
+| read a tutorial and **run** its code | nothing — it ships in the app |
+| knowledge checks, progression, the live 🔴/🟡/✅ badges | the Python core: an [embedded bundle](docs/reference/packaging.md#the-python-runtime-in-the-bundle) carries it, otherwise a checkout with the `launch` extra beside the app |
+| AI-defined subjects and AI-constructed tutorials | that same core **and** a model you can call — your own key, or a local server ([below](#llm-access-bring-your-own-key)) |
+| to build the desktop window from source | Node ≥ 18 and a Rust toolchain (see [the desktop shell](#the-desktop-shell)) |
+| to author notebooks by hand in a full JupyterLab | `praxis-lab`, from the `launch` extra |
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e '.[launch,dev]'      # 'launch' = the UI + Jupyter; 'dev' = the test gate
 ```
 
-Then, in two terminals:
+Browsing, rendering and knowledge checks need **no** model and no key. Only the two
+writes that ask a model for content — defining a subject and constructing a tutorial —
+plus grading a written (`short`) answer, do.
+
+### The contributor/authoring path (two terminals, as before)
+
+This is what the learner path above replaced; it is still how you author and debug the
+core, and nothing about it changed:
 
 ```bash
 praxis-lab       # live notebooks — JupyterLab rooted at this repo, on :8888
 praxis-launch    # the launcher UI — subject sidebar, on :8000
 ```
 
-Open <http://localhost:8000>: pick a subject on the left, then **open in Lab** to
-edit/run the live notebook or **render** for a read-only HTML view. Each topic shows its
+Open <http://localhost:8000>: pick a subject on the left, then **render** for a read-only
+HTML view or **open in Lab** to edit and run the live notebook. Each topic shows its
 status badge (🔴 scaffold · 🟡 partial · ✅ complete). The desktop window
-(`cargo run` in `src-tauri/`, or a [packaged bundle](#packaging--distribution)) starts
-the same launcher for itself on a free port — you do not run `praxis-launch` by hand for it.
+(`make run`, or a [packaged bundle](#packaging--distribution)) starts the launcher for
+itself on a free port and serves the JupyterLite site beside it — you run neither by hand
+for it.
 
-`praxis-lab` is only needed to *run* a notebook's code. The read-only render, the
-library, and the gate all work without it.
+`praxis-lab` is only needed to *edit* a notebook or to run one Pyodide cannot serve. The
+read-only render, the library, the gate, and running the 101 browser-ready tutorials all
+work without it.
 
 ## The reusable core
 
@@ -193,8 +236,9 @@ next topic in the module ([below](#gated-learning)). Your answers are recorded u
 
 Prerequisites worth calling out before you start:
 
-- **A Jupyter kernel** for step 4 if you want to *run* the code cells — `praxis-lab`,
-  from the `launch` extra. Reading and answering checks need no kernel.
+- **Nothing extra for step 4.** Running a tutorial's code cells is the bundled
+  JupyterLite runtime's job — no kernel, no local Python. `praxis-lab` is only for a
+  tutorial Pyodide cannot serve, or for editing one by hand.
 - **A model** for steps 1 and 3. Steps 2 and 4 make no model call at all, except for
   grading a `short` (written) answer.
 - **Somewhere to put it.** The default is this computer's app-data directory and needs
@@ -399,7 +443,8 @@ cd ../src-tauri && cargo run        # opens the Praxis window
 
 The window opens on the library: subjects on the left, topics with their live status badge
 (🔴 scaffold · 🟡 partial · ✅ complete), and *open* renders a notebook read-only in place
-(*in Lab* points the same pane at JupyterLab, which needs `praxis-lab` running). Defining
+(*run* opens it live in the same pane on the bundled in-browser kernel, and says which
+modules are missing when Pyodide cannot serve it). Defining
 a subject, constructing it, answering its knowledge checks and choosing a storage backend
 are all in the window too — it is the [first-run loop](#first-run-end-to-end) with buttons
 instead of a terminal.
@@ -409,6 +454,13 @@ loopback port and the webview reads `/api/library` and `/render/<rel>` from it (
 [`src-tauri/src/library.rs`](src-tauri/src/library.rs)). The launcher is found via
 `$PRAXIS_PYTHON`, then `.venv/`, then `python3`; if it can't start, the window says
 why. It is killed when the app exits, and stops itself if the app is killed hard.
+
+Beside it, on a second loopback port, the shell serves the **JupyterLite site** the bundle
+carries ([`src-tauri/src/lite.rs`](src-tauri/src/lite.rs)) — a read-only static file
+server over one directory, and the thing that makes *run* work with no Python at all. The
+two are deliberately independent: when the Python core is missing or fails to start, the
+window falls back to browsing and running that site, and names what it therefore cannot
+do (knowledge checks, progression, construction) instead of showing an empty library.
 
 Three things to know about how it builds:
 
@@ -430,15 +482,20 @@ Three things to know about how it builds:
 A release build of the desktop app, from the repo root:
 
 ```bash
-npm --prefix ui ci                      # the Tauri CLI ships as a frontend dev dependency
-npm --prefix ui exec -- tauri build     # rebuilds ui/dist, then bundles
+npm --prefix ui ci      # the Tauri CLI ships as a frontend dev dependency
+make bundle             # JupyterLite site -> rebuild ui/dist -> bundle
 ```
 
 On macOS that writes `src-tauri/target/release/bundle/macos/Praxis.app` and
 `bundle/dmg/Praxis_<version>_<arch>.dmg`; Windows and Linux emit their own installers from
-the same command (each OS builds its own — nothing is cross-compiled). The bundle is the
-*shell*: it starts the Python core at runtime rather than embedding it, so the checkout
-and its `.venv` still need to be there (or `PRAXIS_ROOT` / `PRAXIS_PYTHON` set).
+the same command (each OS builds its own — nothing is cross-compiled).
+
+Use `make bundle` rather than the bare command: it builds the **JupyterLite site** first
+and passes the overlay config that copies it into the bundle, which is what makes the
+learner path above need no Python. The Python core is still started at runtime, so
+knowledge checks and construction want the checkout and its `.venv` beside the app (or
+`PRAXIS_ROOT` / `PRAXIS_PYTHON` set) unless the bundle was built with
+[an embedded runtime](docs/reference/packaging.md#the-python-runtime-in-the-bundle).
 
 There is also an **optional web target** — `npm --prefix ui run build` serves `ui/dist`
 from any static server on `localhost` against a hand-started `praxis-launch`, and

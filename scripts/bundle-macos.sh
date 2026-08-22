@@ -17,9 +17,11 @@
 #   notarization   APPLE_ID + APPLE_PASSWORD + APPLE_TEAM_ID          (app-specific password), or
 #                  APPLE_API_KEY + APPLE_API_ISSUER + APPLE_API_KEY_PATH   (App Store Connect key)
 #
-# It also reports whether the bundle carries an embedded Python runtime — staged by
-# scripts/embed-python.sh, opt-in, and the difference between a .app that runs anywhere
-# and one that needs a checkout beside it (docs/reference/packaging.md).
+# It also reports what the bundle carries beside the shell: the JupyterLite site (the
+# learner's notebook runtime, staged by scripts/build-jupyterlite.sh — no Python needed to
+# read or run a tutorial) and an embedded Python runtime (staged by scripts/embed-python.sh,
+# opt-in, the difference between a .app that constructs anywhere and one that needs a
+# checkout beside it). Both ride in through overlay configs (docs/reference/packaging.md).
 #
 # Usage:
 #   scripts/bundle-macos.sh [--check] [extra tauri build args…]
@@ -111,6 +113,32 @@ command -v python3 >/dev/null 2>&1 \
 version="$(python3 scripts/check-versions.py)" \
   || fail "the manifests above disagree — bump them together before cutting a release."
 say "$version"
+
+# --- the tutorial runtime this bundle will carry -------------------------------
+# The JupyterLite site is what a learner reads and RUNS a tutorial in, and it needs no
+# Python at all (docs/reference/jupyterlite.md). It is build output, so like the embedded
+# interpreter below it goes in through an overlay config rather than tauri.conf.json — a
+# bundle.resources entry naming a missing directory fails the build. Reported either way:
+# a bundle without it opens a window that cannot run a notebook, which is the thing this
+# release is for.
+LITE_SITE="$ROOT/src-tauri/resources/jupyterlite"
+LITE_CONFIG="src-tauri/tauri.lite.conf.json"
+if [ -f "$LITE_SITE/praxis-lite.json" ] && [ -f "$LITE_SITE/index.html" ]; then
+  lite_counts="$(python3 - "$LITE_SITE/praxis-lite.json" <<'PY' 2>/dev/null || true
+import json, sys
+m = json.load(open(sys.argv[1]))
+c = m["counts"]
+print(f'{c["available"]}/{c["total"]} tutorials runnable in the browser '
+      f'(jupyterlite {m["jupyterlite"]}, pyodide {m["pyodide"]})')
+PY
+)"
+  say "lite ${lite_counts:-site staged} — $LITE_SITE goes into the bundle ($LITE_CONFIG)."
+  tauri_args=(--config "$LITE_CONFIG" ${tauri_args[@]+"${tauri_args[@]}"})
+elif [ -e "$LITE_SITE" ]; then
+  fail "$LITE_SITE exists but is not a built site — an interrupted scripts/build-jupyterlite.sh. Re-run it with --force."
+else
+  say "lite none — the .app will open notebooks only through a locally installed JupyterLab; run scripts/build-jupyterlite.sh (or make bundle) to ship the in-browser runtime."
+fi
 
 # --- the Python runtime this bundle will (or will not) carry -------------------
 # Staged by scripts/embed-python.sh, untracked, and opt-in: with the payload there the

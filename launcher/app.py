@@ -9,7 +9,7 @@ Serves the same library three ways off one view model (``build_model``):
     /             the standalone HTML browser
     /api/library  the same model as JSON — what the Tauri shell's browser reads,
                   gated coverage (`praxis/coverage.py`) folded onto it
-    /render/<rel> a read-only HTML render of one notebook (the shell iframes this)
+    /render/<rel> a read-only render of one notebook, graded regions stripped
 
 Browsing is read-only. The writes are the three steps of building a subject — generate a
 curriculum, scaffold it into notebooks, then construct those notebooks to the rubric —
@@ -82,10 +82,12 @@ from praxis.checks import (  # noqa: E402
     checks_path,
     grade,
     graded_cells,
+    learner_answer,
     load_checks,
     needs_checks,
 )
 from praxis.construct import topic_for_rel  # noqa: E402
+from praxis.lite import browser_notebook  # noqa: E402
 from praxis.coverage import coverage_report  # noqa: E402
 from praxis.curriculum_gen import generate_and_save  # noqa: E402
 from praxis.llm import LLMClient, LLMConfigError, LLMError  # noqa: E402
@@ -615,9 +617,11 @@ def create_app():
         This is the gate: a check in a locked section — or in a notebook locked behind
         an earlier topic — is refused **423** without being graded, so progression
         cannot be skipped by posting ahead. Grading is praxis.checks.grade() alone;
-        nothing here decides a pass. `choice` and `code` are auto-graded locally, so
-        only a `short` answer needs a key (503 when there is none, 502 if the provider
-        fails).
+        nothing here decides a pass, and neither does the client — the body is read
+        through praxis.checks.learner_answer(), so a submission carrying its own
+        verdict is refused **400** instead of being believed. `choice` and `code` are
+        auto-graded here, in this process, so only a `short` answer needs a key (503
+        when there is none, 502 if the provider fails).
         """
         try:
             study = study_model(rel, learner)
@@ -630,7 +634,10 @@ def create_app():
             return JSONResponse(
                 {"error": f"{rel!r} has no knowledge checks yet"}, status_code=404)
 
-        check_id = str(payload.get("check_id") or payload.get("checkId") or "").strip()
+        try:
+            check_id, submitted = learner_answer(payload)
+        except CheckError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
         check = next((c for c in doc.get("checks", [])
                       if isinstance(c, dict) and str(c.get("id")) == check_id), None)
         if check is None:
@@ -655,7 +662,7 @@ def create_app():
             except LLMConfigError as exc:
                 return JSONResponse({"error": str(exc)}, status_code=503)
         try:
-            outcome = grade(check, payload.get("answer"), client=client)
+            outcome = grade(check, submitted, client=client)
         except LLMError as exc:
             return JSONResponse({"error": str(exc)}, status_code=502)
         except CheckError as exc:
@@ -875,14 +882,24 @@ def create_app():
 
     @app.get("/render/{rel:path}", response_class=HTMLResponse)
     def render(rel: str):
-        """Read-only HTML render of a notebook (no execution)."""
+        """Read-only HTML render of a notebook (no execution).
+
+        A rendered page is HTML in a browser the learner can read with devtools, so it
+        is the same untrusted surface the JupyterLite site is and gets the same filter:
+        `praxis.lite.browser_notebook()` drops every graded region — Praxis's check
+        cells and nbgrader's companion autograder-tests cell, whose assertions *are*
+        the answer — before nbconvert ever sees the notebook. The questions are served
+        by `/api/study/<rel>`, which knows what this learner has unlocked; a static
+        render cannot. See docs/reference/gate-authority.md.
+        """
         path = library_path(rel)
         if path is None:
             return HTMLResponse("not found", status_code=404)
         try:
             import nbformat
             from nbconvert import HTMLExporter
-            nb = nbformat.read(str(path), as_version=4)
+            nb = nbformat.from_dict(
+                browser_notebook(nbformat.read(str(path), as_version=4)))
             body, _ = HTMLExporter(template_name="classic").from_notebook_node(nb)
             return HTMLResponse(body)
         except Exception as exc:  # nbconvert optional

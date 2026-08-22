@@ -928,6 +928,37 @@ def learner_check(check: dict, outcome: dict | None = None) -> dict:
     return view
 
 
+#: The only two fields a submission may carry. A learner authors an answer to one check;
+#: everything else about that answer is the trusted process's to decide.
+ANSWER_FIELDS = ("check_id", "answer")
+
+#: Fields only the grader may produce. A payload carrying one is refused rather than
+#: quietly ignored — a client that sends a verdict believes it grades, and saying so
+#: plainly is worth more than silently dropping it.
+VERDICT_FIELDS = ("passed", "outcome", "detail", "graded_by", "graded",
+                  "locked", "unlocked", "state")
+
+
+def learner_answer(payload: object) -> tuple[str, object]:
+    """One submission as the trusted process may read it — `(check_id, answer)`.
+
+    The inbound twin of `learner_check()`, and the other half of the same promise.
+    That one keeps the answer key from crossing to the browser; this keeps the browser's
+    *opinion* from crossing back. Only the two fields a learner actually authors are
+    read, and a payload carrying a grading verdict is refused outright: a pass is
+    produced by `grade()`, in the process that holds the key, or it is not produced.
+    """
+    if not isinstance(payload, dict):
+        raise CheckError("an answer is submitted as a JSON object")
+    forged = [field for field in VERDICT_FIELDS if field in payload]
+    if forged:
+        raise CheckError(
+            f"the grader decides {', '.join(forged)} — a submission may carry only "
+            f"{' and '.join(ANSWER_FIELDS)}")
+    check_id = str(payload.get("check_id") or payload.get("checkId") or "").strip()
+    return check_id, payload.get("answer")
+
+
 def checks_by_section(doc: dict) -> dict[str, list[dict]]:
     """The set indexed the way the gate reads it: section -> its checks, in order."""
     by_section: dict[str, list[dict]] = {s: [] for s in GATED_SECTIONS}

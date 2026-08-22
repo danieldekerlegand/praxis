@@ -40,7 +40,11 @@ fi
 # silently-skipped gate is worse than no gate.
 # The three manifests and scripts/ are in scope too: tests/test_packaging.py is where the
 # release version is pinned in step across them (and where the release script is asserted
-# on), so a lone version bump in tauri.conf.json must reach this gate.
+# on), so a lone version bump in tauri.conf.json must reach this gate. The Makefile and
+# README.md joined them for the same reason: test_packaging.py now pins what `make bundle`
+# ships and what the README's first run asks a learner to do (docs/reference/jupyterlite.md).
+# docs/reference/gate-authority.md is in scope for the same reason: tests/test_gate_authority.py
+# reads it, so a claim edited out of the contract must fail the gate rather than pass unnoticed.
 #
 # nbgrader belongs in that toolchain probe, not just pytest/nbformat: it is a pinned CORE
 # dependency (pyproject.toml) and `nbgrader validate` is the authoritative gate for graded
@@ -49,7 +53,7 @@ fi
 # environment, so repair it in place with the same editable install CI runs before giving
 # up. `praxis.checks` resolves nbgrader's console script beside the running interpreter,
 # so the interpreter that runs the tests must be the one that has it.
-if echo "$changed" | grep -qE '\.(py|ipynb)$|^notebooks/|^tests/|^scripts/|^pyproject\.toml$|^ui/package\.json$|^src-tauri/tauri\.conf\.json$'; then
+if echo "$changed" | grep -qE '\.(py|ipynb)$|^notebooks/|^tests/|^scripts/|^pyproject\.toml$|^ui/package\.json$|^src-tauri/tauri\.conf\.json$|^Makefile$|^README\.md$|^docs/reference/gate-authority\.md$'; then
   ready(){ [ -x "$1" ] || command -v "$1" >/dev/null 2>&1 || return 1
            "$1" -c 'import pytest, nbformat, nbgrader' >/dev/null 2>&1; }
   bootstrap(){ echo "verify: installing the pinned python deps into $1"

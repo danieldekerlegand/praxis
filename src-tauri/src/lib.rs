@@ -12,8 +12,10 @@ use tauri::{Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 mod library;
+mod lite;
 
 use library::{Launcher, LauncherStatus};
+use lite::{LiteStatus, Site};
 
 /// What the frontend shows in its footer — enough to prove the backend is live.
 #[derive(Serialize)]
@@ -36,6 +38,16 @@ fn app_info() -> AppInfo {
 #[tauri::command]
 fn launcher_status(launcher: State<'_, Arc<Launcher>>) -> LauncherStatus {
     launcher.status()
+}
+
+/// Where the in-browser tutorial runtime is being served from — or why there is none.
+///
+/// Deliberately independent of [`launcher_status`]: the JupyterLite site is static and
+/// its kernel is the browser's, so reading and running a tutorial works in a bundle whose
+/// Python core is missing. The frontend polls both and shows what each one can do.
+#[tauri::command]
+fn lite_status(site: State<'_, Arc<Site>>) -> LiteStatus {
+    site.status()
 }
 
 /// A native folder picker, for pointing storage at a drive. `None` if the user cancelled.
@@ -67,11 +79,18 @@ async fn pick_folder(app: tauri::AppHandle) -> Option<String> {
 
 pub fn run() {
     let launcher = Arc::new(Launcher::default());
+    let site = Arc::new(Site::default());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(launcher.clone())
-        .invoke_handler(tauri::generate_handler![app_info, launcher_status, pick_folder])
+        .manage(site.clone())
+        .invoke_handler(tauri::generate_handler![
+            app_info,
+            launcher_status,
+            lite_status,
+            pick_folder
+        ])
         .setup(|app| {
             let launcher = app.state::<Arc<Launcher>>().inner().clone();
             // Where the user's subjects, tutorials and progress live. Only the shell can
@@ -89,10 +108,22 @@ pub fn run() {
             // relocated .app can easily be, so fall back to the bundle's own layout
             // rather than lose the runtime it shipped (`library::bundle_resources`).
             match app.path().resource_dir().ok().or_else(library::bundle_resources) {
-                Some(dir) => launcher.use_resources(dir),
-                None => eprintln!("praxis: no resource directory — an embedded Python \
-                                   runtime cannot be used"),
+                Some(dir) => {
+                    launcher.use_resources(dir.clone());
+                    app.state::<Arc<Site>>().use_resources(dir);
+                }
+                None => eprintln!("praxis: no resource directory — neither an embedded \
+                                   Python runtime nor the JupyterLite site can be used"),
             }
+            // The learner's runtime, and the first thing to come up: it is static files
+            // and a loopback port, so it is ready in milliseconds and does not depend on
+            // the Python core resolving at all.
+            let site = app.state::<Arc<Site>>().inner().clone();
+            site.start();
+            eprintln!("praxis: jupyterlite {}", match site.status().url {
+                Some(url) => url,
+                None => site.status().detail,
+            });
             // Off the main thread: starting uvicorn takes a second or two and the window
             // should be up (showing "starting the launcher…") the whole time.
             std::thread::spawn(move || launcher.start());

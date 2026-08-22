@@ -1118,6 +1118,101 @@ def test_an_ungated_seed_notebook_is_open_and_says_so(client: TestClient) -> Non
     assert state["locked"] is False
 
 
+# --- the gate's authority, at the API ----------------------------------------
+#
+# docs/reference/gate-authority.md is the contract; tests/test_gate_authority.py holds
+# the half of it that needs no server. These are the half that does: the browser is
+# untrusted, so what it says about a grade is worth exactly nothing here.
+
+
+def test_a_submission_carrying_its_own_verdict_is_refused_and_records_nothing(
+    client: TestClient, gated: list[dict], progress_root: Path
+) -> None:
+    """The obvious forgery: post the reply shape back and see if it is believed."""
+    from praxis.checks import GATED_SECTIONS
+
+    first = next(c for c in gated if c["section"] == GATED_SECTIONS[0])
+    wrong = 0 if first["answer"] != 0 else 1
+
+    res = client.post(f"/api/study/{FIRST_REL}", json={
+        "check_id": first["id"], "answer": wrong,
+        "passed": True, "outcome": {"passed": True, "graded_by": "auto"},
+    })
+
+    assert res.status_code == 400
+    assert "the grader decides" in res.json()["error"]
+    assert not any(progress_root.glob("*.json")), "a refused submission was recorded"
+    assert client.get(f"/api/study/{FIRST_REL}").json()["passed"] == 0
+
+
+def test_a_forged_pass_is_graded_as_the_failure_it_is_and_unlocks_nothing(
+    client: TestClient, gated: list[dict], progress_root: Path
+) -> None:
+    """Strip the verdict and the wrong answer is still a wrong answer."""
+    from praxis.checks import GATED_SECTIONS
+
+    first = next(c for c in gated if c["section"] == GATED_SECTIONS[0])
+    wrong = 0 if first["answer"] != 0 else 1
+
+    res = answer(client, FIRST_REL, first, wrong)
+
+    assert res.status_code == 200 and res.json()["outcome"]["passed"] is False
+    stored = json.loads(next(iter(progress_root.glob("*.json"))).read_text())
+    outcomes = stored["topics"][FIRST_REL]["outcomes"]
+    assert all(o["passed"] is False for o in outcomes.values()), outcomes
+    # ...and the section it gates is still shut, questions and all.
+    state = client.get(f"/api/study/{FIRST_REL}").json()
+    assert state["sections"][1]["locked"] is True and state["sections"][1]["checks"] == []
+    assert state["unlocked"] == [GATED_SECTIONS[0]]
+
+
+def test_a_locked_sections_response_carries_no_question_text(
+    client: TestClient, gated: list[dict]
+) -> None:
+    """Withheld, not hidden: the bytes a locked section sends contain no question."""
+    from praxis.checks import GATED_SECTIONS
+
+    body = " ".join(client.get(f"/api/study/{FIRST_REL}").text.split())
+    open_ = GATED_SECTIONS[0]
+
+    for check in gated:
+        quoted = json.dumps(check["prompt"])[1:-1]
+        present = " ".join(quoted.split()) in body
+        assert present is (check["section"] == open_), check["id"]
+
+
+def test_a_rendered_notebook_carries_no_graded_region(client: TestClient) -> None:
+    """`/render` is HTML in a browser with devtools, so it is an untrusted surface too.
+
+    Measured on the shipped library: before this filter, 162 of the 168 graded cells in
+    the 24 gated seed notebooks — and all 146 of their `assert` lines — were readable in
+    a full render. The questions come from /api/study, which knows what this learner has
+    unlocked; a static render cannot.
+    """
+    import re
+    from html import unescape
+
+    from praxis import lite
+
+    keys = sorted((ROOT / "notebooks").rglob("*.checks.json"))
+    assert keys, "the seed library ships gated notebooks"
+    graded_cells = 0
+    for key in keys[:6]:
+        nbp = Path(str(key)[: -len(".checks.json")] + ".ipynb")
+        rel = nbp.relative_to(ROOT / "notebooks").as_posix()
+        page = client.get(f"/render/{rel}").text
+        if "Install the launch extra to render" in page:
+            pytest.skip("nbconvert not installed")
+        readable = " ".join(unescape(re.sub(r"<[^>]+>", "", page)).split())
+        for cell in json.loads(nbp.read_text())["cells"]:
+            if not lite._graded(cell):
+                continue
+            graded_cells += 1
+            source = " ".join("".join(cell.get("source", [])).split())
+            assert source and source not in readable, f"{rel} renders a graded cell"
+    assert graded_cells >= 20, graded_cells
+
+
 def test_study_refuses_what_is_not_in_the_library(client: TestClient, gated) -> None:
     assert client.get("/api/study/nope/x.ipynb").status_code == 404
     assert client.post("/api/study/nope/x.ipynb", json={}).status_code == 404

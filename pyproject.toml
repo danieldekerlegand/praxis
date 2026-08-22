@@ -40,5 +40,11 @@ praxis-lab = "launcher.app:launch_lab"
 py-modules = ["curriculum", "scaffold_notebooks", "nbstatus"]
 packages = ["launcher", "praxis"]
 
+[tool.setuptools.package-data]
+# The pinned Pyodide package index praxis/lite.py resolves a tutorial's imports
+# against (docs/reference/jupyterlite.md). Vendored, so a build never asks the
+# network what "available in the browser" means.
+praxis = ["data/*.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
