@@ -1,0 +1,51 @@
+{
+  "name": null,
+  "project": "praxis",
+  "category": "fix",
+  "branchName": "chief/80-gating-coverage-tracker",
+  "baseBranch": "main",
+  "description": "Gating backfill program (80-band). A report of gated coverage — overall and per domain — so a backfill batch's progress is visible and resumable. The start line is the real one, and it is the honest headline of this whole program: 24 of 245 notebooks gated today, meaning praxis's differentiating gate is LARGELY UNSHIPPED until the backfill lands. The tracker is computed off the SAME _gated() view-model data the launcher already folds into /api/library's topic rows (gated/locked/passed/checks, from module_gates()), not a second scan, so the number the report shows and the number the app enforces cannot drift. It is surfaced in-app off that same data. This band adds the tracker only; it drives no notebooks (that is 79). It deliberately does NOT depend on 79: the tracker is what makes 79's batches visible, so it precedes or parallels them — and with the breadth-first ordering 79 adopts, the per-domain fractions are the number that matters, not the overall one. REVISED 2026-08-11 by decision D10 (rosetta/strategy/DECISIONS.md): 'gated' is now defined by 84's adopted nbgrader schema — a notebook carrying validate-passing nbgrader graded cells — not by the presence of a parallel `<slug>.checks.json` sidecar, hence the dependency on 84. Anti-fabrication: the count is derived from the real, on-disk gate signal (the same one the runtime gate uses), never a stored or asserted number, so it always reflects reality; a test pins the X/245 arithmetic against a fixture with a known gated subset.",
+  "parked": false,
+  "dependsOn": [
+    "40-gated-progression",
+    "84-nbgrader-cell-schema-adoption"
+  ],
+  "touches": [
+    "praxis/",
+    "launcher/",
+    "src-tauri/",
+    "ui/",
+    "tests/"
+  ],
+  "iters": 7,
+  "warmup": [
+    "echo '--- the view-model data to reuse: _gated folds gated/locked/passed/checks into library rows ---'; grep -n 'def _gated\\|module_gates\\|gated\\|checks_path' launcher/app.py praxis/progress.py | head",
+    "echo '--- current coverage to reproduce ---'; echo \"gated: $(find notebooks -name '*.checks.json' | wc -l) / total: $(find notebooks -name '*.ipynb' | wc -l)\"",
+    "echo '--- how a library view model already reaches the UI ---'; grep -n 'api/library' launcher/app.py | head"
+  ],
+  "userStories": [
+    {
+      "id": "US-1",
+      "title": "Compute gated coverage overall and per domain",
+      "acceptanceCriteria": [
+        "A coverage report computes gated coverage overall (X/245) and per domain (X/N per domain) off the same _gated()/module_gates() view-model signal the gate already uses — the on-disk presence of 84's validate-passing nbgrader graded cells on a notebook — never a stored or hand-maintained number.",
+        "The report reproduces the real starting line (24/245 overall) when run against the shipped library today, so the assertion is grounded in reality rather than a placeholder; the per-domain breakdown is presented as the PRIMARY figure, because breadth across the 14 domains is what 79 optimizes for and an overall fraction hides eleven empty domains behind three full ones.",
+        "Gate green: python3 -m pytest -q tests/ passes, including a test that pins the X/245 arithmetic against a fixture library with a known gated subset (asserting both the overall and a per-domain fraction)."
+      ],
+      "passes": true,
+      "notes": "python3 -m pytest -q tests/: 996 passed, 1 failed->fixed, final run 996 passed, 0 failed. scripts/validate_nbgrader.py notebooks: 24 notebooks, 0 failures. python3 -m praxis.coverage against the shipped library: 24/245 notebooks gated (10%), in 8 of 14 domains — per-domain: Symbolic AI 0/15, AI/ML Tooling 1/15, LLM Inference 5/33, Agentic AI 0/16, Speech Audio 0/22, Proprietary Coding AI 0/9, Architectures 1/23, Procedural Gen 0/16, Data Analysis 0/15, DevOps/MLOps 1/65, Model Evaluation 4/4, Interpretability 3/3, Pretraining 4/4, RL & Training Dynamics 5/5. tests/test_coverage.py: 6 tests — fixture library pins 1/6 overall with Foundations 1/4 and Peripherals 0/2, and gating one more topic moves it to 2/6; the shipped-library test pins the report against an independent on-disk scan rather than a magic 24, so it survives the backfill."
+    },
+    {
+      "id": "US-2",
+      "title": "Surface the coverage in-app so a batch's progress is visible",
+      "acceptanceCriteria": [
+        "The coverage report is surfaced in-app off the existing /api/library view-model data (a launcher endpoint or fields folded onto the library response), so backfill progress is visible and a resumed batch's new gates show up without a separate scan.",
+        "The UI renders whatever the launcher reports (overall + per-domain fractions) and holds no coverage logic of its own, mirroring how the library badges and KnowledgeChecks render server-supplied state.",
+        "Gate green: npm run build in ui/ and cargo build in src-tauri/ pass, python3 -m pytest -q tests/ covers the coverage endpoint, and the progress log shows the coverage number before and after gating one fixture topic (no dependency on the 79 batch having run — the tracker ships first so those batches are visible)."
+      ],
+      "passes": true,
+      "notes": "Gates observed green: python3 -m pytest -q tests/ -> 999 passed, 0 failed (4:40; 996 before, +3 new coverage-endpoint tests); npm run build in ui/ -> built in 326ms, 46 modules, tsc --noEmit clean; cargo build in src-tauri/ -> Finished dev profile in 22.87s, 0 errors; scripts/validate_nbgrader.py notebooks -> 24 notebooks, 0 failures. Surfaced by folding praxis.coverage.coverage_report onto build_model(), so /api/library carries `coverage` (overall + per-domain + breadth) and every domain row carries `covered` — no second endpoint, no second scan, no second poll. Both UIs render it and compute none of it (ui/src/App.tsx header legend + sidebar + domain pane; launcher/templates/index.html the same three places). Shipped library through the endpoint: 24/245 gated (10%), in 8 of 14 domains. Coverage before and after gating one fixture topic (Peripherals, limit=1, no model): BEFORE Foundations 1/4, Peripherals 0/2 = 1/6 (17%) in 1 of 2 domains; AFTER Foundations 1/4, Peripherals 1/2 = 2/6 (33%) in 2 of 2 domains, sidebar rows [('Foundations',1,4),('Peripherals',1,2)]. test_a_new_gate_shows_up_in_the_next_library_reads_coverage pins that same move through /api/library itself (0 -> 1 in the module, +1 overall, +1 domainsGated)."
+    }
+  ],
+  "mergedToMain": "ada1d1f"
+}
