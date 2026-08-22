@@ -31,7 +31,8 @@
         "The anti-fabrication bar is held: a gate is written only when `nbgrader validate` passes AND the reference solution actually runs against its own test in a subprocess; a notebook that fails is not written and stays ungated.",
         "Gate green: python3 -m pytest -q tests/ passes and `nbgrader validate` passes on the backfilled notebooks, including a test that backfilling a domain fixture writes a valid, validate-passing gate for an ungated topic and skips an already-gated one."
       ],
-      "passes": false
+      "passes": true,
+      "notes": "python3 -m pytest -q tests/: 929 passed, 1 skipped (11 new in tests/test_backfill.py); python3 scripts/validate_nbgrader.py notebooks: 24 notebooks, 0 failures. The domain fixture backfill wrote a validate-passing gate for the ungated \u2705 topic (6 graded cells, one per GATED_SECTION plus a code check, grade_ids matching the sidecar, reference solution absent from the released notebook), skipped the already-gated topic byte-for-byte, and left the scaffold for construction with zero model calls."
     },
     {
       "id": "US-2",

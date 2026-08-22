@@ -1,66 +1,49 @@
 {
   "name": null,
   "project": "praxis",
-  "category": "replace",
-  "branchName": "chief/84-nbgrader-cell-schema-adoption",
+  "category": "fix",
+  "branchName": "chief/79-gating-backfill-by-domain",
   "baseBranch": "main",
-  "description": "ADOPT nbgrader's cell-level metadata schema and hidden-test mechanics in place of praxis's parallel invention, and make `nbgrader validate` the authoritative gate instead of bespoke pytest. Decision D10 in rosetta/strategy/DECISIONS.md. THE FINDING: nbgrader (github.com/jupyter/nbgrader, 1,369 stars, BSD-3-Clause, pushed 2026-07-31) already ships the mature hidden-test abstraction that praxis's tests/test_notebooks.py + praxis/checks.py reimplement \u2014 `### BEGIN HIDDEN TESTS` / `### END HIDDEN TESTS` and `### BEGIN SOLUTION` / `### END SOLUTION` region stripping, with `nbgrader generate_assignment` producing the learner-facing notebook from a single authored source \u2014 plus a CELL-LEVEL METADATA SCHEMA for graded regions (`metadata.nbgrader`: `grade`, `solution`, `locked`, `task`, `grade_id`, `points`, `schema_version`, `checksum`) that is the de-facto standard across the Jupyter grading ecosystem. Praxis's `metadata.praxis` and its `<slug>.checks.json` sidecar are a PARALLEL invention of the same thing. Adopting the schema buys interop with every tool that speaks nbgrader (JupyterHub course workflows, ngshare, otter-grader's nbgrader compatibility), and turns a bespoke grader into a standard one. WHAT PRAXIS KEEPS \u2014 and this is the point of the decision: the genuinely novel half is CONSTRUCTION (subject -> curriculum -> rubric-shaped scaffold -> AI-filled tutorial -> auto-authored checks). nbgrader has ZERO content generation and no OSS competitor exists for that pipeline. So praxis becomes an nbgrader-schema PRODUCER: praxis/checks.py stops inventing a format and starts emitting nbgrader cells. HONEST GAPS TO SETTLE, NOT PAPER OVER: (1) nbgrader is code-centric \u2014 its schema has no native equivalent of praxis's `choice` (multiple-choice) and `short` (model-graded free text) checks, so those must be carried as a DOCUMENTED, NAMESPACED praxis extension that an nbgrader-only consumer ignores cleanly, never as a silent fork of the schema; (2) praxis's load-bearing anti-fabrication rule \u2014 a code check's reference `solution` is run against its own `test` in a subprocess before the set may be written (`verify_code=True`) \u2014 maps onto nbgrader's own validate semantics and must be PRESERVED, not dropped because the schema changed; (3) the server-side boundary must survive: `learner_check()` is the only way a check reaches a client, a locked section serves no checks at all, and `POST /api/study/<rel>` answers 423 \u2014 the answer key must NOT end up in the learner-facing notebook just because nbgrader's release format keeps everything in one file. Scope: praxis/checks.py, praxis/progress.py, praxis/rubric.py, praxis/construct.py, tests/, docs/explanation/notebook-rubric.md, pyproject.toml. See rosetta/strategy/DECISIONS.md D10.",
+  "description": "Gating backfill program (79-band). Today the gate is real but sparse: only 24 of the 245 seed notebooks are gated, so 221 notebooks are browsable-but-ungated (a topic with no checks gates nothing, by design \u2014 praxis/progress.py). This band drives the remaining ~221 to gated by REUSING THE SHIPPED CHECK MACHINERY UNCHANGED \u2014 praxis/checks.py (checks_from_reply -> grade -> write) over GATED_SECTIONS, and the derived-unlock gate in progress.py \u2014 run in per-domain batches across the 14 domains rather than one sweep, with the anti-fabrication verification (the reference `solution` run against its own `test` in a subprocess) held as the quality bar it already enforces. It invents no new gating primitive; it runs the shipped one at scale. REVISED 2026-08-11 by decision D10 (rosetta/strategy/DECISIONS.md): the format this band writes at scale is nbgrader's cell-level schema, adopted in `84-nbgrader-cell-schema-adoption`, NOT the parallel `<slug>.checks.json` sidecar this band was originally written against \u2014 backfilling 221 notebooks into a format that is about to be retired would be the single most expensive way to discover the adoption. Hence the hard dependency on 84: the schema lands first, the backfill runs against it, and `nbgrader validate` is the bar every backfilled notebook must clear. PRIORITIZE BREADTH-FIRST, SHALLOW GATING: the differentiator is largely unshipped at 24/245, so coverage across all 14 domains beats depth in a few \u2014 a shallow but real gate on every domain moves the product further than an exhaustive one on three. Anti-fabrication: a checkset that fails the grader is never written (same rule as the constructor), and an already-gated notebook is skipped not rewritten \u2014 so a batch is resumable and idempotent exactly like construction; the coverage number only moves for notebooks that gained a real, validate-passing gate.",
   "parked": false,
   "dependsOn": [
-    "40-gated-progression"
+    "40-gated-progression",
+    "84-nbgrader-cell-schema-adoption"
   ],
   "touches": [
     "praxis/",
     "notebooks/",
-    "tests/",
-    "launcher/"
+    "tests/"
   ],
   "iters": 8,
   "warmup": [
-    "echo '--- the parallel invention to retire: praxis metadata + the sidecar checkset ---'; grep -rn 'metadata.*praxis\\|checks_path\\|GATED_SECTIONS' praxis/checks.py praxis/construct.py praxis/rubric.py | head -20",
-    "echo '--- the reimplemented hidden-test / gate logic ---'; sed -n '1,40p' tests/test_notebooks.py",
-    "echo '--- the load-bearing rule that must survive: solution run against its own test ---'; grep -n 'verify_code\\|subprocess\\|def checkset_failures\\|def learner_check' praxis/checks.py | head",
-    "echo '--- nbgrader schema reference (offline: read the vendored notes if present) ---'; ls docs/ | head -20"
+    "echo '--- the machinery to reuse, unchanged ---'; grep -n 'def checks_from_reply\\|def checkset_failures\\|def needs_checks\\|GATED_SECTIONS\\|verify_code' praxis/checks.py | head",
+    "echo '--- the one batch loop ---'; sed -n '443,500p' praxis/construct.py",
+    "echo '--- reality: 24 gated of 245 ---'; echo \"gated: $(find notebooks -name '*.checks.json' | wc -l)  total: $(find notebooks -name '*.ipynb' | wc -l)\""
   ],
   "userStories": [
     {
       "id": "US-1",
-      "title": "Emit nbgrader's cell-level metadata schema for graded regions",
+      "title": "Gate one domain's notebooks by reusing the shipped check machinery",
       "acceptanceCriteria": [
-        "Constructed and scaffolded notebooks carry nbgrader's cell-level schema on graded regions \u2014 `metadata.nbgrader` with the real field names and value semantics (`grade`, `solution`, `locked`, `task`, `grade_id`, `points`, `schema_version`, `checksum`) and the real cell kinds (autograded answer, autograder tests, manually graded answer, read-only, manually graded task) \u2014 pinned against nbgrader's published schema version rather than a hand-copied approximation.",
-        "`grade_id` values are stable and unique within a notebook and are the identity a recorded outcome keys on, so an outcome survives a notebook being reconstructed (the current sidecar's implicit ordering identity is replaced by a real id, not by a second one).",
-        "praxis's two non-nbgrader check kinds \u2014 `choice` and `short` \u2014 are carried as an explicitly NAMESPACED praxis extension alongside `metadata.nbgrader` (documented in docs/explanation/notebook-rubric.md as an extension, with the statement that nbgrader itself is code-centric and has no equivalent), so an nbgrader-only consumer reads the graded cells correctly and ignores the extension rather than choking on a mutated schema.",
-        "A migration path exists for the notebooks already on disk: the 24 seed notebooks that carry a `<slug>.checks.json` today are converted to the nbgrader schema by a documented, idempotent, re-runnable pass, and a converted notebook grades identically to the way it graded before (a test asserts equivalence on at least one real converted seed, not a fixture).",
-        "Gate green: `python3 -m pytest -q tests/` passes, including a test that a constructed notebook's graded cells validate against nbgrader's schema and that the praxis extension round-trips without touching `metadata.nbgrader`."
+        "A per-domain backfill drives every ungated \u2705 notebook in one domain to gated by calling the shipped path \u2014 construct_topic(..., checks=True) / checks.py over GATED_SECTIONS \u2014 with NO rewrite of the gating primitive, writing 84's adopted NBGRADER CELL SCHEMA (graded/solution/locked cells with stable `grade_id`s, hidden tests via nbgrader's delimiters) and never a parallel checkset format.",
+        "It is idempotent: a notebook that is already gated is skipped not rewritten (the needs_checks() contract, re-expressed against the nbgrader schema), and a notebook that is not yet \u2705 is left for construction rather than force-gated, so the batch is resumable exactly like construct_each.",
+        "The anti-fabrication bar is held: a gate is written only when `nbgrader validate` passes AND the reference solution actually runs against its own test in a subprocess; a notebook that fails is not written and stays ungated.",
+        "Gate green: python3 -m pytest -q tests/ passes and `nbgrader validate` passes on the backfilled notebooks, including a test that backfilling a domain fixture writes a valid, validate-passing gate for an ungated topic and skips an already-gated one."
       ],
       "passes": true,
-      "notes": "python3 -m pytest -q tests/: 908 passed, 1 skipped; migration converted 24 seed notebooks and verified 168 graded cells with unique stable grade_id values."
+      "notes": "python3 -m pytest -q tests/: 929 passed, 1 skipped (11 new in tests/test_backfill.py); python3 scripts/validate_nbgrader.py notebooks: 24 notebooks, 0 failures. The domain fixture backfill wrote a validate-passing gate for the ungated \u2705 topic (6 graded cells, one per GATED_SECTION plus a code check, grade_ids matching the sidecar, reference solution absent from the released notebook), skipped the already-gated topic byte-for-byte, and left the scaffold for construction with zero model calls."
     },
     {
       "id": "US-2",
-      "title": "Adopt nbgrader's hidden-test and solution-region mechanics, retiring the reimplementation",
+      "title": "Batch the backfill across the 14 domains, resumably",
       "acceptanceCriteria": [
-        "Authoring uses nbgrader's delimiters \u2014 `### BEGIN SOLUTION` / `### END SOLUTION` and `### BEGIN HIDDEN TESTS` / `### END HIDDEN TESTS` \u2014 as the single source form, and the learner-facing notebook is DERIVED from it by nbgrader's own release/generate mechanics rather than by praxis code that reimplements the same stripping.",
-        "The bespoke stripping/hidden-test logic in `tests/test_notebooks.py` and `praxis/checks.py` is DELETED, not left beside the adopted mechanism \u2014 a test asserts there is exactly one implementation of solution-region and hidden-test removal in the tree, so the two cannot drift.",
-        "The server-side boundary survives the format change and is proved: the learner-facing artifact contains NO hidden tests, no reference `solution`, no `answer`/`expected`, and a locked section still serves nothing at all; `learner_check()` (or its successor) remains the only path by which a check reaches a client, and `POST /api/study/<rel>` still answers 423 for an unreached section. A test asserts the released notebook is free of every stripped region by content inspection, not by trusting the generator.",
-        "The load-bearing anti-fabrication rule is preserved under the new format: a code check's reference `solution` is still executed against its own `test` before the graded cells may be written (today's `verify_code=True` subprocess run), so 'auto-graded' can still never mean 'asserts nothing'; a set failing it is still never written.",
-        "Gate green: `python3 -m pytest -q tests/` passes, including a test that a hidden-test region is present in the source notebook, absent from the released one, and still enforced when the learner's answer is graded."
+        "A batch entry point runs the per-domain backfill across all 14 domains (a one-liner over the shipped construct_each, the way construct_domain / construct_subject already are), so the whole ~221-notebook backlog can be driven in domain-sized batches rather than one sweep.",
+        "The ORDER IS BREADTH-FIRST across the 14 domains, not depth-first within one: the batch entry point drives a shallow pass over every domain before deepening any, so coverage climbs across the whole library rather than perfecting three domains while eleven stay ungated. The chosen order is documented and the per-domain fractions after the first breadth pass are recorded in progress.txt.",
+        "The run is resumable and safe to re-invoke: re-running skips domains/notebooks already gated and never clobbers a passing gate, so an interrupted batch resumes without redoing work (the skip-if-gated contract is what makes an unattended run safe \u2014 the property band 82 relies on).",
+        "Gate green: python3 -m pytest -q tests/ covers a two-domain batch asserting only ungated topics gain gates and a re-run is a no-op; the progress log records the starting and ending gated/245 count for the domains touched."
       ],
-      "passes": true,
-      "notes": "uv run --extra dev pytest -q tests/: 909 passed, 1 skipped; nbgrader release test verified solution and hidden-test regions are absent from the learner artifact and code grading still distinguishes correct from incorrect answers."
-    },
-    {
-      "id": "US-3",
-      "title": "Make `nbgrader validate` the authoritative gate in place of bespoke pytest",
-      "acceptanceCriteria": [
-        "`nbgrader` is a real, pinned dependency (BSD-3-Clause, recorded in `pyproject.toml` with its licence noted alongside the project's other deps), and `nbgrader validate` is the AUTHORITATIVE gate a constructed notebook must pass before it is written \u2014 replacing the bespoke pytest assertions that currently stand in for it, not running beside them.",
-        "`praxis/rubric.py`'s grader keeps the responsibilities nbgrader does not have (the 8 rubric sections, placeholder detection, real `https://` Resources URLs, the \u2705 badge, size and code-cell counts) and DELEGATES everything nbgrader validates (graded-cell wellformedness, hidden-test execution, solution/test agreement); the split is documented in `CLAUDE.md` so a future contributor cannot reintroduce a parallel check.",
-        "`.chief/verify.sh` and `.github/workflows/ci.yml` both run the nbgrader gate path-scoped in the same place they run `pytest tests/` today, and stay mirrors of one another (the repo's stated rule: change one, change the other).",
-        "A validate failure produces a message specific enough to act on and is fed back to the model as the repair prompt exactly as the grader's own sentences are today \u2014 the repair loop is preserved, only its source of truth changed.",
-        "Gate green: `python3 -m pytest -q tests/` passes, `nbgrader validate` passes on the converted seed notebooks, and a test asserts a deliberately broken graded cell is rejected by `nbgrader validate` and never written."
-      ],
-      "passes": true,
-      "notes": "nbgrader validate passed for 24/24 converted notebooks; checks + construct 113/113, remaining core tests 796/796, launcher API 56/56. Fixed legacy sidecar-id compatibility at the launcher boundary while outcomes remain keyed by durable grade_id. Recovery verification (merge-gate toolchain fix): CHIEF_BASE_BRANCH=main .chief/verify.sh \u2192 verify: PASS, doc-links 0 dead, nbgrader validate 24 notebooks/0 failures, pytest 974 passed. The prior merge-time failure was environmental \u2014 the .venv predated the nbgrader pin, so verify.sh now probes for nbgrader alongside pytest/nbformat and repairs a stale venv with the editable install CI runs, proved by uninstalling nbgrader and watching the gate self-heal to green."
+      "passes": false
     }
   ]
 }
