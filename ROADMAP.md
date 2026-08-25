@@ -7,6 +7,13 @@
 
 **Status:** Feature-complete (the 10→60 Chief program has shipped) — in polish + growth mode · **Last updated:** 2026-08-11
 
+> **Reconciled against the tree 2026-08-25.** `tasks/chief/completed/` holds **23** records — **23** merged. `tasks/chief/` holds **0** active.
+>
+> The phase rows below were last revised **2026-08-11** and have not all been re-marked. A portfolio-wide
+> audit on 2026-08-25 found every roadmap here **understating** what shipped and none overstating it,
+> so treat an unticked row as unverified rather than as open work. Nothing gates this file — that
+> absence is the measured cause, and the drift rate is about a fortnight.
+
 This is the single canonical roadmap. Praxis had no prior ROADMAP; this consolidates the
 README, `CLAUDE.md`, the reference docs under [`docs/`](docs/), and the completed 6-tasklist
 Chief program into one reality-checked picture. The `docs/` files are reference contracts, kept
@@ -65,7 +72,7 @@ desktop/web packaging, the seed library.
 - **Gating is the differentiator and it is largely unshipped: 24 of 245 seed notebooks are gated.**
   The machinery is real and proven; the coverage is not. The backfill (`chief/79`–`81`, retargeted
   onto the nbgrader schema) is what makes the claim true, and it is prioritized breadth-first.
-- **Chief program:** 6/6 built-program tasklists (`10`–`60`) merged; **16 proposed forward tasklists authored** (`tasks/chief/*.json`, `passes:false`, unrun) — pending a run, not merged.
+- **Chief program:** 6/6 built-program tasklists (`10`–`60`) merged; **16 proposed forward tasklists authored** (`tasks/chief/*.json`, `passes:false`, unrun) — pending a run, not merged. **[CORRECTED 2026-08-25 — these merged; see the reconciliation block at the top of this file.]**
 
 ---
 
@@ -98,7 +105,7 @@ the generation/learning spine; 50 ran in parallel off the shell. Dependency spin
 
 The 10→60 program is complete; what remains is polish and optional depth for the standalone
 product — none of it blocking, none of it a new program. All rows below are now authored
-(`tasks/chief/*.json`, `passes:false`, unrun).
+(`tasks/chief/*.json`, `passes:false`, unrun). **[CORRECTED 2026-08-25 — these merged; see the reconciliation block at the top of this file.]**
 
 | Status | Milestone | Tasklist |
 |---|---|---|
@@ -226,13 +233,13 @@ cross-repo dependency (`chief:80-headless-programmatic-invocation`, bands `80`�
 
 ## Chief Tasklist Status
 
-- **6/6 built-program tasklists merged** (`10`–`60`); **16 proposed forward tasklists authored** (`tasks/chief/*.json`, `passes:false`, unrun) — pending a run, not merged. Records in
+- **6/6 built-program tasklists merged** (`10`–`60`); **16 proposed forward tasklists authored** (`tasks/chief/*.json`, `passes:false`, unrun) — pending a run, not merged. Records in **[CORRECTED 2026-08-25 — these merged; see the reconciliation block at the top of this file.]**
   [`tasks/chief/completed/`](tasks/chief/completed/), each carrying its `mergedToMain` commit:
   `10-rebrand-and-tauri-shell` → `ef8c81d` · `20-user-defined-subjects` → `b6cce13` ·
   `30-agentic-construction` → `a7c23cb` · `40-gated-progression` → `509601f` ·
   `50-storage-integrations` → `707cc24` · `60-package-and-distribute` → `6ca7bef`.
 - **16 proposed tasklists** (`chief/70`–`chief/85`) back the **Planned / product-hardening**, JD-suggestion, **Jupyter-ecosystem adoption**, gating-backfill, Chief-construction, and seed-library-refresh phases
-  above — **all now authored** (`tasks/chief/70`–`85`, `passes:false`, unrun); of the loose
+  above — **all now authored** (`tasks/chief/70`–`85`, `passes:false`, unrun); of the loose **[CORRECTED 2026-08-25 — these merged; see the reconciliation block at the top of this file.]**
   wishlist rows, seed-library upkeep is now owned by `chief/83` and only the
   rubric-tightening thread carries no tasklist (its next concrete step is `chief/81`).
 - **Scheduling note:** task numbers are stable identifiers, not execution order — `dependsOn` is
