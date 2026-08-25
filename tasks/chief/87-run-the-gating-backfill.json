@@ -1,0 +1,53 @@
+{
+  "project": "praxis",
+  "category": "fix",
+  "branchName": "chief/87-run-the-gating-backfill",
+  "description": "**The headline feature is at 10% coverage and the machinery to fix it shipped weeks ago.**\n\npraxis constructs GATED notebook tutorials — AI-built knowledge checks that gate progression are the product. `python -m praxis.coverage` reports **24 of 245** notebooks gated, with **6 of 14 domains at 0%**: symbolic-AI/logic, agentic-AI, speech-audio, proprietary-coding-AI, procedural-generation, and data-analysis/research. Only 24 notebooks carry `nbgrader` metadata and there are 24 `.checks.json` sidecars.\n\n`79-gating-backfill-by-domain` shipped the batch RUNNER — `backfill.py`, `coverage.py`, `regate.py`, `gateaudit.py` all merged. The batches never ran. An 18-repo audit on 2026-08-25 found no tasklist owning the run itself, in any repo.\n\n**This is compute and review time, not code**, which is exactly why it slipped: every tasklist in the program had an obvious code deliverable and this one does not. It is also why the repo shows zero active tasklists and reads as finished — the 10→60 program did complete, and then the thing the program was for was left at a tenth of its scope.\n\n**Quality is the risk, not throughput.** Generating 221 notebooks' worth of knowledge checks is cheap; generating 221 notebooks' worth of checks that actually gate — that a learner cannot pass without understanding the material, and that do not fabricate content the notebook never taught — is the work. The repo already has `gateaudit.py` for this. A backfill that raises coverage while lowering gate quality is a worse outcome than 24 good ones.",
+  "touches": [
+    "praxis",
+    "notebooks",
+    "docs"
+  ],
+  "iters": 8,
+  "warmup": [
+    "python -m praxis.coverage 2>&1 | tail -20",
+    "ls praxis/backfill.py praxis/coverage.py praxis/regate.py praxis/gateaudit.py",
+    "python3 -c \"import subprocess;print(subprocess.run(['python','-m','praxis.gateaudit','--help'],capture_output=True,text=True).stdout[:600])\" 2>/dev/null || sed -n '1,30p' praxis/gateaudit.py",
+    "ls notebooks/ 2>/dev/null | head -16",
+    "python3 -c \"import json,glob;print(len(glob.glob('**/*.checks.json',recursive=True)),'checks sidecars')\""
+  ],
+  "userStories": [
+    {
+      "id": "US-1",
+      "title": "A domain is backfilled end to end, and its gates are audited",
+      "acceptanceCriteria": [
+        "One zero-coverage domain is taken from 0% to complete using the shipped runner. Pick the domain that best exercises the machinery rather than the smallest one — the point is to learn what the runner does badly before committing to 221 notebooks.",
+        "Every generated gate passes `gateaudit.py`. A gate that a learner can pass without engaging the material is not coverage, and raising the coverage number while lowering gate quality is a worse outcome than the current 24.",
+        "Whatever the runner gets wrong is FIXED in the runner, not hand-patched in the output. That is the difference between this run and a one-off.",
+        "The per-notebook cost is recorded — wall time, tokens, and how much human review each needed. That figure is what makes the remaining scope a decision rather than a guess."
+      ],
+      "notes": null
+    },
+    {
+      "id": "US-2",
+      "title": "The remaining domains are run, or the scope is deliberately cut",
+      "acceptanceCriteria": [
+        "The remaining zero-coverage domains are backfilled, OR a reasoned decision cuts the scope — with the cut recorded. If US-1's measured cost makes 221 notebooks unreasonable, saying so and gating a chosen subset is a legitimate outcome; silently leaving it at 10% is not.",
+        "Coverage after the run is reported by `praxis.coverage`, per domain, so the claim is checkable.",
+        "Notebooks deliberately left ungated are marked as such with a reason, so ungated-by-choice is distinguishable from ungated-by-omission. That distinction does not exist today.",
+        "`gateaudit.py` passes across the whole gated set, not only the newly generated part — a backfill that regresses existing gates has not helped."
+      ],
+      "notes": null
+    },
+    {
+      "id": "US-3",
+      "title": "Coverage stops being discoverable only by audit",
+      "acceptanceCriteria": [
+        "Gate coverage is reported somewhere a reader meets it — the README's product claim, or the gate — rather than only from `python -m praxis.coverage`. The current figure was found by running a command nobody had run.",
+        "The ROADMAP's gating-backfill row records what actually happened: the machinery merged, the batches ran (or were cut), and where coverage landed. It currently describes the pre-state as though the code had not shipped.",
+        "A regression check fails if coverage drops, so this cannot silently decay back. Cheap and offline; it is a count over sidecars, not a model call."
+      ],
+      "notes": null
+    }
+  ]
+}
