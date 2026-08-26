@@ -26,6 +26,7 @@
         "Whatever the runner gets wrong is FIXED in the runner, not hand-patched in the output. That is the difference between this run and a one-off.",
         "The per-notebook cost is recorded — wall time, tokens, and how much human review each needed. That figure is what makes the remaining scope a decision rather than a guess."
       ],
+      "passes": false,
       "notes": null
     },
     {
@@ -37,6 +38,7 @@
         "Notebooks deliberately left ungated are marked as such with a reason, so ungated-by-choice is distinguishable from ungated-by-omission. That distinction does not exist today.",
         "`gateaudit.py` passes across the whole gated set, not only the newly generated part — a backfill that regresses existing gates has not helped."
       ],
+      "passes": false,
       "notes": null
     },
     {
@@ -47,6 +49,7 @@
         "The ROADMAP's gating-backfill row records what actually happened: the machinery merged, the batches ran (or were cut), and where coverage landed. It currently describes the pre-state as though the code had not shipped.",
         "A regression check fails if coverage drops, so this cannot silently decay back. Cheap and offline; it is a count over sidecars, not a model call."
       ],
+      "passes": false,
       "notes": null
     }
   ]
