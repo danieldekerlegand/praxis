@@ -23,5 +23,6 @@ The map. Structured per the ecosystem
 *understanding-oriented — why it is this way*
 
 - [Gap Analysis](explanation/gap-analysis.md)
+- [What a gated domain costs — the first measured backfill](explanation/gating-backfill-cost.md)
 - [Notebook Completion Rubric](explanation/notebook-rubric.md)
 - [jupyterquiz — assessed, declined](explanation/jupyterquiz-assessment.md)

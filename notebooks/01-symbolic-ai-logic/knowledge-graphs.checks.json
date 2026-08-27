@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "knowledge-graphs",
+  "title": "Knowledge Graphs",
+  "domain": "01-symbolic-ai-logic",
+  "runnable": true,
+  "generated": "2026-08-27T05:50:14+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "knowledge-graphs-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A team proposes moving a well-normalised orders table into a graph database on the grounds that 'graphs are better at joins'. When is that reasoning sound, and when is it not?",
+      "explanation": "The win is variable-depth traversal over irregular, heterogeneous data, not joins in general. Regular rows plus GROUP BY is precisely where the relational engine is strongest, and adopting a graph for it buys nothing but operational cost.",
+      "grade_id": "knowledge-graphs-d3c05a3f6a0b7751",
+      "options": [
+        "Sound only when the questions are about paths of varying length through the connections themselves; for aggregates over uniform rows the relational store is both faster and simpler, and a graph that is only ever followed a single step is an expensive key-value lookup",
+        "Sound in general: storing the connections directly removes the join step, so every query gets faster whatever its shape",
+        "Unsound in general: these engines cannot aggregate at all, so any reporting workload has to stay where it is",
+        "Sound once the data is large enough, because these engines shard across machines in a way relational stores cannot"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "knowledge-graphs-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "An integrated graph holds no employment arrow for Carla, and a report generated from it states that Carla is unemployed. Say precisely what the graph does and does not license here, name the assumption the report violates, contrast it with what the same missing row would have meant in the relational source the data came from, and give one way the arrow could be missing even though the fact is present.",
+      "explanation": "Every triple is an assertion someone made; the graph is a record of assertions, not a census. Both halves of the trap matter \u2014 the semantics say 'unknown', and unresolved identity means even 'asserted' does not imply 'findable'.",
+      "grade_id": "knowledge-graphs-2b09ede172dc7a92",
+      "expected": "A correct answer must state that the absence of an arrow means UNKNOWN, not false \u2014 the graph licenses only 'no employment fact about Carla has been asserted here' \u2014 and must name the OPEN WORLD ASSUMPTION as what the report violates. The contrast must be drawn: a relational store is CLOSED-WORLD over its own scope, so a missing row is legitimately read as false there, which is exactly why the mistake is so easy to make when the data is moved. It must give a way to say it properly: assert the negative fact explicitly, or record a completeness claim about the source, rather than inferring it from absence \u2014 and note that a query's negation operator tests the data present, not the world. For the last part it must give a concrete route to a false negative: the fact exists under a second identifier for the same real-world person or employer and was never reconciled, so the arrow is there but not where the query looked (alternatively: the source that carried it was never ingested)."
+    },
+    {
+      "id": "knowledge-graphs-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "The requirement grows: each employment relationship now has to record the date it began. What does that cost in each of the two dialects the mental model covers?",
+      "explanation": "This is the sharpest practical difference between the two models, and it is a modelling decision that is expensive to reverse. A three-place fact \u2014 who, where, when \u2014 does not fit an arrow with two ends.",
+      "grade_id": "knowledge-graphs-a7e28a7ffd988754",
+      "options": [
+        "In the labelled-property dialect the edge simply carries another attribute; in the triple dialect an arrow has nowhere to hang one, so the relationship itself has to become an entity with its own identifier \u2014 or a statement-about-a-statement extension used \u2014 before the date can be attached",
+        "Both dialects attach the attribute to the edge directly, and the only difference is the syntax of the query that reads it back",
+        "The triple dialect handles it natively with a datatyped value on the arrow, while the labelled-property dialect is the one that needs an intermediate entity",
+        "Neither can express it, so a dated relationship has to be kept in a separate relational table keyed by the pair of endpoints"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "knowledge-graphs-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement `entailed_types(triples)`. `triples` is a set of `(subject, predicate, object)` string triples; the only predicates that matter are `\"subClassOf\"`, relating a class to a broader one, and `\"type\"`, relating an entity to a class. Return the set of `(entity, \"type\", class)` triples that follow from the hierarchy but are NOT already in the input \u2014 walking the hierarchy to its full depth, tolerating a hierarchy that loops back on itself, and never reporting the class the entity was already declared as. Standard library only.",
+      "explanation": "That is the everyday half of schema-level reasoning, and the two exclusions are the point: what a reasoner adds is the triples nobody wrote down, so anything already asserted is not an inference, and a hierarchy is data like any other \u2014 it can be circular, and a walk over it has to survive that. Note the closure is over the hierarchy, not over the instances: one pass upward from each declared class is enough.",
+      "grade_id": "knowledge-graphs-1af42651c823ca03",
+      "starter": "def entailed_types(triples):\n    \"\"\"The type triples the class hierarchy entails but nobody stated.\"\"\"\n    ...",
+      "solution": "def entailed_types(triples):\n    supers = {}\n    for s, p, o in triples:\n        if p == \"subClassOf\":\n            supers.setdefault(s, set()).add(o)\n\n    def above(cls):\n        seen, stack = set(), [cls]\n        while stack:\n            for sup in supers.get(stack.pop(), ()):\n                if sup not in seen:\n                    seen.add(sup)\n                    stack.append(sup)\n        return seen\n\n    out = set()\n    for s, p, o in triples:\n        if p != \"type\":\n            continue\n        for sup in above(o):\n            if sup != o and (s, \"type\", sup) not in triples:\n                out.add((s, \"type\", sup))\n    return out",
+      "test": "kb = {\n    (\"Researcher\", \"subClassOf\", \"Person\"),\n    (\"Person\", \"subClassOf\", \"Agent\"),\n    (\"Alice\", \"type\", \"Researcher\"),\n    (\"Bob\", \"type\", \"Person\"),\n    (\"Bob\", \"type\", \"Agent\"),\n}\nderived = entailed_types(kb)\nassert derived == {(\"Alice\", \"type\", \"Person\"), (\"Alice\", \"type\", \"Agent\")}, sorted(derived)\nassert (\"Bob\", \"type\", \"Agent\") not in derived, \"already stated, so not newly entailed\"\nassert (\"Alice\", \"type\", \"Researcher\") not in derived, \"asserted, not derived\"\n\nassert entailed_types(set()) == set()\nassert entailed_types({(\"Alice\", \"type\", \"Person\")}) == set(), \"no hierarchy, no entailment\"\nassert entailed_types({(\"X\", \"subClassOf\", \"Y\"), (\"Bob\", \"type\", \"Z\")}) == set()\n\ncyclic = {(\"A\", \"subClassOf\", \"B\"), (\"B\", \"subClassOf\", \"A\"), (\"Alice\", \"type\", \"A\")}\nassert entailed_types(cyclic) == {(\"Alice\", \"type\", \"B\")}, \"a cycle must still terminate\"\n\ndeep = {(\"C%d\" % i, \"subClassOf\", \"C%d\" % (i + 1)) for i in range(50)}\ndeep.add((\"Ann\", \"type\", \"C0\"))\nassert len(entailed_types(deep)) == 50\nassert (\"Ann\", \"type\", \"C50\") in entailed_types(deep)"
+    },
+    {
+      "id": "knowledge-graphs-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A three-step query over a freshly integrated graph returns no rows, even though a colleague can point at every individual fact it needs, in the store, one at a time. What is the first thing to check?",
+      "explanation": "Reconciling identity is the expensive, unglamorous half of building one of these, and the failure it produces is silent. Unshared patterns produce a combinatorial explosion rather than emptiness, and an anonymous node matches a variable perfectly well \u2014 it just will not keep the same name across a round trip.",
+      "grade_id": "knowledge-graphs-8a29ce18dd278f42",
+      "options": [
+        "Whether the sources agreed on identifiers \u2014 the same real-world thing arriving under two different ones leaves the chain broken in the middle, and an empty result is then the correct answer to the question actually asked",
+        "Whether the patterns share a variable \u2014 patterns with nothing in common between them produce no rows at all",
+        "Whether the store's reasoner is switched on \u2014 multi-step patterns are only matched once inference has been run over the data",
+        "Whether the intermediate nodes were written out anonymously, since anonymous nodes cannot be matched by a pattern"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "knowledge-graphs-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "An assistant has to answer both 'which of our suppliers' suppliers are registered in a sanctioned country?' and 'find me what we wrote about the outage last March'. There is budget for one retrieval layer, and a colleague proposes embeddings for both. Give your response, and justify it by the shape of each question rather than by the technology.",
+      "explanation": "Exactness and explainability on one side, recall over unmodelled text on the other. Almost every real grounding stack ends up with both for exactly this reason.",
+      "grade_id": "knowledge-graphs-bd361741fbddf7fd",
+      "expected": "A correct answer must separate the two questions by shape. The supplier question is EXACT, MULTI-HOP traversal of typed relations with an auditable answer: it needs to follow a specific relation twice and then filter, and the result must be defensible \u2014 similarity search retrieves text that resembles the question and cannot guarantee that two particular hops were followed, nor show the path it took, which for a compliance answer is disqualifying. The outage question is FUZZY SIMILARITY over unstructured prose, which is what an embedding index is for and which a graph of typed relations serves badly. The recommendation must therefore reject the single-layer premise: the two are COMPLEMENTS \u2014 structured grounding from the graph, passage retrieval from the vector index \u2014 and if one really must be chosen, it should be chosen by which question is the product rather than by which technology is newer. Noting that the graph also gives an explanation the assistant can cite, while the vector index gives coverage of text nobody modelled, is a plus."
+    }
+  ]
+}

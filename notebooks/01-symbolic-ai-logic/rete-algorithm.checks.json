@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "rete-algorithm",
+  "title": "The Rete Algorithm",
+  "domain": "01-symbolic-ai-logic",
+  "runnable": true,
+  "generated": "2026-08-27T05:50:40+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "rete-algorithm-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "State the exchange this algorithm makes, and identify the workload on which that exchange is a bad deal.",
+      "explanation": "Memory for cached partial matches, bought in exchange for work proportional to the delta. Both halves of that sentence are what tell you when it is the wrong tool \u2014 no reuse, no payoff, and you still owe the memory.",
+      "grade_id": "rete-algorithm-2943fa813390e116",
+      "options": [
+        "It keeps every partial match in memory so that a change to the fact base costs work proportional to the change rather than to the whole base \u2014 a bad deal when the facts churn fast enough that the stored state is invalidated before it is reused, or when there are few enough rules and facts that a plain loop is cheaper than the memory",
+        "It compiles the rules down to machine code so matching avoids interpretation overhead \u2014 a bad deal when the rules themselves change often and recompilation dominates the runtime",
+        "It sorts the rules by priority so that the ones most likely to fire are tested first \u2014 a bad deal when every rule is about equally likely to fire",
+        "It indexes the fact base by relation so that lookups are constant time \u2014 a bad deal when most conditions have no constant fields to index on"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "rete-algorithm-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A team profiles their rule system, finds that the step which actually runs the rules accounts for almost no time, and concludes the engine is not their bottleneck \u2014 yet the system is slow. Explain where the work really is, in terms of how the network is maintained, and then say what changing one field of one fact genuinely costs.",
+      "explanation": "Profiling the wrong phase is the standard first mistake here, and it follows directly from expecting the work to happen when the rules run. Once you see the network as a view kept current on every write, both the profile and the cost of an update stop being surprising.",
+      "grade_id": "rete-algorithm-1a105393e2cea559",
+      "expected": "A correct answer must state that matching happens EAGERLY, as facts change, rather than when the rules are run: asserting or retracting a fact pushes a change through the network and updates the cached partial matches, so by the time the running step arrives the set of satisfied rules is already computed and reading it is nearly free. The conclusion must follow: assert and retract are what to profile, and a cheap run step is evidence the design is working, not evidence the engine is innocent. On the second half it must say that changing a field is NOT an edit in place \u2014 it is a retraction followed by an assertion, so every cached partial match that depended on the old value is torn down and the new value is propagated from scratch. It must draw the practical consequence: changing a field feeding an unselective condition early in a rule's chain can be vastly more expensive than changing one feeding a restrictive condition, even though both look like 'one small update'."
+    },
+    {
+      "id": "rete-algorithm-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "The network has two stages. Which tests belong to each, and what does each stage keep in memory?",
+      "explanation": "Single-fact tests first, cross-fact joins after \u2014 and both stages store state, which is where the memory goes. Sharing between rules happens because identical conditions compile to the same nodes, not because of any split between conditions and actions.",
+      "grade_id": "rete-algorithm-33a74b4da6dc542b",
+      "options": [
+        "The first applies the tests that concern a single fact \u2014 its relation and any constant fields \u2014 and keeps, per condition, the facts that survived; the second combines facts across conditions wherever they share a variable and keeps the partial matches, each one a sequence of facts together with the bindings they force",
+        "The first groups facts by relation and the second applies all the tests, constants and shared variables alike, keeping only the rules that are fully satisfied",
+        "The first keeps the partial matches and the second keeps the individual facts, which is why a retraction only has to touch the second",
+        "The first handles the action side of each rule and the second the condition side, which is what makes it possible to share work between rules"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "rete-algorithm-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement `token_counts(conditions, facts)` \u2014 an instrument for measuring how much a rule caches. `conditions` is a list of patterns and `facts` a list of facts; both are tuples whose first element is the relation name. In a pattern, any element that is a string beginning with '?' is a variable and everything else must match exactly, and a variable repeated within one pattern must take the same value. A partial match after i conditions is a choice of one fact for each of the first i conditions, in order, whose bindings agree everywhere they overlap. Return a list of length len(conditions) + 1 giving the number of partial matches after each condition, starting at 1 for the empty match before any condition. Standard library only.",
+      "explanation": "The numbers you just computed are the memory the engine would hold, level by level, and the tests make two lessons measurable. Two conditions with no variable in common multiply rather than filter \u2014 twenty-five partial matches for five facts \u2014 which is what an accidentally missing join key costs. And the same two conditions in the opposite order cache two partial matches or one, which is the whole argument for putting the most restrictive condition first: the final answer is identical, the intermediate state is not.",
+      "grade_id": "rete-algorithm-80a3d8305b8df61d",
+      "starter": "def token_counts(conditions, facts):\n    \"\"\"How many partial matches survive after each condition is joined in.\"\"\"\n    ...",
+      "solution": "def token_counts(conditions, facts):\n    def bind(pattern, fact):\n        if (not isinstance(fact, tuple) or len(pattern) != len(fact)\n                or pattern[0] != fact[0]):\n            return None\n        binds = {}\n        for p, f in zip(pattern[1:], fact[1:]):\n            if isinstance(p, str) and p.startswith(\"?\"):\n                if binds.setdefault(p, f) != f:\n                    return None\n            elif p != f:\n                return None\n        return binds\n\n    tokens = [{}]\n    counts = [1]\n    for pattern in conditions:\n        nxt = []\n        for binds in tokens:\n            for fact in facts:\n                extra = bind(pattern, fact)\n                if extra is None:\n                    continue\n                merged, ok = dict(binds), True\n                for name, value in extra.items():\n                    if merged.setdefault(name, value) != value:\n                        ok = False\n                        break\n                if ok:\n                    nxt.append(merged)\n        tokens = nxt\n        counts.append(len(tokens))\n    return counts",
+      "test": "facts = [\n    (\"parent\", \"ann\", \"bob\"),\n    (\"parent\", \"bob\", \"carol\"),\n    (\"parent\", \"carol\", \"dave\"),\n    (\"parent\", \"ann\", \"beth\"),\n    (\"parent\", \"beth\", \"carl\"),\n]\ngrandparent = [(\"parent\", \"?x\", \"?y\"), (\"parent\", \"?y\", \"?z\")]\nassert token_counts(grandparent, facts) == [1, 5, 3], token_counts(grandparent, facts)\n\nunshared = [(\"parent\", \"?x\", \"?y\"), (\"parent\", \"?a\", \"?b\")]\nassert token_counts(unshared, facts) == [1, 5, 25], \"no shared variable is a product\"\n\ndata = [\n    (\"member\", \"alice\", \"club\"),\n    (\"member\", \"bob\", \"club\"),\n    (\"active\", \"alice\", \"yes\"),\n    (\"active\", \"bob\", \"no\"),\n]\neligible = [(\"member\", \"?p\", \"club\"), (\"active\", \"?p\", \"yes\")]\nassert token_counts(eligible, data) == [1, 2, 1]\nassert token_counts(eligible[::-1], data) == [1, 1, 1], \"the selective condition first\"\n\nassert token_counts([(\"parent\", \"?x\", \"?x\")], facts) == [1, 0], \"repeated variable\"\nassert token_counts([(\"member\", \"?p\", \"club\")], [(\"member\", \"alice\")]) == [1, 0]\nassert token_counts([], facts) == [1], \"the empty token is always there\"\nassert token_counts(grandparent, []) == [1, 0, 0]\nassert token_counts([(\"parent\", \"ann\", \"?y\")], facts) == [1, 2], \"a constant field\""
+    },
+    {
+      "id": "rete-algorithm-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "Two rules produce identical results over identical facts, but one holds a handful of cached partial matches and the other hundreds of thousands. Their conditions are the same conditions, written in a different order. Explain the mechanism and give the rule of thumb.",
+      "explanation": "This is the rule-engine version of join ordering, and it has the same character: the answer never changes, the intermediate state changes by orders of magnitude. Mature engines do some reordering, but writing the selective condition first is free and always correct.",
+      "grade_id": "rete-algorithm-159cbb39541ea4df",
+      "options": [
+        "Conditions are combined in the order written, so one that matches many facts early on produces a large intermediate set which every later condition then has to whittle down \u2014 write the most restrictive conditions first so that few partial matches are ever cached",
+        "The engine reorders conditions on its own, so the difference has to come from the single-fact tests rather than from the order they were written in",
+        "A later condition is only reached when an earlier one fails, so the order changes which conditions are evaluated at all rather than how much is stored",
+        "Order affects only which of several ready rules is chosen to run, not the amount of state kept while matching"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "rete-algorithm-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four systems land on your desk. (a) Twelve multi-condition business rules over a fact base that takes a few small changes per second and is otherwise stable. (b) The same rules, but the fact base is torn down and rebuilt from scratch every cycle. (c) Six rules over forty facts, evaluated once at start-up. (d) Rules applied to ten million rows in a nightly batch. For each, say whether an incremental production-rule engine is the right shape, and justify it by the mechanism rather than by the size.",
+      "explanation": "Three of the four are the same mistake seen from different angles \u2014 reaching for incrementality where nothing increments. The question to ask is never how many rules or facts there are, but how many times each cached partial match gets read before something invalidates it.",
+      "grade_id": "rete-algorithm-a83bce095cb9eae7",
+      "expected": "A correct answer must accept (a) and reject the other three, on mechanism. (a) is the sweet spot: multi-condition rules, a fact base receiving a stream of small changes, and a match loop run over and over, so each cached partial match is reused many times and the memory pays for itself. (b) is wrong because tearing down and rebuilding invalidates the cached state before it is ever reused \u2014 you pay the memory and the bookkeeping for nothing, and a matching strategy that recomputes joins instead of caching them, or a plain bulk query, fits better. (c) is wrong because six rules over forty facts is a plain loop: no state, no setup, no complexity, and easily fast enough. (d) is wrong because a nightly batch has no deltas at all \u2014 this is set-at-a-time evaluation over relations, which a deductive query engine or a database does far better, and incremental matching's entire advantage is that there is a change to be incremental about. The deciding property must be named: whether there is a stream of small changes whose cached partial matches will actually be reused."
+    }
+  ]
+}
