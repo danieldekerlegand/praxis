@@ -107,6 +107,10 @@ jobs:
       # same three imports locally and repairs a stale .venv rather than skipping the gate.
       - run: pip install -e '.[launch,dev]'
       - run: python scripts/validate_nbgrader.py notebooks
+      # The coverage ratchet — see the same step in .chief/verify.sh. Fails only when gate
+      # coverage drops below notebooks/coverage-floor.json, or when README.md's stated
+      # figure disagrees with it. That is why README.md is in this job's path predicate.
+      - run: python -m praxis.gatefloor
       - run: python -m pytest -q tests/
 
   # macOS bundle, on demand. Not a PR gate: it is the release build, and it is the same

@@ -170,6 +170,24 @@ second poll, and `library_report()` reads that same key rather than counting aga
 UIs render what the launcher counted (`ui/src/App.tsx`, `launcher/templates/index.html`)
 and neither holds coverage logic, the same rule `KnowledgeChecks.tsx` follows for locks.
 
+`praxis/gatefloor.py` is the **ratchet**, and it exists because a number nobody records is a
+number nobody notices moving: the library sat at 24/245 for a fortnight after the machinery
+to raise it had merged. It records exactly one thing — the coverage already reached, in
+`notebooks/coverage-floor.json` beside `ungated.json` — and what keeps `coverage.py`'s "no
+number here is ever stored" rule intact is that the recorded figure is **never read as
+coverage**: coverage is always measured (`measure()`, a fold over `backfill.coverage()`, so
+`is_gated()` stays the one definition and no launch extra is needed), the floor is always
+loaded, and `regressions()` compares them **in one direction only**. Per domain first, for
+the reason breadth is the batch's default — five gates moving from one domain to another
+leaves the headline flat. A rise never fails it. A missing or corrupt floor **fails**,
+because deleting the record is the one edit that would switch the check off. It also owns
+the reader-facing half: `README.md` states the figure in prose, `claim()` reads it back out
+of that sentence, and `record()` rewrites the floor and the sentence from one measurement —
+the only supported way to raise the ratchet, so the number a reader meets and the number the
+gate enforces cannot drift. `python3 -m praxis.gatefloor` runs in `.chief/verify.sh` and CI
+beside `validate_nbgrader.py`; change one and change the other, as with every other check in
+that pair.
+
 `praxis/gateaudit.py` asks the question the two write-path gates cannot: `nbgrader
 validate` proves a graded cell is well-formed and that its hidden tests run, and
 `checkset_failures` proves the set is *gradable* — neither proves it is worth grading.
@@ -488,7 +506,9 @@ Same reason `launcher.app.library_path()` exists for `/render`.
 
 `python3 -m pytest -q tests/` (notebook core + launcher API), `npm run build` in `ui/`,
 `cargo build` in `src-tauri/`. `.chief/verify.sh` runs them path-scoped, plus
-`scripts/validate_nbgrader.py notebooks` — the authoritative graded-cell gate. The launcher tests
+`scripts/validate_nbgrader.py notebooks` — the authoritative graded-cell gate — and
+`python3 -m praxis.gatefloor`, the coverage ratchet (a drop below `notebooks/coverage-floor.json`,
+or a README figure that disagrees with it, fails the merge; a rise never does). The launcher tests
 skip themselves without the launch extra: `uv pip install --python .venv/bin/python -e '.[launch]'`.
 
 `nbgrader` is a pinned **core** dependency, not an extra, so an environment without it does not
