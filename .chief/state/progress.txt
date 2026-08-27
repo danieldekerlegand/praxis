@@ -1,3 +1,75 @@
 # Chief Progress — 87-run-the-gating-backfill
 Started: Thu Aug 27 00:19:17 CDT 2026
 ---
+
+## Codebase Patterns
+
+- **No LLM key is configured in this worktree.** `praxis.llm.load_config()` raises
+  `LLMConfigError`; there is no `~/.config/praxis/config.json` and no `ANTHROPIC_API_KEY`
+  / `OPENAI_API_KEY` / `AGORA_BASE_URL`. The gating batches therefore cannot be driven by
+  a provider here — use `praxis/authored.py` (added in US-1), which serves the model's
+  half from `<slug>.checks.draft.json` beside the notebook while every grading and write
+  rule downstream runs unchanged.
+- **Author a draft, then grade it before running the batch.** `/tmp/grade.py` pattern:
+  `generate_checks(domain, topic, client=AuthoredClient.for_domain(domain), attempts=1,
+  write=False, force=True)` gives the grader's sentences in ~0.1s without touching disk.
+  Iterate there; run `python3 -m praxis.authored run <DIR>` once the drafts are clean.
+- **Drafts are git-ignored** (`*.checks.draft.json`). They persist in the worktree across
+  iterations but never reach a commit — the accepted `<slug>.checks.json` is the artifact.
+- **The suite pins gate counts.** Anything that raises coverage will fail
+  `tests/test_gateaudit.py`, `tests/test_regate.py` and
+  `tests/test_launcher_api.py::test_an_ungated_seed_notebook_is_open_and_says_so` unless
+  those assertions are floors/properties. US-1 converted all three; if a new one appears,
+  convert it rather than freezing the corpus.
+- **`module_gates()` locks ungated topics too.** A topic with no checks is locked while an
+  *earlier* topic in the same module is gated and unfinished. So gating a domain locks the
+  rest of that domain behind its first gate — intended (sequential progression), but it
+  invalidates any test that assumes "ungated implies unlocked".
+- **The full suite is ~6.5 minutes**; `scripts/validate_nbgrader.py notebooks` is instant
+  (it no-ops on released notebooks — the real nbgrader run happens inside
+  `publish_graded_cells` on a staging copy). Budget for the pytest run, not the validator.
+
+---
+
+## US-1 — A domain is backfilled end to end, and its gates are audited (2026-08-27)
+
+**Done.** `notebooks/01-symbolic-ai-logic` taken 0/15 → 15/15 gated with the shipped
+runner. Library coverage 24/245 (8 of 14 domains) → 39/245 (9 of 14).
+
+Domain choice: 15 notebooks with 14 runnable + 1 conceptual, so both branches of the
+`runnable` rule are exercised (a code check required / forbidden). Deliberately not the
+9-notebook domain.
+
+**Files changed**
+- `praxis/authored.py` (new) — the author-in-the-loop client + CLI (`prompts` / `status`
+  / `run`). Owns no gating rule; `backfill_domain(domain, client=…, attempts=1)` is the
+  whole integration.
+- `tests/test_authored.py` (new, 11 tests) — the `<topic>`-tag round trip against
+  `build_prompt`, and each refusal (bad reference solution, test that passes an empty
+  submission, missing rubric section) pinned against a file rather than a model.
+- 15 × `notebooks/01-symbolic-ai-logic/*.checks.json` (new) + the 15 notebooks
+  (graded cells published).
+- `tests/test_gateaudit.py`, `tests/test_regate.py`, `tests/test_launcher_api.py` —
+  exact-count pins → floors + properties.
+- `docs/explanation/gating-backfill-cost.md` (new) + `docs/README.md` link,
+  `CLAUDE.md`, `.gitignore`.
+
+**Measured**
+- 15/15 gated in 47.1 s — 3.1 s/notebook. 90 checks: 45 choice, 31 short, 14 code.
+- `gateaudit` 0 flagged (domain and library); `regate` 39/39 hold.
+- `validate_nbgrader` 39 notebooks 0 failures; pytest 1161 passed, 1 skipped, 0 failed.
+- Authoring: ~15.4 kB of notebook prose read and ~10.5 kB of gate written per notebook.
+- Review: 2 of 15 drafts rejected on the first pass, both by the machine, one round each.
+
+**Learnings for future iterations**
+- The 3-part cost split is what US-2's scope decision needs: compute is negligible
+  (~1 minute per domain), review is cheap *because* the grader is strict, and authoring
+  is the whole bill and scales with prose read. 206 notebooks remain ≈ 3.2 MB to read.
+- Write a code check's `test` so the *starter stub* and an *empty submission* both fail —
+  `gateaudit` runs both and rejects the set otherwise. A stub of `...` (returns None)
+  plus a first assertion comparing against a concrete value does it.
+- Be careful that a `choice` distractor in one section does not give away another
+  section's answer: the learner sees each explanation after answering.
+- Watch for *unsound* reference algorithms. The write path caught one (a "hidden single"
+  rule that is valid for a permutation constraint but not for a general all-different) —
+  it failed on a one-variable input. Prefer the argument the real system uses.
