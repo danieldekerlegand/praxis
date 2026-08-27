@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "anthropic-claude-api",
+  "title": "Anthropic Claude API",
+  "domain": "07-proprietary-coding-ai",
+  "runnable": true,
+  "generated": "2026-08-27T06:33:54+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "anthropic-claude-api-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A hospital group wants frontier coding and agentic quality for an internal tool, and its policy says patient-adjacent data may not be sent to a third party outside its existing cloud contracts. An engineer concludes that this rules the vendor out entirely and the team must self-host an open-weight model. What is the more accurate position?",
+      "explanation": "Being closed-weight is a real constraint \u2014 there is nothing to download and nothing to run air-gapped \u2014 but 'third party' is a contractual question and the cloud-platform route answers it by keeping the call inside a boundary the organisation has already signed off. The trade-off is that those routes lag on features rather than that they are unavailable. Retention settings address how long data is kept, not where it went.",
+      "grade_id": "anthropic-claude-api-40d9041e7ebfb759",
+      "options": [
+        "The conclusion is too strong: the same models are also offered through the major cloud platforms the hospital already contracts with, so the data can stay inside an existing compliance and billing boundary \u2014 that is the mitigation to evaluate first, noting that feature availability and rollout timing differ from the first-party endpoint",
+        "The conclusion is correct: these models exist only behind the vendor's own endpoint, so any policy against third-party egress forces open weights",
+        "The conclusion is unnecessary because the policy is satisfied by a zero-retention setting on the first-party endpoint, which makes the destination irrelevant",
+        "The conclusion is correct, but for a different reason: an agentic tool cannot be built on a hosted API at all, since the tool-execution loop requires local weights"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "anthropic-claude-api-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A team planning a build asks which endpoint they should integrate for streaming, which for vision, which for tool use, and which for caching, and budgets a sprint per integration. Explain why that plan is mis-shaped, describe what actually changes between those four cases, and say what the agent loop is in terms of that same shape.",
+      "explanation": "Reading the API as a family of endpoints leads to phantom integration work and to expecting a stateful 'agent' service somewhere. There is one call; agency is a control-flow pattern the caller writes around it.",
+      "grade_id": "anthropic-claude-api-241c48e25b7e2057",
+      "expected": "A correct answer must say that there is only one generation endpoint and that all four capabilities are expressed on it: streaming is a transport choice on the same call, vision is an image block inside a message's content, tool use is a list of tool definitions passed in plus typed blocks coming back, and caching is a marker on part of the prompt. So there are not four integrations to schedule \u2014 there is one request shape, and each capability adds a parameter or a block type to it. What changes between the cases is the content of the request and how the response is consumed, not the destination. The agent loop is that same single call placed inside a while loop: send the conversation, and if the reply's stop reason says the model wants a tool rather than that it has finished, execute the requested call, append the model's own turn and then the tool's result to the history, and call again with the longer history \u2014 repeating until the reply reports it is done. Noting that the SDK's tool runner automates exactly this loop rather than providing a different mechanism, or that the loop only works because the caller resends the whole history each time, is a plus."
+    },
+    {
+      "id": "anthropic-claude-api-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Production code does `answer = response.content[0].text` and stores the result. In staging it worked every time. In production, a fraction of records are stored blank, another fraction raise an attribute error, and one record stored a sentence that reads like planning rather than an answer. Which explanation accounts for all three?",
+      "explanation": "One wrong assumption \u2014 that the response is a string wearing a list costume \u2014 produces all three symptoms, because what leads the list varies with what the model did. Selecting by block type fixes the reading, and checking the stop reason first is what distinguishes 'no answer yet, run a tool' and 'declined' from 'here is your answer'.",
+      "grade_id": "anthropic-claude-api-f183d184eb8533a4",
+      "options": [
+        "A reply is a list of typed blocks and the first one is not guaranteed to be prose: with deliberation enabled the first block can be a reasoning block, a turn that wants a tool leads with a tool-use block, and a declined request can carry no blocks at all \u2014 so the code must select blocks by type and branch on why generation stopped before reading anything",
+        "The field is a convenience alias that is populated only when exactly one block is returned; the fix is to concatenate the whole list instead of indexing it",
+        "Staging and production are pinned to different models with different response schemas, so aligning the model identifiers resolves all three symptoms",
+        "The blanks and errors are truncation: raising the output cap makes the first block prose again in every case"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "anthropic-claude-api-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write the agent loop yourself. Implement `agent_loop(call, tools, user_message, run_tool, max_turns=10)`. `call(messages)` stands in for the endpoint and returns a dict with `content` (a list of blocks) and `stop_reason`. A block is a dict with a `type`: `{\"type\": \"text\", \"text\": ...}` or `{\"type\": \"tool_use\", \"id\": ..., \"name\": ..., \"input\": {...}}`. Start the history with the user's message. While the stop reason says a tool is wanted, append the assistant's `content` to the history unchanged, execute EVERY tool-use block via `run_tool(name, input)`, and append a SINGLE user-role message whose content is the list of `{\"type\": \"tool_result\", \"tool_use_id\": ..., \"content\": ...}` blocks in the order the calls appeared \u2014 then call again. When the stop reason says the turn ended, return `{\"text\": <all text blocks joined>, \"turns\": <number of calls made>, \"messages\": <the history you built>}`. Raise `RuntimeError` on a refusal, on hitting the output cap, on an unrecognised stop reason, and if `max_turns` calls are made without finishing. Standard library only.",
+      "explanation": "Three properties are what make this a loop rather than a call. The assistant's turn goes back verbatim \u2014 the tool-use blocks are what the identifiers in your results refer to, so dropping them breaks the pairing. All the results of one turn go back in one message, because they answer one turn; splitting them across several teaches the model not to ask for several at once. And the two failure stop reasons are not answers: a decline carries no content and a truncated reply carries content that is not finished, so returning either as a result silently stores a non-answer. The turn cap is the guard against a model that keeps asking.",
+      "grade_id": "anthropic-claude-api-67aeefe19edd6098",
+      "starter": "def agent_loop(call, tools, user_message, run_tool, max_turns=10):\n    \"\"\"Drive the request -> tool -> request cycle until the model says it is done.\"\"\"\n    ...",
+      "solution": "def agent_loop(call, tools, user_message, run_tool, max_turns=10):\n    messages = [{\"role\": \"user\", \"content\": user_message}]\n    for turn in range(1, max_turns + 1):\n        resp = call(messages)\n        stop = resp.get(\"stop_reason\")\n        if stop == \"refusal\":\n            raise RuntimeError(\"the model declined this request\")\n        if stop == \"max_tokens\":\n            raise RuntimeError(\"the reply hit the output cap and was truncated\")\n        if stop == \"end_turn\":\n            text = \"\".join(b.get(\"text\", \"\") for b in resp[\"content\"]\n                           if b.get(\"type\") == \"text\")\n            return {\"text\": text, \"turns\": turn, \"messages\": messages}\n        if stop != \"tool_use\":\n            raise RuntimeError(f\"unexpected stop reason {stop!r}\")\n        messages.append({\"role\": \"assistant\", \"content\": resp[\"content\"]})\n        results = []\n        for block in resp[\"content\"]:\n            if block.get(\"type\") != \"tool_use\":\n                continue\n            results.append({\n                \"type\": \"tool_result\",\n                \"tool_use_id\": block[\"id\"],\n                \"content\": run_tool(block[\"name\"], block[\"input\"]),\n            })\n        messages.append({\"role\": \"user\", \"content\": results})\n    raise RuntimeError(\"the loop did not finish within max_turns\")",
+      "test": "def scripted(*responses):\n    \"\"\"A stand-in for the endpoint: hand back one canned reply per call.\"\"\"\n    seen = []\n    def call(messages):\n        seen.append([dict(m) for m in messages])\n        return responses[min(len(seen) - 1, len(responses) - 1)]\n    call.seen = seen\n    return call\n\n\ndef weather(name, args):\n    return f\"18C in {args['city']}\"\n\n\nTOOLS = [{\"name\": \"get_weather\", \"description\": \"...\", \"input_schema\": {}}]\n\n# Nothing to call: one round trip, text straight back.\nplain = scripted({\"stop_reason\": \"end_turn\",\n                  \"content\": [{\"type\": \"text\", \"text\": \"Hello.\"}]})\nout = agent_loop(plain, TOOLS, \"hi\", weather)\nassert out[\"text\"] == \"Hello.\" and out[\"turns\"] == 1, out\nassert len(out[\"messages\"]) == 1, out[\"messages\"]\n\n# Two calls requested at once: both run, and their results go back in ONE turn.\nparallel = scripted(\n    {\"stop_reason\": \"tool_use\", \"content\": [\n        {\"type\": \"text\", \"text\": \"Looking those up.\"},\n        {\"type\": \"tool_use\", \"id\": \"tu_1\", \"name\": \"get_weather\", \"input\": {\"city\": \"Paris\"}},\n        {\"type\": \"tool_use\", \"id\": \"tu_2\", \"name\": \"get_weather\", \"input\": {\"city\": \"Oslo\"}}]},\n    {\"stop_reason\": \"end_turn\", \"content\": [{\"type\": \"text\", \"text\": \"Paris 18C, Oslo 18C.\"}]},\n)\nout = agent_loop(parallel, TOOLS, \"weather?\", weather)\nassert out[\"turns\"] == 2, out\nsent = parallel.seen[-1]\nassert len(sent) == 3, sent                       # user, assistant, user\nassert sent[1][\"role\"] == \"assistant\", sent\nassert sent[2][\"role\"] == \"user\", sent\nresults = sent[2][\"content\"]\nassert len(results) == 2, \"both results belong in a single turn\"\nassert [r[\"tool_use_id\"] for r in results] == [\"tu_1\", \"tu_2\"], results\nassert all(r[\"type\"] == \"tool_result\" for r in results), results\nassert results[0][\"content\"] == \"18C in Paris\", results\n\n# The assistant turn is replayed verbatim, tool_use blocks and all.\nassert sent[1][\"content\"] == parallel.seen[-1][1][\"content\"]\nassert any(b[\"type\"] == \"tool_use\" for b in sent[1][\"content\"]), sent[1]\n\ndef raises(fn, why):\n    try:\n        fn()\n    except RuntimeError:\n        return\n    raise AssertionError(why)\n\n# A decline is not an empty answer -- it must not be returned as one.\nraises(lambda: agent_loop(\n    scripted({\"stop_reason\": \"refusal\", \"content\": []}), TOOLS, \"x\", weather),\n    \"a refusal must be raised, not returned as empty text\")\n\n# A truncated reply is not a finished one.\nraises(lambda: agent_loop(\n    scripted({\"stop_reason\": \"max_tokens\",\n              \"content\": [{\"type\": \"text\", \"text\": \"As I was say\"}]}), TOOLS, \"x\", weather),\n    \"hitting the output cap must be raised, not returned as an answer\")\n\n# A model that keeps asking for tools forever must be bounded.\nforever = scripted({\"stop_reason\": \"tool_use\", \"content\": [\n    {\"type\": \"tool_use\", \"id\": \"tu\", \"name\": \"get_weather\", \"input\": {\"city\": \"Paris\"}}]})\nraises(lambda: agent_loop(forever, TOOLS, \"x\", weather, max_turns=4),\n       \"an unbounded loop must be stopped\")\nassert len(forever.seen) == 4, len(forever.seen)\n\n# Text blocks alongside tool calls are still part of the final answer when it ends.\nmixed = scripted({\"stop_reason\": \"end_turn\", \"content\": [\n    {\"type\": \"thinking\", \"thinking\": \"hidden\"},\n    {\"type\": \"text\", \"text\": \"a\"},\n    {\"type\": \"text\", \"text\": \"b\"}]})\nassert agent_loop(mixed, TOOLS, \"x\", weather)[\"text\"] == \"ab\""
+    },
+    {
+      "id": "anthropic-claude-api-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A service marks a long, unchanging instruction block for reuse and expects to pay a fraction of the usual rate on it. The bill does not move. The response's own accounting shows the reused-tokens counter sitting at zero on every request, while the written-to-reuse counter is non-zero every time. Which candidate cause fits that evidence, and what makes it fit?",
+      "explanation": "The evidence is specific: a write on every request means each one is being treated as a fresh prefix, which only happens when the bytes differ. Expiry would show as an occasional miss rather than a permanent one, and a region too small to qualify would not report a write at all. Ordering does matter \u2014 stable content has to come first \u2014 but the counters here point at instability within the region rather than at its position.",
+      "grade_id": "anthropic-claude-api-339869d5ad08e3f0",
+      "options": [
+        "Something inside the marked region differs between requests \u2014 a timestamp, a generated identifier, or a mapping serialised in a non-deterministic order \u2014 because reuse is matched on an exact prefix, and a counter that records a write on every request is the signature of a prefix that is never recognised as one seen before",
+        "The marked region is being placed after the variable part of the prompt, which is harmless \u2014 the ordering does not matter, so the real cause must be that reuse was never enabled on the account",
+        "The reuse window expired between requests, which would show as both counters reading zero and is resolved by requesting a longer retention",
+        "The instruction block is below the minimum size for reuse, which is why the write counter increments but the read counter cannot"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "anthropic-claude-api-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four requests arrive. (1) Re-categorise nine million archived tickets; nobody is waiting, and the job may take a day. (2) A coding agent that reads a repository, edits files and opens pull requests. (3) A classifier in a request path with a 300 ms budget, at very high volume. (4) A model shipped inside an appliance installed on customer premises with no outbound network. Recommend an arrangement for each and give the deciding property.",
+      "explanation": "Only the second is decided by capability. The first is decided by whether anyone is waiting, the third by a latency budget, and the fourth by the plain fact that there is nothing to install \u2014 which is the one constraint that no pricing tier or deployment option can answer.",
+      "grade_id": "anthropic-claude-api-cdc928a00fc58d73",
+      "expected": "A correct answer must place all four with a decisive property. (1) The asynchronous bulk interface rather than ordinary synchronous calls: the work is not latency-sensitive and tolerates a long turnaround, and that path exists precisely to trade latency for a substantially lower rate \u2014 the deciding property is that nothing waits on the result. (2) The strongest available model on the ordinary interface: long-horizon agentic and coding work is what this vendor's line is strongest at, and the tool-use loop plus a very large context window are first-class rather than bolted on \u2014 the deciding property is task difficulty and horizon, where quality dominates unit price. (3) The smallest, fastest tier, or a small local model: a strict latency budget at high volume makes per-call latency and unit cost the whole decision, and a frontier model is both slower and more expensive than the task warrants \u2014 noting that a trivial enough classification may not justify a hosted call at all is a good refinement. (4) Not this vendor at all: the models are closed and cannot be downloaded, so an appliance with no outbound network cannot run them under any commercial arrangement; that requires open weights from another family, accepting lower quality. Recognising that the cloud-platform route mitigates a data-governance objection but not an absence of connectivity earns full credit."
+    }
+  ]
+}

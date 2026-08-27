@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "google-vertex",
+  "title": "Google Vertex AI",
+  "domain": "07-proprietary-coding-ai",
+  "runnable": true,
+  "generated": "2026-08-27T06:33:41+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "google-vertex-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A team has a working prototype that calls Gemini with a key pasted into a config file. To ship it, security asks for three things: every call attributable to a named workload identity, prompts pinned to an EU region, and a written guarantee the data is not used to train anything. The team lead argues this is a documentation exercise and the code should not change. Who is right, and about what?",
+      "explanation": "The two front doors reach the same weights; what differs is auth, scoping and the compliance envelope around them. That is why the migration story is 'change the client, keep the call' \u2014 and why a governance requirement is a genuine reason to move even though nothing about the model changes.",
+      "grade_id": "google-vertex-8f5e0e32b910e91d",
+      "options": [
+        "Security is asking for properties of the door rather than of the model, and only one of the two doors has them \u2014 so the prototype moves onto the governed platform, but the lead is right that the request itself barely changes: the client construction gains a project and a region and gives up its pasted key, and the generation call is untouched",
+        "The lead is right \u2014 all three are settings on the consumer key, so enabling regional pinning and the no-training flag in the console satisfies security with no code change at all",
+        "Security is right and the lead is entirely wrong \u2014 the governed platform is a different model family, so the prompts have to be re-tested and the generation code rewritten against a different request shape",
+        "Neither: attribution and residency requirements can only be met by open weights on the team's own hardware, since any hosted call leaves the perimeter"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "google-vertex-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "An engineer copies a working call onto the governed platform by adding `vertexai=True` and nothing else, and is confused when it fails locally, and confused again when the same code deployed to a service fails with a permission error even though it worked on their laptop. Explain what two pieces of information the client is missing in the first failure, and why the second failure is not the same problem as the first.",
+      "explanation": "These are the two consequences of the platform being a control plane rather than a model: resources are addressed within a project and region, and access is decided by an identity the cloud already knows. A key-shaped mental model hides both, which is why this is the most common pair of first-day failures.",
+      "grade_id": "google-vertex-cce1d97f34c59df7",
+      "expected": "A correct answer must separate scoping from identity. First failure: turning on the enterprise mode makes the client address a resource that is scoped to an owning cloud project and to a specific region, and neither can be inferred \u2014 there is no global endpoint to fall back to, model availability and data residency are both per-region, so the client must be told which project and which region (directly or through the environment). Second failure: this is not about scope at all but about who is calling. Authentication is the cloud's own identity system rather than a pasted key, so on the laptop the call travels as the developer's own credentials, which already have broad access, while in production it travels as the workload's attached service account, a different principal that has to be granted the platform-user role (and often read access to the model artifacts' bucket) before it may call anything. Noting that there is no key to copy into the deployment, so 'it works on my laptop' is evidence about the developer's permissions and nothing else, earns full credit."
+    },
+    {
+      "id": "google-vertex-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Two requirements arrive on the same afternoon. (i) Score 40 million rows sitting in the warehouse overnight, results back in the warehouse by morning. (ii) Score a single row inside a checkout flow, in under 200 ms, a few hundred times a minute. A junior engineer proposes deploying the registered model once and looping over the 40 million rows against that same service. What is wrong with that, and what should each requirement use?",
+      "explanation": "Online and batch are the two prediction shapes and they are chosen by the workload, not by the model: one is a low-latency request-at-a-time service, the other a high-throughput job that reads and writes storage. Driving bulk work through the online path is the expensive way to be slow. The registry is where versions live and the catalogue is where third-party models come from \u2014 neither is a serving mode.",
+      "grade_id": "google-vertex-fcab038960a3cccb",
+      "options": [
+        "It pays online-serving prices and latency guarantees for work that needs neither, and 40 million sequential calls will take far longer than the batch path \u2014 (i) belongs on batch prediction, which reads and writes storage or the warehouse directly, and (ii) is exactly what an autoscaling online endpoint is for",
+        "Nothing is wrong: an autoscaling endpoint scales out under the loop and is the cheapest route for both, since batch prediction is only for models that cannot be deployed",
+        "It is backwards \u2014 batch prediction is the low-latency path and the online endpoint is the offline one, so (i) should use the endpoint and (ii) the batch job",
+        "Both should go through the model catalogue instead, which is the serving surface for registered models; endpoints and batch prediction are training-time concepts"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "google-vertex-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Model the bill an always-on prediction service generates. Implement `endpoint_bill(intervals, window_hours, usd_per_replica_hour, replicas=1, requests=0)`. `intervals` is a list of `(start_hour, end_hour)` pairs saying when the model was deployed inside a window that runs from hour 0 to `window_hours`; an `end_hour` of `None` means it was never undeployed and is still up at the end of the window. Intervals may overlap or be given out of order \u2014 they describe one endpoint being redeployed, so overlapping time is billed once, not twice. Billing is by wall-clock uptime times the replica count, whether or not anything called it. Return `{\"billed_hours\": float, \"usd\": float, \"usd_per_request\": float or None}`, where `usd_per_request` is `None` when `requests` is 0. Standard library only.",
+      "explanation": "The merge is the whole point: the bill follows the interval during which a replica was reserved, so redeploying inside a window you were already paying for adds nothing and forgetting to tear one down adds everything. The last two assertions are the surprise-bill arithmetic \u2014 identical spend, wildly different cost per request \u2014 which is why an idle experiment endpoint is the classic waste and why bulk work belongs on the batch path.",
+      "grade_id": "google-vertex-0f154f9c13d43e75",
+      "starter": "def endpoint_bill(intervals, window_hours, usd_per_replica_hour, replicas=1, requests=0):\n    \"\"\"What a deployed endpoint costs over a window, traffic or no traffic.\"\"\"\n    ...",
+      "solution": "def endpoint_bill(intervals, window_hours, usd_per_replica_hour, replicas=1, requests=0):\n    spans = []\n    for start, end in intervals:\n        stop = window_hours if end is None else min(end, window_hours)\n        begin = max(0, start)\n        if stop > begin:\n            spans.append((begin, stop))\n    spans.sort()\n    merged = []\n    for begin, stop in spans:\n        if merged and begin <= merged[-1][1]:\n            merged[-1] = (merged[-1][0], max(merged[-1][1], stop))\n        else:\n            merged.append((begin, stop))\n    hours = sum(stop - begin for begin, stop in merged)\n    usd = hours * replicas * usd_per_replica_hour\n    return {\n        \"billed_hours\": float(hours),\n        \"usd\": float(usd),\n        \"usd_per_request\": (usd / requests) if requests else None,\n    }",
+      "test": "b = endpoint_bill([], 24, 1.5)\nassert b == {\"billed_hours\": 0.0, \"usd\": 0.0, \"usd_per_request\": None}, b\n\n# Never called, never undeployed: a full window is still billed.\nb = endpoint_bill([(0, None)], 24, 2.0)\nassert b[\"billed_hours\"] == 24.0 and b[\"usd\"] == 48.0, b\nassert b[\"usd_per_request\"] is None, \"zero traffic still costs money\"\n\n# Overlapping redeploys are one endpoint's uptime, not two bills.\nb = endpoint_bill([(0, 6), (4, 10)], 24, 1.0)\nassert b[\"billed_hours\"] == 10.0, b[\"billed_hours\"]\n\n# Out of order, disjoint, and one run clipped by the window's end.\nb = endpoint_bill([(20, 30), (2, 5)], 24, 1.0)\nassert b[\"billed_hours\"] == 7.0, b[\"billed_hours\"]\n\n# Replicas multiply the bill; requests divide it.\nb = endpoint_bill([(0, 12)], 24, 0.5, replicas=4, requests=1200)\nassert b[\"billed_hours\"] == 12.0 and b[\"usd\"] == 24.0, b\nassert abs(b[\"usd_per_request\"] - 0.02) < 1e-12, b\n\n# Cheap per request only if the traffic exists: same uptime, a hundredth of the load.\nquiet = endpoint_bill([(0, 12)], 24, 0.5, replicas=4, requests=12)\nassert quiet[\"usd\"] == b[\"usd\"], (quiet, b)\nassert quiet[\"usd_per_request\"] > 50 * b[\"usd_per_request\"], quiet"
+    },
+    {
+      "id": "google-vertex-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A pipeline that has run nightly for months starts returning permission-denied on one specific third-party model it was extended to call last week. Calls to the first-party model from the very same job still succeed, and a developer running the new code interactively sees the same denial. What should be investigated first?",
+      "explanation": "The discriminating evidence is in the question: the same job, with the same identity, succeeds against the first-party model and fails only against the newly added one, and it fails for a second principal too. That rules out the identity and points at the model itself not being turned on for the project. An identity problem would break both calls; a residency problem would not be selective in that way.",
+      "grade_id": "google-vertex-5f593efdff09c7d6",
+      "options": [
+        "Whether that partner model has been enabled in the model catalogue for this project and granted quota \u2014 access to a third-party model is not implied by access to the platform, so the first denials are usually an un-enabled offering rather than a broken identity",
+        "The workload's service account role, since a permission error always means the identity is missing the platform-user grant",
+        "The region, because a partner model called outside its home region returns permission-denied rather than not-found",
+        "The credentials cache, since interactive credentials expire and silently downgrade to the anonymous principal after long-lived jobs run"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "google-vertex-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Three teams ask you to choose their serving arrangement. Team A is entirely on AWS, uses one vendor's chat model and needs no compliance features beyond a signed contract. Team B is on Google Cloud and must call two different vendors' frontier models plus one model they trained themselves, all on one bill and one access-control system. Team C serves 400 million requests a month from a fine-tuned open-weight model and is squeezed on gross margin. Recommend one arrangement each and name the factor that decides it.",
+      "explanation": "None of the three is settled by which model is best. A is settled by which cloud the team already lives on, B by the need to put several vendors behind one identity and one invoice, and C by unit cost at volume against the ops headcount it takes to capture it.",
+      "grade_id": "google-vertex-d0fd18b828873f35",
+      "expected": "A correct answer must give three different recommendations and justify each by the deciding factor rather than by model quality. Team A: call the vendor's own API directly \u2014 they have no governance requirement and are not on the cloud whose platform this is, so routing through it would add project, identity and billing setup that buys them nothing; data gravity and existing cloud footprint are the deciding factor and theirs points elsewhere. Team B: this is the case the managed platform exists for \u2014 one control plane over first-party models, partner models from the catalogue, and their own registered model, so identity, audit and billing are unified instead of three separate vendor relationships; the deciding factor is multi-vendor consolidation under one governance surface, plus the fact that they are already on that cloud. Team C: at that volume the per-token or per-request markup is the dominant cost and the weights are theirs to run, so self-hosting on their own infrastructure with a serving stack wins on unit economics, accepting that they now own autoscaling, monitoring, security and uptime; the deciding factor is cost at scale traded against operational burden. Recognising that a managed endpoint bills for reserved uptime rather than per call, so C's economics depend on keeping those replicas saturated either way, is a plus."
+    }
+  ]
+}

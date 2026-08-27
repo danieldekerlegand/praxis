@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "qwen",
+  "title": "Qwen",
+  "domain": "07-proprietary-coding-ai",
+  "runnable": true,
+  "generated": "2026-08-27T06:34:03+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "qwen-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A team wants one model family for three deployments: an on-device assistant in a mobile app, a mid-sized model on a single server for internal tools, and a very large model on a GPU cluster for their hardest workload. They also ship commercially and cannot take on licence risk. Which reading of this family's pitch is accurate?",
+      "explanation": "One format and one tokenizer across the whole size range is the genuine engineering benefit \u2014 it makes prototype-small-then-scale a real strategy rather than a rewrite. The licensing is where the generalisation breaks: most checkpoints are permissive, a handful of sizes ship under the lab's own terms, and 'mostly Apache' is not a statement you can act on without reading the specific model card.",
+      "grade_id": "qwen-b38e55660d32fd52",
+      "options": [
+        "The breadth claim is real and is the reason to choose it \u2014 the same conversational format and tokenizer run from a sub-billion-parameter checkpoint up to a sparse giant, so prompt code and evaluation harnesses port unchanged across all three \u2014 but the licence claim needs checking per checkpoint, because most of the line is permissively licensed and a few individual sizes are not",
+        "The breadth claim is real and the licence claim is uniform: every checkpoint the lab publishes carries the same permissive licence, so only the hardware sizing needs thought",
+        "The breadth claim is marketing: the small and large models use different prompt formats and tokenizers, so each deployment needs its own prompt code regardless",
+        "Neither claim survives: the family is hosted-API only, so on-device deployment is impossible and the licence question does not arise"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "qwen-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A capacity planner reads a model name of the form '235B-A22B' and budgets a cluster on the second number, then reads that deliberation is 'a per-request switch rather than a separate model' and concludes the switch cannot affect cost either. Correct both conclusions, and say what each number and the switch actually determine.",
+      "explanation": "Both mistakes read a fact about deployment as a fact about cost. Sparsity separates what must be resident from what runs, and the toggle separates which weights you host from how many tokens they produce.",
+      "grade_id": "qwen-8535e005a6d5ef19",
+      "expected": "A correct answer must correct two independent errors. On the name: the first figure is the total parameter count and the second is how many are used for any one token, because the network is sparse and a router selects a subset of expert blocks per token. Every parameter must nevertheless be resident in memory, so hardware is sized from the first number while latency and compute per token track the second \u2014 budgeting from the routed figure means the weights will not load at all. The benefit is quality and knowledge that would otherwise require dense compute at that scale, bought with memory instead of FLOPs. On the switch: that deliberation is toggled per request rather than requiring a second checkpoint is a deployment convenience \u2014 one set of weights, two behaviours \u2014 and says nothing about cost. When it is on, the model emits a deliberation segment before the answer, and those tokens are generated, billed and waited on exactly like any other output, so a short answer can be expensive and slow. The correct practice follows: leave it off for extraction, classification and format-bound work, turn it on where reasoning actually improves the answer. Noting that the deliberation must be stripped before parsing structured output, or that it should not be replayed into the next turn's history, is a plus."
+    },
+    {
+      "id": "qwen-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Three colleagues hit three failures on the same afternoon. A fed a long document to a model advertised at a very large context and got an answer that clearly only reflected the first part of it. B waited for a deliberation segment from the code-specialised flagship and never got one. C loaded a checkpoint and found the tokenizer had no conversational template to apply at all. What accounts for all three?",
+      "explanation": "Three distinct facts, none of which raises an error: the advertised long window is an opt-in extension rather than the default, the code-specialised model was built not to deliberate, and a base checkpoint is a next-token predictor with no conversational format attached. Each produces a quiet wrong result rather than a traceback, which is why recognising the symptom matters.",
+      "grade_id": "qwen-da56758f48f5f300",
+      "options": [
+        "A left the rope-scaling extension off, so the model ran at its native window and the rest was truncated; B was waiting for behaviour that model does not have, since the coding flagship is deliberately non-deliberating; C loaded the raw pretrained checkpoint rather than the instruction-tuned one, and only the latter ships a chat template",
+        "All three are symptoms of a version mismatch between the tokenizer and the weights, and pinning matching revisions resolves each",
+        "A and C are the same problem \u2014 a missing config flag \u2014 and B is a transient serving issue that a retry resolves",
+        "All three follow from quantisation: long context, deliberation segments and chat templates are all dropped when weights are stored at reduced precision"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "qwen-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Prove to yourself that the turn markers are a contract by writing the reader for them. Implement `parse_chatml(text)`, which takes a rendered prompt and splits it back into turns. A closed turn is the start marker `<|im_start|>`, then a role on the rest of that line, then a newline, then the content, then the end marker `<|im_end|>`; turns are separated by whitespace. A trailing start marker and role whose turn is never closed is the generation cue. Return `{\"turns\": [{\"role\": ..., \"content\": ...}, ...], \"open_role\": role or None}`, with the cue's role in `open_role` and excluded from `turns`. Raise `ValueError` on anything malformed: non-whitespace text outside a turn, a header with no role, an end marker with nothing open, a turn that is not closed before the next one begins, and an open cue that carries content. Standard library only.",
+      "explanation": "Writing the reader is the fastest way to see why the builder must not be hand-rolled: every rejection here corresponds to a string a person would plausibly concatenate by hand, and a real model does not raise on any of them \u2014 it simply generates against a stream it was never trained on, or never stops, because the boundary it was taught to stop at is missing. The round-trip assertion is the property that matters: the markers carry all the structure, so parsing and rendering are inverses, and anything outside them is not part of the conversation.",
+      "grade_id": "qwen-e79cddb0e64215e5",
+      "starter": "def parse_chatml(text):\n    \"\"\"Split a rendered prompt back into turns, or raise ValueError if it is malformed.\"\"\"\n    ...",
+      "solution": "def parse_chatml(text):\n    START, END = \"<|im_start|>\", \"<|im_end|>\"\n    turns = []\n    open_role = None\n    i = 0\n    n = len(text)\n    while i < n:\n        while i < n and text[i].isspace():\n            i += 1\n        if i >= n:\n            break\n        if not text.startswith(START, i):\n            raise ValueError(\"text outside a turn\")\n        i += len(START)\n        nl = text.find(\"\\n\", i)\n        if nl == -1:\n            raise ValueError(\"a turn header has no newline\")\n        role = text[i:nl]\n        if not role or START in role or END in role:\n            raise ValueError(\"a turn header is not a bare role\")\n        i = nl + 1\n        end = text.find(END, i)\n        nxt = text.find(START, i)\n        if end == -1:\n            if open_role is not None:\n                raise ValueError(\"more than one open turn\")\n            if text[i:].strip():\n                raise ValueError(\"the open turn carries content\")\n            open_role = role\n            return {\"turns\": turns, \"open_role\": open_role}\n        if nxt != -1 and nxt < end:\n            raise ValueError(\"a turn was not closed before the next one began\")\n        turns.append({\"role\": role, \"content\": text[i:end]})\n        i = end + len(END)\n    return {\"turns\": turns, \"open_role\": open_role}",
+      "test": "IM_START, IM_END = \"<|im_start|>\", \"<|im_end|>\"\n\n\ndef render(messages, cue=True):\n    parts = [f\"{IM_START}{m['role']}\\n{m['content']}{IM_END}\" for m in messages]\n    text = \"\\n\".join(parts)\n    return text + (f\"\\n{IM_START}assistant\\n\" if cue else \"\")\n\n\nmsgs = [{\"role\": \"system\", \"content\": \"You are a terse assistant.\"},\n        {\"role\": \"user\", \"content\": \"Name the capital of France.\"}]\n\ngot = parse_chatml(render(msgs))\nassert got[\"turns\"] == msgs, got\nassert got[\"open_role\"] == \"assistant\", got\n\nclosed = parse_chatml(render(msgs, cue=False))\nassert closed[\"turns\"] == msgs and closed[\"open_role\"] is None, closed\n\n# A multi-line answer is content, not structure.\nmulti = [{\"role\": \"user\", \"content\": \"a\\nb\\nc\"}]\nassert parse_chatml(render(multi, cue=False))[\"turns\"] == multi\n\nassert parse_chatml(\"\") == {\"turns\": [], \"open_role\": None}\n\ndef rejects(bad, why):\n    try:\n        parse_chatml(bad)\n    except ValueError:\n        return\n    raise AssertionError(why)\n\n# Hand-concatenation that forgets to close a turn: the classic corruption.\nrejects(f\"{IM_START}system\\nbe terse\\n{IM_START}user\\nhi{IM_END}\",\n        \"an unclosed turn must be rejected\")\n\n# Prose glued on outside the markers.\nrejects(f\"Please answer.\\n{IM_START}user\\nhi{IM_END}\",\n        \"text outside a turn must be rejected\")\nrejects(f\"{IM_START}user\\nhi{IM_END}\\ntrailing prose\",\n        \"trailing text outside a turn must be rejected\")\n\n# A stop marker with nothing open.\nrejects(f\"{IM_END}\", \"a bare end marker must be rejected\")\n\n# A header with no role at all.\nrejects(f\"{IM_START}\\nhi{IM_END}\", \"an empty role must be rejected\")\n\n# The generation cue must be empty -- content after it means the turn never closed.\nrejects(f\"{IM_START}user\\nhi{IM_END}\\n{IM_START}assistant\\nParis.\",\n        \"an open turn carrying content must be rejected\")\n\n# Round trip: rendering what we parsed reproduces the input byte for byte.\noriginal = render([{\"role\": \"system\", \"content\": \"s\"},\n                   {\"role\": \"user\", \"content\": \"u\"},\n                   {\"role\": \"assistant\", \"content\": \"a\"},\n                   {\"role\": \"user\", \"content\": \"u2\"}], cue=False)\nassert render(parse_chatml(original)[\"turns\"], cue=False) == original"
+    },
+    {
+      "id": "qwen-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "An extraction service asks for a strict JSON object and parses the reply with a JSON decoder. Against the hosted endpoint through a compatible client library it fails to parse roughly half the time; the same prompt against a locally served checkpoint parses every time. The developer had passed the toggle that suppresses deliberation as an ordinary keyword argument to the client's create call. What is going on?",
+      "explanation": "A compatible client only forwards the parameters that interface defines; a vendor extension has to travel in the escape hatch provided for exactly that, and a silently dropped argument leaves the server on its default. The deeper lesson is that structured output and free-form deliberation do not compose: strip the deliberation before decoding, rather than relying on a flag reaching the server.",
+      "grade_id": "qwen-d2e042e59c834578",
+      "options": [
+        "That toggle is not a parameter of the compatible interface, so the client library dropped it and the hosted model deliberated \u2014 its reply begins with a deliberation segment before the object, which the decoder chokes on. It has to be passed through the client's extra-body escape hatch, and the reply should be stripped of any such segment before parsing regardless",
+        "The hosted endpoint applies a different JSON schema validator that rewraps the object, so the decoder needs to unwrap one level; the local server does not do this",
+        "The keyword was accepted but inverted by the client library, so deliberation was forced on; passing the opposite value fixes it with no other change",
+        "Half the requests are routed to the code-specialised model, which returns fenced code blocks rather than bare JSON"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "qwen-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Assign a model to each and give the deciding property. (1) An offline assistant that must run on a mid-range phone. (2) An internal coding assistant that completes code between a cursor's prefix and suffix, self-hosted. (3) A customer-facing product in Mandarin and eleven other languages, self-hosted for privacy. (4) A regulated Western bank that forbids models of certain national origin even when run on its own hardware.",
+      "explanation": "Three of the four are decided by fit \u2014 hardware envelope, request shape, language coverage \u2014 and the fourth by a rule that is not about capability at all. The last one is the case people most often try to engineer around, and it cannot be: running the weights yourself answers a question about data, not about origin.",
+      "grade_id": "qwen-8c5dd778272307e2",
+      "expected": "A correct answer must place all four with a decisive property. (1) The smallest dense checkpoints in the family, quantised: the deciding property is that the memory and compute budget of a phone rules out everything else, and the value of this family here is that the tiny sizes speak the same format as the large ones, so the same prompt code serves the phone and the server. (2) The code-specialised branch, which is trained with fill-in-the-middle markers so completing between a prefix and a suffix is a request shape it supports natively rather than an instruction a chat model is asked to follow; noting that this branch does not deliberate, and that this is appropriate for inline completion where latency is the constraint, earns full credit. (3) This family is a strong fit on the merits: broad multilingual coverage including very strong Mandarin is one of its distinguishing claims, and open weights satisfy the privacy requirement by keeping inference on their own hardware \u2014 the deciding property is language coverage plus self-hosting, not benchmark rank. (4) None of this family: the constraint is model provenance rather than data egress, and self-hosting does not change who trained the weights, so the bank needs a vendor whose origin its policy permits \u2014 the deciding property is a governance rule about the model itself, which no deployment choice can satisfy."
+    }
+  ]
+}

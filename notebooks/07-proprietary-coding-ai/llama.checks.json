@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "llama",
+  "title": "LLaMA",
+  "domain": "07-proprietary-coding-ai",
+  "runnable": true,
+  "generated": "2026-08-27T06:33:48+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "llama-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A consumer app with 900 million monthly active users wants to move its assistant off a metered API onto Meta's open-weight family, citing privacy and unit cost. Their counsel has not been consulted. What is the correct read?",
+      "explanation": "Open weight and open source are not the same claim. The community licence is permissive enough for nearly everyone and carries a use policy plus a very-large-product clause, which happens to be exactly the clause a nine-figure user base trips. Nothing about the engineering argument is wrong \u2014 the point is that at this size it is not the only argument.",
+      "grade_id": "llama-7548876acbb0a23c",
+      "options": [
+        "The technical case is sound, but the licence is not a permissive open-source one: an acceptable-use policy applies and a product above a monthly-active-user threshold in the hundreds of millions must obtain a separate grant from Meta, so at their size this is a legal question to settle before any engineering work",
+        "There is no issue: publishing weights places them under an OSI-approved licence, and monthly active users are a metric for hosted services, not for downloaded models",
+        "The plan fails on the technical side instead: weights this large cannot be served at consumer scale without a metered provider, so the cost argument is backwards",
+        "The licence forbids commercial use entirely, so the only lawful options are a metered API or a differently licensed open family"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "llama-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A team prototypes on a laptop with a one-binary local runner, then needs to serve the same model to thousands of concurrent users and asks 'which URL do we point production at?'. Explain why that question has no answer here, what decision it should be replaced by, and name one thing that must stay identical across whatever they pick and one thing that is free to differ.",
+      "explanation": "Once you hold the weights, 'which provider' stops being a question and 'which runtime, on whose hardware' takes its place. The invariant is the prompt format, because it belongs to the checkpoint rather than to the server, and it is the one thing whose breakage produces bad answers rather than errors.",
+      "grade_id": "llama-ea341b1b3c6b544f",
+      "expected": "A correct answer must say that no hosted endpoint exists for these weights: the organisation downloads the parameters and becomes the inference provider itself, so there is nothing to point at until they stand something up. The question to ask instead is which serving runtime to run the same weights under, and that is an operations decision \u2014 throughput, batching, hardware and latency targets \u2014 rather than a change of model: a laptop-friendly runner optimised for a single user on modest hardware is the wrong tool for high concurrency, where a throughput-oriented server with paged attention and continuous batching is the point, while a research library is the right host when fine-tuning or inspecting the model matters more than requests per second. What must stay identical is the model's own conversational format: the instruct checkpoint expects a specific stream of special tokens delimiting each role's turn, produced by the tokenizer shipped with that checkpoint, and any runtime that renders it differently degrades quality silently. What is free to differ is essentially everything operational \u2014 the quantisation format the weights are stored in, batching and scheduling policy, the hardware, and the HTTP surface exposed to callers. Noting that renting the same open weights from a hosted provider is a third option that keeps the model and removes the ops is a plus."
+    },
+    {
+      "id": "llama-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Three colleagues each load a checkpoint and report a different symptom. A: the model ignores instructions and instead continues the user's sentence into plausible prose. B: the model answers sensibly but never stops, filling the whole token budget with further invented turns. C: the output is fluent-looking gibberish from the very first token. Which single diagnosis set fits all three?",
+      "explanation": "These are three distinct and very common failures with three distinct causes: the wrong checkpoint variant, a stop-token configuration that belongs to an older generation, and a tokenizer that is not the one the weights were trained with. None of them raises an exception, which is why recognising the symptom is worth more than reading a traceback.",
+      "grade_id": "llama-58b30648f2b1b96c",
+      "options": [
+        "A loaded the non-instruction-tuned checkpoint, which only predicts continuations; B is generating correctly but the turn-ending special token of this generation is not configured as a stop, so nothing halts it; C paired weights with a tokenizer from a different generation, whose vocabulary does not match, so every id decodes to the wrong piece",
+        "All three are quantisation damage at different bit widths \u2014 A at four bits, B at eight, and C from a corrupted download; re-downloading at higher precision fixes each",
+        "A and C are the same problem, a missing chat template, and B is an unrelated sampling issue that a lower temperature resolves",
+        "All three indicate insufficient device memory: layers silently offloaded to CPU produce truncated, unstoppable, or garbled output depending on which layers spilled"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "llama-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Decide whether a model fits before you download 40 GB. Implement `plan_fit(params_b, vram_gb, context_tokens=0, kv_gb_per_1k=0.0, overhead=0.20)`. `params_b` is the parameter count in billions. Weight memory in GiB is `params_b * 1e9 * bytes_per_weight / 1024 ** 3`, where bytes per weight is 2.0 at `\"fp16\"`, 1.0 at `\"int8\"` and 0.5 at `\"int4\"`. The key/value cache adds `kv_gb_per_1k * context_tokens / 1000` GiB on top, and everything is then multiplied by `1 + overhead` for activations and runtime overhead. Return `{\"quant\": name, \"gb\": total}` for the HIGHEST-precision option that fits in `vram_gb`, trying fp16 then int8 then int4. If none fits, return `{\"quant\": None, \"gb\": total}` with the total of the smallest option. Standard library only.",
+      "explanation": "Two things fall out of the arithmetic that a size-only rule of thumb hides. The cache term scales with context and is added before the overhead multiplier, which is why the same checkpoint is comfortable in a short chat and impossible at a long one on the same card \u2014 the weights never changed. And precision is the lever you pull to buy that headroom, which is why the search runs highest-first: dropping a rung is a quality cost you take only when you have to.",
+      "grade_id": "llama-96bb97eb26fd4d74",
+      "starter": "def plan_fit(params_b, vram_gb, context_tokens=0, kv_gb_per_1k=0.0, overhead=0.20):\n    \"\"\"The highest-precision quantization that fits, or None with the smallest total.\"\"\"\n    ...",
+      "solution": "def plan_fit(params_b, vram_gb, context_tokens=0, kv_gb_per_1k=0.0, overhead=0.20):\n    bytes_per = [(\"fp16\", 2.0), (\"int8\", 1.0), (\"int4\", 0.5)]\n    kv = kv_gb_per_1k * context_tokens / 1000.0\n    total = None\n    for name, width in bytes_per:\n        weights = params_b * 1e9 * width / 1024 ** 3\n        total = (weights + kv) * (1 + overhead)\n        if total <= vram_gb:\n            return {\"quant\": name, \"gb\": total}\n    return {\"quant\": None, \"gb\": total}",
+      "test": "import math\n\n# 8B on a 24 GB card with no context to hold: full precision is affordable.\np = plan_fit(8.03, 24)\nassert p[\"quant\"] == \"fp16\", p\nassert math.isclose(p[\"gb\"], 8.03e9 * 2.0 / 1024 ** 3 * 1.2, rel_tol=1e-9), p\n\n# Same weights, same card, a long conversation: the cache pushes it down a rung.\nnear = plan_fit(8.03, 24, context_tokens=64_000, kv_gb_per_1k=0.12)\nassert near[\"quant\"] == \"int8\", near\nassert near[\"gb\"] <= 24, near\n\n# Push the context far enough and nothing fits at all \u2014 the OOM you get at 128K\n# from a model that was comfortable at 2K.\nnope = plan_fit(8.03, 24, context_tokens=128_000, kv_gb_per_1k=0.5)\nassert nope[\"quant\"] is None, nope\nassert nope[\"gb\"] > 24, nope\n\n# A 70B does not fit a 24 GB card even at four bits.\nbig = plan_fit(70.6, 24)\nassert big[\"quant\"] is None and big[\"gb\"] > 24, big\n# ...but it does on 45 GB, at four bits only.\nassert plan_fit(70.6, 45)[\"quant\"] == \"int4\", plan_fit(70.6, 45)\nassert plan_fit(70.6, 200)[\"quant\"] == \"fp16\", plan_fit(70.6, 200)\n\n# Overhead is a multiplier on the whole figure, not a constant.\nassert plan_fit(1.24, 3.0, overhead=0.0)[\"quant\"] == \"fp16\"\nassert plan_fit(1.24, 3.0, overhead=0.5)[\"quant\"] == \"int8\"\n\n# The reported total is always the option that was chosen, or the smallest tried.\nfor vram in (1, 10, 40, 400):\n    r = plan_fit(70.6, vram)\n    assert isinstance(r[\"gb\"], float) and r[\"gb\"] > 0, r"
+    },
+    {
+      "id": "llama-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "An engineer moves a working setup from a small checkpoint of one generation to a larger checkpoint of the next, keeping the surrounding code. Everything loads, throughput is as expected, but answers are now rambling and occasionally include text that looks like it is impersonating the user. They suspect the larger model is worse. What is the more likely cause, and what is the cheapest way to confirm it?",
+      "explanation": "Impersonating the other participant is the classic signature of a turn boundary the model cannot see: with the delimiters wrong it has no reason to stop at the end of its own reply. Rendering the template the checkpoint ships with and diffing it against what is actually sent settles it in one step, and it costs nothing. Sampling and placement do not produce that specific symptom.",
+      "grade_id": "llama-0d6f6c1ef6f75c1e",
+      "options": [
+        "The turn structure being fed in no longer matches what this checkpoint was trained on \u2014 the surrounding code carried over an older format or a hand-built string \u2014 so print the exact text produced by that checkpoint's own tokenizer template and compare it byte for byte with what is being sent",
+        "The larger checkpoint needs a lower sampling temperature to be coherent; confirm by sweeping temperature and picking the value where impersonation stops",
+        "Larger models require more of the context window to be filled before they behave; confirm by padding the prompt to a few thousand tokens and re-testing",
+        "The weights were silently offloaded across devices, which reorders layers; confirm by inspecting where each layer was placed"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "llama-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Pick an arrangement for each and give the property that decides it. (1) A hospital wants an assistant over patient notes; the notes may not leave the premises and traffic is a few hundred requests a day. (2) A startup wants the smartest possible answers on hard reasoning, has two engineers and no hardware. (3) A company runs 300 million requests a month on a model they fine-tuned on their own support transcripts, and does not want to hire an infrastructure team.",
+      "explanation": "The three are decided by where the data may sit, by how much engineering the team has to spend, and by whether customisation and volume can be had without owning the servers. The third case is the one people miss, because it is neither of the two poles the comparison usually offers.",
+      "grade_id": "llama-332c8849982ee47a",
+      "expected": "A correct answer must reach three different arrangements. (1) Self-hosted open weights on the hospital's own hardware: the deciding property is that data residency is absolute, and no hosted API satisfies it at any price \u2014 the low traffic is a cost annoyance rather than an argument against, since idle hardware is being bought for a compliance reason, and a small quantised checkpoint keeps that hardware modest. (2) A hosted frontier API: with no hardware and no operations capacity, the deciding property is that peak quality per unit of engineering effort is what they are buying, and a self-managed mid-sized open model will be both weaker and a full-time job. (3) The middle path \u2014 rent the open weights, including their fine-tuned adapter, from a provider that serves them per token: they need the customisation that open weights allow and the volume economics of a competitive per-token price, but explicitly not the ops burden, and this is the arrangement that separates those. Recognising that self-hosting would be cheaper still at that volume if they were willing to own the serving stack, and that the choice is therefore a headcount decision rather than a model decision, earns full credit."
+    }
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "mistral",
+  "title": "Mistral",
+  "domain": "07-proprietary-coding-ai",
+  "runnable": true,
+  "generated": "2026-08-27T06:33:51+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "mistral-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A team is told 'use the French lab's models \u2014 they are all Apache 2.0, so we can self-host anything they publish in our commercial product.' They want a general assistant, a code-completion feature for their IDE plugin, and a vision-capable fallback for the hardest tickets. Where does that instruction break down?",
+      "explanation": "The lab deliberately runs an open line and a premier line at once, and the licences differ per model rather than per vendor. The genuinely permissive licence on the open general models is one of the strongest reasons to choose them \u2014 which is exactly why assuming it extends to the specialised and premier models is such an easy and expensive mistake.",
+      "grade_id": "mistral-ffe51799ba73f7df",
+      "options": [
+        "Only part of the line is permissively licensed: the general open models are, but the code-specialised weights are published under a non-production licence and the premier general and multimodal models have no public weights at all \u2014 so the assistant can be self-hosted, while the code feature must go through the vendor's API for commercial use and the vision fallback is API-only by construction",
+        "It does not break down: everything the lab publishes is Apache 2.0, and the API exists only as a convenience for teams that do not want to run hardware",
+        "It breaks down completely: the permissive licence covers research use only, so all three features must be metered through the API",
+        "It breaks down on the assistant only: general chat weights carry a monthly-active-user cap like the other major open family, while the specialised code and vision weights are unrestricted"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "mistral-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A team plans to prototype against the hosted API for six weeks and then move the traffic onto self-hosted open weights without rewriting the application. Say which parts of that plan are genuinely cheap because both come from the same lab, and name two things that will still have to change and one thing that could silently break if they are careless.",
+      "explanation": "The shared format is what makes the two deployment modes one mental model, and it is a real saving. The trap is treating that as parity of capability or as permission to build the prompt by hand: the model changes and the template is the checkpoint's, not the vendor's.",
+      "grade_id": "mistral-6d7d3932d600d040",
+      "expected": "A correct answer must identify what is shared and what is not. Genuinely cheap: the conversational format and the tool-calling shape are the same across the lab's hosted and downloadable models, so the message construction, the tool schemas and the loop that executes a returned call and feeds the result back all survive the move; the request body of the hosted endpoint also follows the widely used compatible shape, so the surrounding client code is ordinary. What must change: first, the model itself \u2014 the premier hosted model is not among the downloadable ones, so self-hosting means dropping to a smaller open model and re-evaluating quality on their own task rather than assuming parity; second, they become the inference provider, which means choosing and operating a runtime, sizing hardware, and owning latency, batching and uptime that the API previously supplied. What can silently break: rendering the prompt themselves instead of using the checkpoint's own template \u2014 the format wraps user turns in its own delimiters and folds system content into the first user turn rather than giving it a turn of its own, so a hand-built string or a template borrowed from a different model family produces worse answers with no error at all. Naming a tokenizer mismatch between generations as a second silent failure is a plus."
+    },
+    {
+      "id": "mistral-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Three efficiency techniques appear in this family, and an engineer describes them as 'all ways of making the model smaller'. Which correction is right?",
+      "explanation": "Each attacks a different resource. Routing trades memory for compute \u2014 the counter-intuitive one, and the reason people size hardware wrong. The attention window changes how attention cost scales with length. Sharing key and value heads targets the cache rather than the weights, which is why it matters most at long context and large batch.",
+      "grade_id": "mistral-a55ea764065f6490",
+      "options": [
+        "None of the three makes the model smaller. Sparse expert routing keeps every weight resident and only runs a couple of the feed-forward blocks per token, so it cuts compute while raising memory; the windowed attention restricts each layer to a recent span, so cost grows linearly in sequence length while stacked layers still see far back; and sharing key and value projections across query heads shrinks the cache that grows with context, not the weights",
+        "All three shrink the parameter count, which is why the family reports strong quality per parameter \u2014 routing prunes unused experts at load time, the attention window drops distant weights, and head sharing removes redundant projections",
+        "The first two are the same technique described at different layers, and the third is a quantisation scheme applied to the key and value tensors",
+        "Only the windowed attention affects cost; expert routing and head sharing are training-time regularisers with no inference consequence"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "mistral-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Size a sparsely routed model correctly. Implement `moe_plan(experts, top_k, expert_b, shared_b, bytes_per_weight, vram_gb, overhead=0.20)`. `expert_b` is the parameter count of one expert in billions and `shared_b` is everything that is not an expert (attention, embeddings, router) and is always used. Every expert must be resident in memory, but only `top_k` of them run for any given token. Memory in GiB is `total_b * 1e9 * bytes_per_weight / 1024 ** 3`, multiplied by `1 + overhead`. Return `{\"total_b\": float, \"active_b\": float, \"memory_gb\": float, \"fits\": bool, \"compute_ratio\": float}`, where `compute_ratio` is `total_b / active_b` \u2014 how much bigger the model is than the work it does per token. Standard library only.",
+      "explanation": "The two columns move independently, and that is the whole idea: widening the expert pool buys capacity that costs memory and nothing per token, while the routed count fixes the latency and the FLOPs. The middle assertion is the mistake people actually make \u2014 budget hardware from the figure that describes the compute and the model will not load, because residency is decided by the figure that describes the weights.",
+      "grade_id": "mistral-9dec80737ddc5479",
+      "starter": "def moe_plan(experts, top_k, expert_b, shared_b, bytes_per_weight, vram_gb, overhead=0.20):\n    \"\"\"Memory follows the total parameter count; compute follows the routed count.\"\"\"\n    ...",
+      "solution": "def moe_plan(experts, top_k, expert_b, shared_b, bytes_per_weight, vram_gb, overhead=0.20):\n    total_b = shared_b + experts * expert_b\n    active_b = shared_b + top_k * expert_b\n    memory_gb = total_b * 1e9 * bytes_per_weight / 1024 ** 3 * (1 + overhead)\n    return {\n        \"total_b\": float(total_b),\n        \"active_b\": float(active_b),\n        \"memory_gb\": float(memory_gb),\n        \"fits\": memory_gb <= vram_gb,\n        \"compute_ratio\": float(total_b) / float(active_b),\n    }",
+      "test": "import math\n\n# Eight experts, two routed: ~47B resident, ~13B doing the work.\np = moe_plan(experts=8, top_k=2, expert_b=5.6, shared_b=1.9,\n             bytes_per_weight=0.5, vram_gb=48)\nassert math.isclose(p[\"total_b\"], 46.7), p\nassert math.isclose(p[\"active_b\"], 13.1), p\nassert p[\"compute_ratio\"] > 3.5, p\nassert p[\"fits\"] is True, p\n\n# The sizing mistake: budget for the ACTIVE count and the card looks big enough.\nactive_only = 13.1 * 1e9 * 0.5 / 1024 ** 3 * 1.2\nassert active_only < 16 < p[\"memory_gb\"], (active_only, p[\"memory_gb\"])\nassert moe_plan(8, 2, 5.6, 1.9, 0.5, vram_gb=16)[\"fits\"] is False\n\n# Dense is the degenerate case: one expert, always routed, nothing saved.\nd = moe_plan(experts=1, top_k=1, expert_b=5.3, shared_b=1.9,\n             bytes_per_weight=2.0, vram_gb=24)\nassert math.isclose(d[\"total_b\"], d[\"active_b\"]), d\nassert math.isclose(d[\"compute_ratio\"], 1.0), d\n\n# Routing to every expert is also dense, however many there are.\nall_routed = moe_plan(8, 8, 5.6, 1.9, 0.5, 64)\nassert math.isclose(all_routed[\"compute_ratio\"], 1.0), all_routed\n\n# Precision changes what fits; it never changes what is computed.\nlow = moe_plan(8, 2, 5.6, 1.9, 0.5, 48)\nhigh = moe_plan(8, 2, 5.6, 1.9, 2.0, 48)\nassert low[\"fits\"] and not high[\"fits\"], (low, high)\nassert math.isclose(low[\"active_b\"], high[\"active_b\"]), (low, high)\nassert math.isclose(low[\"compute_ratio\"], high[\"compute_ratio\"]), (low, high)\n\n# More experts at fixed top_k: strictly more memory, identical work per token.\nwider = moe_plan(16, 2, 5.6, 1.9, 0.5, 512)\nassert wider[\"memory_gb\"] > p[\"memory_gb\"], (wider, p)\nassert math.isclose(wider[\"active_b\"], p[\"active_b\"]), (wider, p)\nassert wider[\"compute_ratio\"] > p[\"compute_ratio\"], (wider, p)"
+    },
+    {
+      "id": "mistral-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "An engineer ports a working prompt builder from a different open family by changing only the role delimiters to the ones this family uses, and keeps their existing structure of one turn per role, including a standalone opening turn carrying the behavioural instruction. Answers get noticeably worse but nothing errors. What is the most likely reason?",
+      "explanation": "Templates differ in structure, not just in the strings that mark turns. Here the instruction is folded into the first user turn rather than given a slot of its own, so a faithful one-turn-per-role port produces a stream the model was never trained on. Nothing raises, because any token sequence is a valid input \u2014 it is simply out of distribution.",
+      "grade_id": "mistral-9251baeaeaef12fc",
+      "options": [
+        "This family's classic template has no turn of its own for behavioural instructions \u2014 that content belongs at the front of the first user turn, inside the same delimiters \u2014 so emitting it as a separate turn puts text where the model never saw any during training",
+        "The delimiters are correct but must be lowercase in this family, and the mismatch causes the tokenizer to split them into ordinary word pieces",
+        "Behavioural instructions must be repeated in every turn for this family, so quality decays as the conversation lengthens rather than being wrong from the first reply",
+        "Porting a prompt builder is fine, but the beginning-of-sequence marker must be omitted for this family, and its presence shifts every position by one"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "mistral-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "You are asked to place four workloads. (1) Twelve million routine classification calls a month, on a product that will eventually exceed several hundred million users. (2) The hardest 3% of tickets, where a wrong answer is expensive and volume is tiny. (3) Inline completion inside an editor, where the model must fill a gap between code above and code below the cursor. (4) A GDPR-sensitive workload whose data must stay in the EU. Recommend an arrangement for each and give the deciding property.",
+      "explanation": "Four workloads, four different deciding properties: a licence clause, the cost of an error against volume, a request shape that is not chat, and jurisdiction. Only the second is about which model is smartest, which is why routing decisions made from leaderboards alone go wrong.",
+      "grade_id": "mistral-67f3b705442e4c92",
+      "expected": "A correct answer must place all four and justify each by a property rather than a benchmark. (1) Self-hosted open weights from this family, and specifically because of the licence: at a user count in the hundreds of millions the other major open family's community licence would require a separate grant, while the permissive licence here has no such cap \u2014 and the volume is high enough that per-token metering is the wrong shape. Choosing a sparsely routed model here is a reasonable refinement, since bulk classification wants quality per unit of compute. (2) A hosted frontier model, the vendor's premier one or a competitor's: the deciding property is that volume is negligible and the cost of being wrong is high, so peak quality per call dominates unit price entirely \u2014 this is the standard split of bulk traffic onto an open model and the hard remainder onto the best available. (3) The code-specialised model through its dedicated fill-in-the-middle endpoint, because the task is not chat: completion between a prefix and a suffix is a different request shape, and a general chat model asked to do it leaves quality on the table \u2014 noting that this model's weights are non-production licensed, so commercial use means the API, earns full credit. (4) This lab specifically, because it is EU-headquartered with EU hosting options, or the same open weights self-hosted inside the EU; the deciding property is where the data is legally allowed to sit, which is a property of the deployment rather than of the model."
+    }
+  ]
+}

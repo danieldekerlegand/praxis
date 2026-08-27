@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "google-gemini",
+  "title": "Google Gemini",
+  "domain": "07-proprietary-coding-ai",
+  "runnable": true,
+  "generated": "2026-08-27T06:33:37+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "google-gemini-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A hospital wants a system that reads a patient's scanned intake PDF, a photo of a handwritten chart and a two-minute dictated voice memo, and produces one summary. Legal has confirmed the data may go to a governed cloud region but may not leave the vendor's paid infrastructure. Which reading of that brief matches what this notebook says Gemini is for, and what does the legal constraint change?",
+      "explanation": "The multimodal-in-one-request shape is exactly the case the notebook argues for, and `contents` is a list of parts with no one-media limit. The trap is the tier: the free Gemini API tier may use prompts to improve the product, which is a data-governance fact rather than a capability one, and Vertex exists precisely for the IAM/VPC/residency side of that brief.",
+      "grade_id": "google-gemini-00844bfbe256c233",
+      "options": [
+        "It matches: the three inputs can be interleaved as parts of one request rather than routed through three preprocessing pipelines, and the constraint does not rule Gemini out \u2014 it rules out the free tier, whose prompts may be used for training, so the work belongs on the paid API or Vertex",
+        "It matches, and the constraint is satisfied automatically, because prompts sent to the Gemini API are never retained under any tier",
+        "It does not match: the audio has to be transcribed and the PDF OCR'd by separate services first, because a request carries at most one media part alongside its text",
+        "It does not match: a governed region requirement means open weights on-prem are the only option, since neither front door offers data residency controls"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "google-gemini-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A colleague's support bot sends only the newest user message in `contents` on every request and is puzzled that the model keeps re-asking for the order number it was already given. They propose fixing it by lowering `temperature` and adding 'remember what the user told you' to the system instruction. Explain why neither change can work, what the actual fix is, and what that fix costs as the conversation grows.",
+      "explanation": "Statelessness is the single fact that makes multi-turn work the way it does here: history is something you resend, not something the service keeps. The billing consequence falls straight out of it, which is why caching a large fixed prefix is presented as a cost lever rather than a memory feature.",
+      "grade_id": "google-gemini-17b532aa735cbbc8",
+      "expected": "A correct answer must identify the endpoint as holding no server-side memory of previous requests: each call is evaluated only against what is in that request, so a turn carrying just the latest message genuinely is turn one from the model's point of view. Neither proposed change touches that \u2014 sampling temperature only affects how the next tokens are drawn from a distribution, and a system instruction is an instruction about behaviour, not a store the model can read earlier turns out of; there is nothing on the server for it to recall. The fix is to resend the accumulated exchange every time, either by maintaining the message list oneself and passing it as the request's contents, or by using the SDK's managed chat object that appends turns for you. The cost is that the whole transcript is re-submitted and therefore re-billed as input on every single turn, so spend grows quadratically with conversation length; naming context caching as the mitigation for a large fixed prefix, or noting that old turns eventually have to be trimmed or summarised, earns full credit."
+    },
+    {
+      "id": "google-gemini-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Two jobs land on one service. Job A: read a free-text incident report and file it as `{severity, component, minutes_down}` in a database. Job B: answer 'is service X down right now?', which requires calling the team's own status endpoint. Both are described as 'getting structured data out of the model'. How should each be configured?",
+      "explanation": "The dividing line is where the information lives. A's answer is already inside the request, so the job is shaping the output \u2014 a response schema makes that guaranteed rather than scraped. B's answer exists only outside the model, so the job is orchestrating a round trip: the model emits a function call, your code runs it, and the result comes back in a following turn. Built-in tools like search grounding and code execution are the same mechanism with the execution provided for you.",
+      "grade_id": "google-gemini-34b85fcb43362c50",
+      "options": [
+        "A wants a JSON response mime type plus a response schema, so the reply is validated against the shape before you ever parse it; B wants a declared tool, because the model cannot know the answer \u2014 it must emit a call you execute and then feed the result back for a second pass",
+        "Both want a response schema; B's schema just describes the status endpoint's reply, and the model fetches the URL itself once the schema names it",
+        "Both want a declared tool; a response schema is only a hint and cannot constrain the reply, so A would still need its prose parsed with a regex",
+        "A wants a tool that writes to the database directly, and B wants a response schema describing `{service, up}` \u2014 the model infers current status from the schema's field names"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "google-gemini-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Cost-model a stateless chat. Implement `replay_cost(turns, price_in, price_out, cached_prefix=0, cache_discount=0.25)`. `turns` is a list of `(input_tokens, output_tokens)` pairs in order. Because the endpoint keeps no history, turn i must resend every earlier turn's input AND output as input, on top of its own input. A fixed prefix of `cached_prefix` tokens (a big PDF, say) rides along on every turn and is billed at `cache_discount * price_in` instead of the full input price. `price_in` and `price_out` are USD per 1,000,000 tokens. Return `{\"input_tokens\": ..., \"cached_tokens\": ..., \"output_tokens\": ..., \"usd\": ...}`, where `input_tokens` counts the replayed conversation only and `cached_tokens` counts the prefix across all turns. Standard library only.",
+      "explanation": "The loop is the statelessness fact turned into arithmetic: what you carry forward is every earlier turn's input *and* the model's own replies, because both are part of the transcript you resend. That is why billed input grows with the square of the turn count while output grows linearly, and why a large fixed prefix is worth caching \u2014 it is the part of the resend that never changes.",
+      "grade_id": "google-gemini-23bc29205e84b84b",
+      "starter": "def replay_cost(turns, price_in, price_out, cached_prefix=0, cache_discount=0.25):\n    \"\"\"Total billed tokens and USD for a stateless multi-turn conversation.\"\"\"\n    ...",
+      "solution": "def replay_cost(turns, price_in, price_out, cached_prefix=0, cache_discount=0.25):\n    billed_in = 0\n    carried = 0\n    out_total = 0\n    for tin, tout in turns:\n        billed_in += carried + tin\n        carried += tin + tout\n        out_total += tout\n    cached = cached_prefix * len(turns)\n    usd = (billed_in * price_in + cached * price_in * cache_discount\n           + out_total * price_out) / 1e6\n    return {\n        \"input_tokens\": billed_in,\n        \"cached_tokens\": cached,\n        \"output_tokens\": out_total,\n        \"usd\": usd,\n    }",
+      "test": "r = replay_cost([], 1.0, 1.0)\nassert r == {\"input_tokens\": 0, \"cached_tokens\": 0, \"output_tokens\": 0, \"usd\": 0.0}, r\n\nr = replay_cost([(100, 50)], 0.30, 2.50)\nassert r[\"input_tokens\"] == 100, r\nassert r[\"output_tokens\"] == 50 and r[\"cached_tokens\"] == 0, r\nassert abs(r[\"usd\"] - (100 * 0.30 + 50 * 2.50) / 1e6) < 1e-12, r\n\n# Three turns: the transcript is resent every time, so input is NOT 100+200+300.\nr = replay_cost([(100, 10), (200, 20), (300, 30)], 1.0, 1.0)\nassert r[\"input_tokens\"] == 100 + 310 + 630, r[\"input_tokens\"]\nassert r[\"output_tokens\"] == 60, r\n\n# A cached prefix rides along once per turn at the discounted input price.\nr = replay_cost([(10, 5), (10, 5)], 2.0, 4.0, cached_prefix=1000, cache_discount=0.5)\nassert r[\"cached_tokens\"] == 2000, r\nassert r[\"input_tokens\"] == 10 + 25, r\nexpect = (35 * 2.0 + 2000 * 2.0 * 0.5 + 10 * 4.0) / 1e6\nassert abs(r[\"usd\"] - expect) < 1e-12, (r, expect)\n\n# Growth is superlinear in turn count: doubling the turns more than doubles the input.\nshort = replay_cost([(50, 50)] * 4, 1.0, 1.0)[\"input_tokens\"]\nlong = replay_cost([(50, 50)] * 8, 1.0, 1.0)[\"input_tokens\"]\nassert long > 2 * short, (short, long)"
+    },
+    {
+      "id": "google-gemini-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A nightly extraction job runs fine for a week, then starts writing empty strings into a handful of rows. The code is `summary = resp.text.strip() or \"\"` wrapped in a broad `except` that logs and continues. Nothing in the logs shows an exception on the bad rows. What is the most likely explanation and the right repair?",
+      "explanation": "An empty result with no exception is the signature of a response that finished for a reason other than 'the model finished speaking'. The finish reason distinguishes a safety block from a truncation from a tool call, and each deserves different handling \u2014 retry, raise the token cap, or execute the call. Pinning a snapshot and capping thinking are real concerns in this notebook, but neither produces silently blank prose on a minority of rows.",
+      "grade_id": "google-gemini-7baf21bf74ab3f90",
+      "options": [
+        "Those responses came back with no prose \u2014 blocked by a safety filter, cut off at the output-token limit, or carrying only a function call \u2014 so the text accessor was empty rather than raising; branch on the candidate's finish reason and handle each case instead of coercing to a blank string",
+        "The model alias silently moved to a newer snapshot that returns its answer under a different attribute, so the text accessor is now always empty and the alias must be pinned",
+        "The broad `except` swallowed rate-limit errors and substituted empty text; removing the `except` will surface them and fix the rows",
+        "Thinking tokens consumed the whole response and left nothing for the answer, so setting a thinking budget of zero is both necessary and sufficient"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "google-gemini-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "You are asked to pick one arrangement for three workloads at a startup: (1) classify 40 million short support messages a month into eight buckets; (2) answer questions about a 900-page contract, asked repeatedly by different users through the day; (3) review a defence contractor's source code on a network with no route to the internet. Say what you would run each on and give the property of the workload \u2014 not of the model \u2014 that forces each choice.",
+      "explanation": "Each of the three is decided by a different axis \u2014 unit economics, reuse of a fixed prefix, and where the bytes are legally allowed to be \u2014 and none of them by which model scores highest. The third is the one that a capability comparison cannot answer: no hosted option is available at any price when the network has no route out.",
+      "grade_id": "google-gemini-dd709064e0d8ea14",
+      "expected": "A correct answer must decide each of the three and justify it by a property of the work rather than by a leaderboard. (1) Enormous volume of an easy, uniform task means unit cost and throughput dominate and reasoning depth is nearly worthless, so the cheapest, fastest tier is right \u2014 the Lite-class model \u2014 and disabling or minimising the thinking budget is part of the answer because reasoning tokens are billed as output. (2) A large fixed document reused across many independent questions is the caching case: put the contract in the window of a long-context model and reuse it as a cached prefix so each question pays a discount rather than re-billing the whole contract, and note that the reuse, not the single-question quality, is what makes it economical. (3) The constraint is that the data cannot leave the network at all, which no hosted API satisfies regardless of tier or governance features; that workload needs open weights run on the operator's own hardware, accepting weaker frontier quality and real hosting effort as the price of control. Recognising that a governance requirement short of air-gapping would instead point at the enterprise front door rather than at open weights is a plus."
+    }
+  ]
+}
