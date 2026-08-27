@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "langchain",
+  "title": "LangChain",
+  "domain": "04-agentic-ai",
+  "runnable": true,
+  "generated": "2026-08-27T08:07:14+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "langchain-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A team is deciding whether to adopt this framework for three projects: (a) a single endpoint that sends one prompt to one provider and returns the text; (b) a document-question service that must work against two providers and two vector stores because different customers require different ones; (c) an agent that loops \u2014 plan, call a tool, re-plan on the result, ask a human to approve, sometimes go back a step. Where does the framework earn its cost, and where does it not?",
+      "explanation": "The framework is a composition and integration layer, and it pays for itself where there are parts to swap and plumbing to avoid \u2014 several providers, several stores, retrieval and parsing you would otherwise write. A single call to one provider is fewer moving parts through that provider's own SDK. And the boundary at the other end is just as real: the pipe-composition model describes linear dataflow, so loops, branches with state and human-approval pauses live in the graph-based companion project, not in raw pipelines.",
+      "grade_id": "langchain-157cdf8e47e7f10c",
+      "options": [
+        "It earns it on (b): the value is a shared interface across providers and stores plus batteries-included loaders, splitters, retrievers and parsers, so the flow is wired once and the parts swap. On (a) the provider's own SDK is fewer moving parts. On (c) the framework composes linear dataflow, so the stateful cyclic control flow belongs in its graph-based companion instead",
+        "It earns it on all three: the expression language expresses loops and branches with state directly, so (c) is its strongest case, and (a) benefits from the standard streaming and tracing story",
+        "It earns it on (a) and (c) but not (b): swapping vector stores requires the store's own client anyway, so the abstraction adds a layer without removing work",
+        "It earns it on none of the three, because it is a set of prompt templates rather than an execution layer, and each project would still write its own provider glue"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "langchain-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Explain this framework's composition model by analogy to shell pipelines. State the one interface that makes it work and the methods it requires, explain what 'composition is closed' means here and why that property is what makes the model useful, and then say what the analogy stops being able to express \u2014 and where such work belongs instead.",
+      "explanation": "",
+      "grade_id": "langchain-8b46728a4808dbf3",
+      "expected": "A correct answer must name the analogy and carry it through: in a shell you join small programs with a pipe, each reading the previous one's output; here each stage is a component implementing one universal interface, and the pipe operator feeds one stage's output into the next. The interface must be named as the load-bearing idea, along with what it requires: a method to run one input, one to run many, one to produce output incrementally, and asynchronous twins of each \u2014 prompt templates, models, parsers, retrievers and your own plain functions all implement it, which is precisely why they compose. Closure must be explained as: a pipeline of components is ITSELF a component, so it can be run on one input, run over a list, streamed, or nested inside a larger pipeline with no wrapper and no special case \u2014 that is what makes the model compose without a hierarchy of chain types, and it is why every stage automatically gets batching, streaming and async behaviour. The limit must be stated: the model expresses LINEAR dataflow \u2014 a directed flow forwards, with fan-out into a dict of branches \u2014 and it cannot naturally express cycles, revisiting an earlier step, or control flow that depends on accumulated state. That work belongs in the graph-based companion project, which models state and cycles explicitly; the framework's own older agent-executor loop is legacy for the same reason. Noting that fan-out is expressed by a dict of branches all receiving the same input is a plus."
+    },
+    {
+      "id": "langchain-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A developer writing a retrieval pipeline reports two problems. Their prompt template raises a key error saying the question is missing, even though they pass the question in. And they cannot see why: they wrote the first stage as `{\"context\": retriever}` and expected the raw input to flow through alongside it. Separately they ask why their import of the chat model class from the top-level package fails. What is going on?",
+      "explanation": "Two things bite here. A bare dict is sugar for a fan-out step: each branch is run on the same input and the step's result IS the dict of branch outputs, so anything you did not name as a branch is gone \u2014 which is why the canonical retrieval shape always carries a passthrough branch for the question. And the package split is deliberate: the core package holds the abstractions, each provider ships as its own independently-versioned package, and importing model classes from the top-level package is the most common setup error.",
+      "grade_id": "langchain-32f03e65be3b1c21",
+      "options": [
+        "A bare dict in a pipeline becomes a fan-out step: every branch receives the same input and the step's output is exactly the dict of branch results, so anything not named as a branch is dropped \u2014 the fix is a branch that forwards the input unchanged, which is what the passthrough component is for. The import fails because model classes ship in their own per-provider package rather than in the top-level one; the core package holds only the abstractions",
+        "The dict is only a literal and does not become a step at all, so the retriever was never called; the import fails because the chat model classes are legacy and were removed in favour of the string-in/string-out classes",
+        "The dict fans out but merges its results into the input rather than replacing it, so the question is present and the real error is a typo in the template variable name; the import fails only if the provider package is not installed, and importing from the top level is the recommended way",
+        "The dict runs its branches in sequence, feeding each one the previous branch's output, so the question was consumed by the retriever; the import fails because provider packages must be imported through the community package"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "langchain-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Reimplement the composition core the pipe operator desugars to. Define a base class `Runnable` with `invoke(self, x)` (raising `NotImplementedError`) and `batch(self, xs)` (one `invoke` per input, order preserved); give it `__or__` and `__ror__` so `a | b` builds a `RunnableSequence(first, second)` whose `invoke` feeds the first's output into the second, and so the operator works when EITHER side is a plain function or a dict rather than a component. Define `RunnableLambda(fn)`, wrapping a callable. Define `RunnableParallel(**steps)`, which runs every step on the SAME input and returns a dict of the results under the step names. Define `RunnablePassthrough`, whose `invoke` returns its input unchanged, plus a classmethod `assign(**steps)` returning a component that \u2014 given a dict input \u2014 returns a NEW dict holding the original keys plus one key per step, each computed by running that step on the whole original input, and raising `TypeError` on a non-dict input without mutating anything. Finally write the module-level function `coerce(obj)` used by all of the above: a component passes through, a dict becomes a `RunnableParallel` over its entries, any other callable becomes a `RunnableLambda`, and anything else raises `TypeError`. Standard library only.",
+      "explanation": "The point of the exercise is that the entire composition story is one interface plus one operator. Notice what closure buys: nothing was written to make a chain nestable or batchable \u2014 a sequence is a component, so piping one into another stage and calling batch on it both just work. The coercion rules are the sugar you see in real pipelines: a plain function becomes a stage, and a bare dict becomes a fan-out. The two retrieval cases are the ones worth rereading. Fan-out means each branch sees the same input and the step's output IS the dict of branch results \u2014 so the version that omits the branch forwarding the input unchanged does not merge anything, it simply drops the question, and the failure surfaces later as a missing key in the prompt. Refusing to coerce a string or a number matters for the same reason: catching a wiring mistake where it is written beats a confusing failure three stages downstream.",
+      "grade_id": "langchain-1dd0f934d723dead",
+      "starter": "class Runnable:\n    ...\n\n\ndef coerce(obj):\n    ...",
+      "solution": "class Runnable:\n    def invoke(self, x):\n        raise NotImplementedError\n\n    def batch(self, xs):\n        return [self.invoke(x) for x in xs]\n\n    def __or__(self, other):\n        return RunnableSequence(self, coerce(other))\n\n    def __ror__(self, other):\n        return RunnableSequence(coerce(other), self)\n\n\nclass RunnableLambda(Runnable):\n    def __init__(self, fn):\n        self.fn = fn\n\n    def invoke(self, x):\n        return self.fn(x)\n\n\nclass RunnableSequence(Runnable):\n    def __init__(self, first, second):\n        self.first = first\n        self.second = second\n\n    def invoke(self, x):\n        return self.second.invoke(self.first.invoke(x))\n\n\nclass RunnableParallel(Runnable):\n    def __init__(self, **steps):\n        self.steps = {name: coerce(step) for name, step in steps.items()}\n\n    def invoke(self, x):\n        return {name: step.invoke(x) for name, step in self.steps.items()}\n\n\nclass RunnablePassthrough(Runnable):\n    def invoke(self, x):\n        return x\n\n    @classmethod\n    def assign(cls, **steps):\n        runnables = {name: coerce(step) for name, step in steps.items()}\n\n        def add(x):\n            if not isinstance(x, dict):\n                raise TypeError(\"assign needs a dict input\")\n            merged = dict(x)\n            for name, step in runnables.items():\n                merged[name] = step.invoke(x)\n            return merged\n\n        return RunnableLambda(add)\n\n\ndef coerce(obj):\n    if isinstance(obj, Runnable):\n        return obj\n    if isinstance(obj, dict):\n        return RunnableParallel(**obj)\n    if callable(obj):\n        return RunnableLambda(obj)\n    raise TypeError(f\"cannot compose {type(obj).__name__} into a chain\")",
+      "test": "prompt = RunnableLambda(lambda d: f\"Question: {d['question']}\")\nmodel = RunnableLambda(lambda p: f\"Echo[{p}]\")\nparser = RunnableLambda(lambda s: s.upper())\n\nchain = prompt | model | parser\nassert isinstance(chain, Runnable), type(chain)\nassert chain.invoke({\"question\": \"what?\"}) == \"ECHO[QUESTION: WHAT?]\"\n\n# Composition is closed: the chain is itself a component, so it nests and it\n# batches without anything extra being written for it.\nouter = chain | RunnableLambda(lambda s: s[:4])\nassert outer.invoke({\"question\": \"hi\"}) == \"ECHO\", outer.invoke({\"question\": \"hi\"})\nassert chain.batch([{\"question\": \"a\"}, {\"question\": \"b\"}]) == \\\n    [\"ECHO[QUESTION: A]\", \"ECHO[QUESTION: B]\"]\nassert isinstance(RunnableLambda(str) | RunnableLambda(len), Runnable)\n\n# A plain function is coerced when piped in, on either side.\nassert (prompt | (lambda s: s + \"!\")).invoke({\"question\": \"q\"}) == \"Question: q!\"\nassert ((lambda d: {\"question\": d}) | prompt).invoke(\"q\") == \"Question: q\"\n\n# A bare dict fans out: every branch sees the SAME input, results collect by key.\nshape = {\"context\": lambda q: f\"docs about {q}\", \"question\": RunnablePassthrough()}\nbuilt = coerce(shape).invoke(\"parsers\")\nassert built == {\"context\": \"docs about parsers\", \"question\": \"parsers\"}, built\nassert isinstance(coerce(shape), RunnableParallel)\n\n# The canonical retrieval shape, end to end: fan out, render, \"call the model\".\nrag = shape | RunnableLambda(\n    lambda d: f\"Context: {d['context']}\\nQuestion: {d['question']}\") | model\nanswered = rag.invoke(\"parsers\")\nassert answered == \"Echo[Context: docs about parsers\\nQuestion: parsers]\", answered\n\n# ...and the classic bug: drop the branch that forwards the input unchanged and the\n# question never reaches the prompt at all.\nbroken = {\"context\": lambda q: f\"docs about {q}\"} | RunnableLambda(\n    lambda d: f\"Context: {d['context']}\\nQuestion: {d['question']}\")\ntry:\n    broken.invoke(\"parsers\")\nexcept KeyError:\n    pass\nelse:\n    raise AssertionError(\"without the passthrough the question is simply missing\")\n\n# Adding a key to a dict flowing through, without restating the keys already there.\nenriched = RunnablePassthrough.assign(\n    length=lambda d: len(d[\"question\"]),\n    upper=lambda d: d[\"question\"].upper(),\n)\nout = enriched.invoke({\"question\": \"abc\", \"user\": \"u1\"})\nassert out == {\"question\": \"abc\", \"user\": \"u1\", \"length\": 3, \"upper\": \"ABC\"}, out\nassert isinstance(enriched, Runnable)\noriginal = {\"question\": \"abc\"}\nenriched.invoke(original)\nassert original == {\"question\": \"abc\"}, \"assign must not mutate its input\"\ntry:\n    enriched.invoke(\"not a dict\")\nexcept TypeError:\n    pass\nelse:\n    raise AssertionError(\"assign needs a dict\")\n\n# Only components, functions and dicts compose; anything else is a mistake caught\n# at wiring time rather than a confusing failure at run time.\nfor bad in (\"a string\", 42, None):\n    try:\n        coerce(bad)\n    except TypeError:\n        continue\n    raise AssertionError(f\"{bad!r} must not coerce\")\n\n# The default batch is one invoke per input and preserves order.\nseen = []\ncounted = RunnableLambda(lambda x: (seen.append(x), x * 2)[1])\nassert counted.batch([1, 2, 3]) == [2, 4, 6]\nassert seen == [1, 2, 3], seen"
+    },
+    {
+      "id": "langchain-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A pipeline reads a document, asks the model for a JSON summary and parses it. In production two things go wrong: tokens do not appear incrementally in the UI even though the model supports it, and the service occasionally raises while parsing. The chain ends with a JSON parser, and a stage before it normalises the model's text by upper-casing the whole string. What explains each, and what actually fixes them?",
+      "explanation": "Streaming is a property of the whole chain, not of the model: any stage that must see the complete output \u2014 an upper-casing function, or a JSON parser facing incomplete JSON \u2014 forces buffering, so incremental delivery only reaches the UI when every link is stream-friendly. The parse failures are a separate and more fundamental point: the model is not obliged to return valid JSON, so a parser that assumes it will raise. Format instructions in the prompt plus a fixing or retrying parser is the production answer. Using asynchronous variants matters for not blocking the event loop, but it does not make a buffering stage stream.",
+      "grade_id": "langchain-4605e407be1150ee",
+      "options": [
+        "Incremental output is end-to-end only when every stage can work on partial input: a stage that needs the whole string, and a parser that cannot parse incomplete JSON, both force buffering \u2014 so streaming stops at the first stage that must see everything. The parse failures are because the model is not obliged to emit valid JSON: put format instructions in the prompt and add a fixing or retrying parser rather than assuming the output is well formed",
+        "Both are caused by using the synchronous methods inside an asynchronous application; switching every stage to its asynchronous twin restores incremental delivery and makes parsing resilient",
+        "Incremental output requires the model wrapper to be constructed with streaming enabled and is unaffected by later stages; the parse failures indicate the wrong parser was chosen, and the structured-schema parser never raises",
+        "Incremental output is impossible whenever a parser is present, so the fix is to remove the parser and parse outside the chain; parse failures then disappear because the raw text is always valid"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "langchain-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "A team has settled on this framework and now asks: 'do we need anything else?' Their roadmap has a retrieval-heavy product surface, one genuinely agentic feature that must loop with tool calls and a human approval step, and a growing need to debug why particular runs produced bad answers. Advise them \u2014 say what this framework should keep doing, what each additional piece would be for, and address the objection that adding more pieces is just more dependencies. Then name one thing no framework choice here will fix.",
+      "explanation": "",
+      "grade_id": "langchain-8da570ea624eaf54",
+      "expected": "A correct answer must divide the work rather than pick one tool. This framework keeps the composition and integration layer: provider-agnostic components, retrieval building blocks such as loaders, splitters and retrievers, prompt templates and output parsers, wired into pipelines. The agentic feature \u2014 a loop with tool calls, accumulated state and a human approval pause \u2014 belongs in the graph-based companion, which models state and cycles explicitly and supports checkpointing and human-in-the-loop; the answer must note this is a complement commonly used alongside, not a replacement for the composition layer, and that the framework's own legacy agent executor is not the answer. The debugging need points at the hosted tracing and evaluation product, turned on with a couple of environment variables so every run is traced. A retrieval-first alternative may reasonably be weighed for the retrieval surface, with the trade stated: richer indexing and query strategies out of the box against a narrower general composition story. The objection must be answered rather than waved away \u2014 the pieces are separately versioned packages installed only as used, so the cost is real but incremental, and it should be set against the alternative of hand-building tool loops, retrieval and streaming glue. The thing no choice fixes must be named: the framework is a composition layer, not intelligence \u2014 bad retrieval or a weak model produces bad answers no matter how the pieces are wired. Noting the ecosystem's fast-moving API and deep dependency tree as genuine costs to be managed by pinning versions is a plus."
+    }
+  ]
+}
