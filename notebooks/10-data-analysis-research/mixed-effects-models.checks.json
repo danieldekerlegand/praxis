@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "mixed-effects-models",
+  "title": "Mixed-Effects Models",
+  "domain": "10-data-analysis-research",
+  "runnable": true,
+  "generated": "2026-08-27T06:55:12+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "mixed-effects-models-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A study measures 12 patients 25 times each and analyses the 300 rows with an ordinary regression. The effect is reported as significant. A statistician calls this pseudoreplication. What exactly is wrong, in which direction, and why is it not fixed by collecting more measurements per patient?",
+      "explanation": "The direction matters: dependence means less information than the row count implies, so uncertainty is understated and false positives multiply. And the remedy is not more rows \u2014 the information about a population effect scales with the number of independent units, which is why adding a thirteenth patient is worth far more than a twenty-sixth measurement on an existing one.",
+      "grade_id": "mixed-effects-models-c966195a50273d57",
+      "options": [
+        "Rows from the same patient are more alike than rows from different patients, so the analysis credits itself with 300 independent observations when it has far fewer \u2014 the standard errors come out too small and the significance is manufactured. More measurements per patient add almost nothing, because the limiting quantity is the number of patients: repeating a measurement on someone you have already measured 25 times tells you very little new about the population",
+        "The problem is that 300 rows is too few for the asymptotic approximations, and it is fixed by collecting more measurements per patient until the sample is large enough",
+        "The standard errors are too large rather than too small, so the reported effect is conservative and the objection concerns power rather than validity",
+        "The problem is that the patients differ in their averages, which biases the estimated effect itself; centring each patient's measurements removes it and the standard errors are unaffected"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "mixed-effects-models-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "An econometrician says: 'I already handle grouping \u2014 I put a separate indicator for each of my 60 sites into the regression. That is the same thing as a random effect, just spelled differently.' Give three concrete ways the two differ, and name the one situation where their preference is genuinely the better choice.",
+      "explanation": "Parameter cost, shrinkage and generalisation are three separate consequences of one modelling decision: whether the group levels are the things you want to estimate or a sample from a population you want to characterise. The few-groups exception matters because a variance needs points to be estimated from.",
+      "grade_id": "mixed-effects-models-f72bc150c0745bbc",
+      "expected": "A correct answer must name three genuine differences. First, cost: an indicator per group spends one parameter on every group, so 60 sites consume 60 degrees of freedom, whereas treating the sites as draws from a distribution spends essentially one parameter \u2014 the spread across sites \u2014 and derives the per-site values from it. Second, shrinkage: indicators fit each group's own data with no restraint, so a site with three noisy observations gets an estimate as unconstrained as one with three thousand, while the pooled approach pulls each group toward the overall value by an amount that depends on how much and how noisy that group's data is, which produces better estimates for the sparse groups. Third, generalisation: indicators say nothing about a site not in the data, because a site outside the sample has no coefficient, whereas estimating the distribution of site effects lets you say what a new site is expected to look like and how much it might differ \u2014 and it is the spread itself, not the individual values, that is usually the scientific quantity. Where the indicator approach is genuinely better: when there are only a few groups \u2014 roughly fewer than half a dozen \u2014 a variance cannot be estimated from that many points, so treating them as ordinary parameters is the honest choice; it is also the right choice when those particular levels are the object of interest rather than a sample from a population. Noting that the per-group values from the pooled fit are predictions rather than fitted parameters, and so should not be reported with naive standard errors, is a plus."
+    },
+    {
+      "id": "mixed-effects-models-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A model of test scores includes calendar year as a predictor, coded as the year itself, with a group-varying intercept per school. The reported between-school variance is enormous and implausible. A colleague also asks what fraction of the variation is between schools at all. What is going on and what settles the second question?",
+      "explanation": "An intercept is a value at a specific place \u2014 where the predictors are zero \u2014 so its spread across groups is a statement about that place. Put that place far outside the data and the number describes an extrapolation nobody cares about, which is why centring is a habit rather than a nicety. The share of variation living between groups is a separate, well-defined ratio of the two variance components.",
+      "grade_id": "mixed-effects-models-d8e93ad8419eb8e5",
+      "options": [
+        "The group-varying intercept is the spread of the school lines at the point where the predictor is zero, and with the year coded literally that point is two thousand years before any data \u2014 so the reported spread is an extrapolation, not a description. Centring the predictor puts it inside the observed range and makes the number interpretable. The second question is answered by the ratio of the between-group variance to the total of the between-group and residual variances",
+        "The enormous variance means the model is overparameterised and a group-varying intercept should be dropped; the fraction between schools is then read off the residual variance alone",
+        "The predictor's scale cannot affect a variance component, so the number is correct as reported; the fraction between schools is the proportion of schools whose estimate differs significantly from zero",
+        "The variance is inflated because the years are treated as a category rather than a quantity; declaring the predictor numeric fixes both the variance and the fraction question"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "mixed-effects-models-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Compute the compromise the model makes for you. Implement `partial_pool(groups, tau2, sigma2)`. `groups` maps a group name to its list of observations, `tau2` is the between-group variance and `sigma2` the residual variance. The overall value is the mean of every observation pooled together. For a group with n observations and mean \u0233, the weight given to its own data is `tau2 / (tau2 + sigma2 / n)` \u2014 or 1.0 when `sigma2` is zero \u2014 and its estimate is that weight times its own mean plus one minus that weight times the overall value. Also report the share of variance living between groups, `tau2 / (tau2 + sigma2)`. Return `{\"grand\": ..., \"icc\": ..., \"weights\": {name: w}, \"estimates\": {name: value}}`. Raise `ValueError` when there are no groups, when any group has no observations, when either variance is negative, or when both are zero. Standard library only.",
+      "explanation": "The weight is the whole idea in one expression, and the two extremes in the test are the two things people do by hand. When the between-group variance is zero the grouping explains nothing and every group collapses onto the overall value \u2014 that is ignoring the groups. When the residual variance is zero each group's own mean is taken at face value \u2014 that is fitting each group separately. Everything in between is decided by the ratio the model estimates, and it depends on the group's size, which is why the single-observation group is dragged most of the way back while the fifty-observation group hardly moves. Nobody chose that trade-off; it fell out of the two variances.",
+      "grade_id": "mixed-effects-models-246c90f2bcbf3562",
+      "starter": "def partial_pool(groups, tau2, sigma2):\n    \"\"\"Each group's estimate, pulled toward the overall value by a data-driven amount.\"\"\"\n    ...",
+      "solution": "def partial_pool(groups, tau2, sigma2):\n    if not groups:\n        raise ValueError(\"no groups to pool\")\n    if tau2 < 0 or sigma2 < 0:\n        raise ValueError(\"variances must be non-negative\")\n    if tau2 == 0 and sigma2 == 0:\n        raise ValueError(\"both variances are zero, so no weight is defined\")\n    observations = []\n    for name, values in groups.items():\n        if not values:\n            raise ValueError(f\"group {name!r} has no observations\")\n        observations.extend(values)\n    grand = sum(observations) / len(observations)\n    weights = {}\n    estimates = {}\n    for name, values in groups.items():\n        n = len(values)\n        mean = sum(values) / n\n        w = 1.0 if sigma2 == 0 else tau2 / (tau2 + sigma2 / n)\n        weights[name] = w\n        estimates[name] = w * mean + (1 - w) * grand\n    return {\"grand\": grand, \"icc\": tau2 / (tau2 + sigma2),\n            \"weights\": weights, \"estimates\": estimates}",
+      "test": "import math\n\nGROUPS = {\"a\": [10.0] * 50, \"b\": [20.0], \"c\": [0.0, 30.0]}\n\n# No between-group variance: the grouping explains nothing, every group is pulled\n# all the way onto the overall mean.\nflat = partial_pool(GROUPS, tau2=0.0, sigma2=4.0)\nassert flat[\"icc\"] == 0.0, flat\nassert set(flat[\"weights\"].values()) == {0.0}, flat[\"weights\"]\nassert all(math.isclose(v, flat[\"grand\"]) for v in flat[\"estimates\"].values()), flat\n\n# No residual noise: each group's own mean is taken at face value, no pooling at all.\nsharp = partial_pool(GROUPS, tau2=9.0, sigma2=0.0)\nassert sharp[\"icc\"] == 1.0, sharp\nassert set(sharp[\"weights\"].values()) == {1.0}, sharp[\"weights\"]\nassert math.isclose(sharp[\"estimates\"][\"b\"], 20.0), sharp\n\n# In between: how much a group is trusted rises with how much data it supplied.\nmid = partial_pool(GROUPS, tau2=9.0, sigma2=36.0)\nassert mid[\"weights\"][\"a\"] > mid[\"weights\"][\"c\"] > mid[\"weights\"][\"b\"], mid[\"weights\"]\nassert 0 < mid[\"weights\"][\"b\"] < 1, mid[\"weights\"]\nassert math.isclose(mid[\"icc\"], 9.0 / 45.0), mid[\"icc\"]\n\n# Every estimate lies between that group's own mean and the overall mean.\ngrand = mid[\"grand\"]\nfor name, values in GROUPS.items():\n    own = sum(values) / len(values)\n    est = mid[\"estimates\"][name]\n    assert min(own, grand) - 1e-9 <= est <= max(own, grand) + 1e-9, (name, est, own, grand)\n\n# The single-observation group moves furthest from its own mean; the fifty-observation\n# group barely moves at all.\nassert abs(mid[\"estimates\"][\"b\"] - 20.0) > abs(mid[\"estimates\"][\"a\"] - 10.0)\nassert abs(mid[\"estimates\"][\"a\"] - 10.0) < 1.0, mid[\"estimates\"]\n\n# More residual noise at fixed between-group variance means more pooling everywhere.\nnoisier = partial_pool(GROUPS, tau2=9.0, sigma2=144.0)\nfor name in GROUPS:\n    assert noisier[\"weights\"][name] < mid[\"weights\"][name], name\nassert noisier[\"icc\"] < mid[\"icc\"]\n\n# The overall mean is over observations, so a large group pulls it toward itself.\nassert abs(partial_pool(GROUPS, 1.0, 1.0)[\"grand\"] - 550 / 53) < 1e-9\n\nfor bad in (({}, 1.0, 1.0), ({\"a\": []}, 1.0, 1.0), ({\"a\": [1.0]}, -1.0, 1.0),\n            ({\"a\": [1.0]}, 1.0, -1.0), ({\"a\": [1.0]}, 0.0, 0.0)):\n    try:\n        partial_pool(*bad)\n    except ValueError:\n        continue\n    raise AssertionError(f\"must be rejected: {bad}\")"
+    },
+    {
+      "id": "mixed-effects-models-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A Python team hits three walls in one project: a design where every participant sees every item, so two grouping factors apply to every row; a binary outcome that needs the grouped treatment; and a reviewer asking for standard errors on the per-group values the fit reported. What is the accurate assessment?",
+      "explanation": "Two different kinds of limit are being confused. Crossed grouping factors and non-continuous outcomes are entirely standard for the method and merely awkward in this particular Python implementation, which is why the R package remains the reference. The per-group values being predictions rather than parameters is not a limit at all \u2014 it is what makes it possible to have one for every group without spending a parameter on each.",
+      "grade_id": "mixed-effects-models-a551e7cbba42102f",
+      "options": [
+        "The first two are real limits of this Python implementation rather than of the method \u2014 it handles one grouping factor comfortably, crossed factors require awkward workarounds, and there is no general support for non-continuous outcomes \u2014 so those belong in the mature R package or a Bayesian formulation. The third is a misunderstanding: the per-group values are predictions derived from the estimated spread, not fitted parameters, so naive standard errors for them do not exist and the variance components are what should be reported",
+        "All three are straightforward: two grouping factors and a binary outcome are supported directly, and the per-group standard errors are available on the results object",
+        "The first two are limits of the method itself, so no software can fit crossed grouping factors or grouped binary outcomes; the third is a legitimate request that requires refitting with a different covariance estimator",
+        "All three indicate the data should be aggregated to one row per group before fitting, after which the grouping disappears and ordinary regression applies"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "mixed-effects-models-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four studies. (1) A clinical trial reporting the average effect across a population, where per-patient estimates are of no interest and the correlation structure within a patient is messy and unknown. (2) A survey with one response per respondent and no grouping at all. (3) An experiment with 4 laboratories, whose individual performance is the question. (4) A psycholinguistics study with 40 participants crossed with 200 items, a binary accuracy outcome, and a need for the mature tooling around it. Recommend an approach for each with the deciding property.",
+      "explanation": "Four different deciding properties: whether group-level estimates are wanted, whether there is any grouping, how many levels the grouping has and whether they are the question, and whether the design's shape is beyond what the available implementation handles. Only the last is about tooling.",
+      "grade_id": "mixed-effects-models-5598b92f5ff9ddd9",
+      "expected": "A correct answer must place all four. (1) A population-average approach with robust standard errors \u2014 the marginal method that models the correlation within a cluster as a nuisance rather than estimating group-level effects: the deciding property is that only the population effect is wanted and the within-cluster structure need not be got right for the estimate to be valid. Note the coefficients it produces are population-average rather than group-specific, which is exactly what was asked for here. (2) Ordinary regression: with one observation per unit there is no clustering to model and nothing to pool, so the grouped machinery has nothing to do \u2014 the deciding property is the absence of repeated measurement. (3) Ordinary parameters, one per laboratory: with four levels a spread cannot be estimated, and in any case the individual laboratories are the object of interest rather than a sample from a population of laboratories \u2014 the deciding property is the number of levels together with what the question is about. (4) The mature R package: two grouping factors applying to every observation and a binary outcome are both standard for the method and both awkward in the Python implementation, and the surrounding ecosystem for tests and comparisons is there \u2014 a Bayesian hierarchical formulation is the other reasonable answer, at the cost of sampling time and priors. The deciding property is the combination of crossed grouping and a non-continuous outcome. Noting that the first case would become a grouped model rather than a marginal one if the per-patient estimates or the spread across patients ever became interesting is a plus."
+    }
+  ]
+}

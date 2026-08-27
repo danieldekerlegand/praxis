@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "numpy-pandas-scipy",
+  "title": "Python: NumPy, Pandas, SciPy",
+  "domain": "10-data-analysis-research",
+  "runnable": true,
+  "generated": "2026-08-27T06:55:03+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "numpy-pandas-scipy-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A team's analysis is written against the labelled tabular layer and has outgrown one machine's memory. Someone proposes rewriting it in a framework built for GPUs and automatic differentiation, arguing that 'it is the fastest array library available'. What does this notebook's framing say?",
+      "explanation": "The notebook's structure is a set of exit conditions, each pointing somewhere different: out of memory or too slow points at the newer tabular engines or the SQL engine, needing gradients or accelerators points at the deep-learning frameworks, needing formal statistical models points elsewhere again. Choosing a destination that answers a problem you do not have is how rewrites get expensive.",
+      "grade_id": "numpy-pandas-scipy-8270835c9cc7b50e",
+      "options": [
+        "That is the wrong axis to move along: the constraint is data volume and memory on a single machine, which is answered by a multi-threaded or out-of-core tabular engine or an analytical SQL engine, whereas the proposed framework's advantages are gradients and accelerator hardware \u2014 neither of which the workload needs, and it would arrive with different array semantics for no benefit",
+        "It is right for the wrong reason: the proposed framework is indeed the correct destination, but because its arrays are labelled rather than because of its speed",
+        "It is right: array libraries that target accelerators are strictly faster at every operation, so any performance problem is best solved by moving to one",
+        "It is wrong because no library can exceed available memory; the only remedy for data larger than memory is to sample it down"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "numpy-pandas-scipy-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A colleague asks two questions. First: 'why is a list of a million numbers slow to sum but an array of a million numbers fast, when both hold the same values?' Second: 'why did adding two of the labelled one-dimensional containers give me a result longer than either input, with gaps in it?' Answer both from the underlying representation rather than from the API.",
+      "explanation": "Both surprises come from what the container actually is. One is a typed slab with a shape, which is why the loop can be compiled away; the other is a slab with labels attached, and the labels \u2014 not the positions \u2014 are what arithmetic lines up.",
+      "grade_id": "numpy-pandas-scipy-37b836e2546476b5",
+      "expected": "A correct answer must explain both from what is stored. On the array: a list holds pointers to separate objects, each carrying its own type information and living wherever memory happened to be free, so summing it means an interpreted loop that follows a pointer, discovers a type and unboxes a value at every step. An array is one contiguous run of values that all share a single declared type, together with the axis lengths and the byte step along each axis \u2014 so the type is checked once rather than per element, the values are adjacent in memory and arrive in cache together, and the loop itself runs in compiled code instead of the interpreter. The speed is a consequence of that fixed layout, not of a faster loop. On the labelled containers: they are not positional. Each carries labels, and arithmetic between two of them matches entries by label rather than by position, producing a result over the union of the two label sets; any label present in one and missing from the other has no counterpart, so the result is marked missing there \u2014 which is also why an integer-valued column can come back as floating point, since the usual missing marker is a floating-point value. The behaviour is deliberate, and the remedy when the gaps are not wanted is to supply a fill value for the missing side rather than to rely on position. Noting that this alignment is the same mechanism that makes joins and reindexing work, and that a slice of an array is usually a window onto the same memory rather than a copy, is a plus."
+    },
+    {
+      "id": "numpy-pandas-scipy-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A matrix has one row per patient and one column per measurement. An analyst wants the mean of each measurement across patients, and separately the total per patient. They keep getting arrays of the wrong length and are unsure which axis argument does what. What is the reliable rule and its application here?",
+      "explanation": "Naming the axis that vanishes is the formulation that never has to be re-derived, and it comes with a free check: the result's length is the length of whichever axis survived. Reading it as the axis that is kept gives exactly the wrong answer every time, which is why this is the most common confusion in the whole library.",
+      "grade_id": "numpy-pandas-scipy-d5a82e5c16b8d0b4",
+      "options": [
+        "The axis named is the one that disappears from the result. Averaging along the patient axis collapses the rows and leaves one value per measurement; totalling along the measurement axis collapses the columns and leaves one value per patient \u2014 so the length of the result tells you immediately whether you named the right one",
+        "The axis named is the one that is kept, so averaging along the measurement axis leaves one value per measurement, and totalling along the patient axis leaves one value per patient",
+        "The axis argument selects the direction of traversal but not the result's shape, which is always one-dimensional of the same length as the first axis; the two computations therefore need the matrix transposed between them",
+        "The axis argument only matters for arrays with more than two dimensions; for a matrix, the reduction always produces a single scalar unless the result is reshaped"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "numpy-pandas-scipy-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement the shape rule that makes loops disappear. Write `broadcast_shape(*shapes)`, taking any number of shapes as tuples of non-negative integers and returning the shape of the result of an elementwise operation between arrays of those shapes. The rule: align the shapes at their trailing axis, treating a shorter shape as though it were padded on the left with axes of length one. For each aligned position, all the operands' sizes must be equal apart from any that are one; a size of one stretches to match the others. The output size for that position is the common size, or one if every operand is one. Raise `ValueError` naming the position when two operands have sizes that are both different and neither is one. With no arguments, return the empty tuple. Standard library only \u2014 do not import an array library.",
+      "explanation": "Two of these cases are worth more than the rule itself. A matrix beside a vector of the same length as its rows fails, while the same vector reshaped to stand as a column succeeds \u2014 because alignment happens at the trailing axis, which is why an operation that reads as obviously per-row has to say so with the shape. And a flat vector combined with a column vector of the same length produces a square: nothing is wrong by the rule, but a million-element computation has quietly become a trillion-element one. That is why printing shapes is the first move when array arithmetic misbehaves \u2014 the rule is total, so it rarely errors when you have made a mistake; it just computes something else.",
+      "grade_id": "numpy-pandas-scipy-fbce64f0f208f2bd",
+      "starter": "def broadcast_shape(*shapes):\n    \"\"\"The result shape of an elementwise operation, or ValueError if there is none.\"\"\"\n    ...",
+      "solution": "def broadcast_shape(*shapes):\n    if not shapes:\n        return ()\n    width = max(len(s) for s in shapes)\n    padded = [(1,) * (width - len(s)) + tuple(s) for s in shapes]\n    out = []\n    for axis in range(width):\n        sizes = {p[axis] for p in padded}\n        sizes.discard(1)\n        if len(sizes) > 1:\n            raise ValueError(\n                f\"axis {axis - width}: incompatible sizes {sorted(sizes)}\"\n            )\n        out.append(sizes.pop() if sizes else 1)\n    return tuple(out)",
+      "test": "# A scalar-shaped operand rides along with anything.\nassert broadcast_shape((), (4, 3)) == (4, 3)\nassert broadcast_shape((4, 3), ()) == (4, 3)\nassert broadcast_shape() == ()\nassert broadcast_shape((5,)) == (5,)\n\n# Alignment is from the trailing axis, so a per-column vector fits a matrix.\nassert broadcast_shape((4, 3), (3,)) == (4, 3)\n# ...and the same-length vector on the other axis does NOT.\ntry:\n    broadcast_shape((4, 3), (4,))\nexcept ValueError:\n    pass\nelse:\n    raise AssertionError(\"(4,3) and (4,) must not broadcast\")\n\n# A length-one axis stretches; a length-one operand on the correct axis works.\nassert broadcast_shape((4, 3), (4, 1)) == (4, 3)\nassert broadcast_shape((1, 3), (4, 1)) == (4, 3)\n\n# The classic accident: a flat vector and a column vector produce a square,\n# not the elementwise result the author expected.\nassert broadcast_shape((1000,), (1000, 1)) == (1000, 1000)\n\n# Three or more operands, and padding across different ranks.\nassert broadcast_shape((8, 1, 6, 1), (7, 1, 5), (8, 7, 6, 5)) == (8, 7, 6, 5)\nassert broadcast_shape((2, 1), (1, 3), (2, 3), (1, 1)) == (2, 3)\n\n# A genuine mismatch is an error, not a silent truncation to the smaller size.\nfor bad in (((3,), (4,)), ((2, 3), (2, 4)), ((5, 2), (3, 2))):\n    try:\n        broadcast_shape(*bad)\n    except ValueError:\n        continue\n    raise AssertionError(f\"{bad} must not broadcast\")\n\n# A zero-length axis is a real size and only pairs with itself or with one.\nassert broadcast_shape((0,), (1,)) == (0,)\nassert broadcast_shape((3, 0), (3, 1)) == (3, 0)\ntry:\n    broadcast_shape((0,), (3,))\nexcept ValueError:\n    pass\nelse:\n    raise AssertionError(\"a zero-length axis must not stretch to 3\")\n\n# The result never has fewer axes than the widest operand.\nassert len(broadcast_shape((5,), (2, 3, 5))) == 3"
+    },
+    {
+      "id": "numpy-pandas-scipy-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "Two edits in the same cleanup script misbehave. The first selects the rows meeting a condition and then assigns to a column of that selection; afterwards the table is unchanged and no exception was raised. The second takes a contiguous slice of an array, modifies an element of the slice, and later discovers the original array changed too. Which account is right?",
+      "explanation": "One question \u2014 window or copy \u2014 with opposite consequences. Selecting and then assigning in two separate steps can write into an intermediate nobody keeps, which fails silently; doing both in one labelled indexing operation names the destination unambiguously. A basic slice sharing storage is the deliberate design that makes slicing free, and the cost of that design is that mutation is visible through every window onto the same memory.",
+      "grade_id": "numpy-pandas-scipy-9eda41740505b93b",
+      "options": [
+        "They are two faces of one question \u2014 whether an expression handed you a window onto the original storage or a fresh copy. The first produced a temporary that the assignment landed in and that was then discarded, so the write went nowhere; performing the selection and the assignment in a single labelled indexing operation writes to the table itself. The second produced a window onto the same storage, which is the intended behaviour and the reason a slice is cheap; take an explicit copy when independence is wanted",
+        "Both are ordering bugs: the assignment happened before the condition was evaluated in the first case, and before the slice was materialised in the second, so evaluating the condition into a variable first fixes both",
+        "The first is a type problem \u2014 assigning into a boolean-selected region requires a matching type \u2014 and the second is unrelated, being caused by the array's storage being reused after garbage collection",
+        "Both are caused by the library's default of operating in place; passing the flag that disables in-place behaviour makes the first edit apply and the second not propagate"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "numpy-pandas-scipy-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "A pipeline is slow. Four proposals arrive: (a) rewrite the per-row cleanup, currently a function applied to each row, as column expressions; (b) move a fifty-gigabyte join off this stack; (c) replace a hand-written optimiser with a library one; (d) move the whole thing to a cluster framework. For each, say whether it is likely to help and what property decides it.",
+      "explanation": "The proposals are ordered by cost and by how confident you can be. Two of them fix the pipeline using it wrongly, one replaces code that should never have been written, and the fourth is the only one that changes the operational picture \u2014 which is why it should be the last considered rather than the first.",
+      "grade_id": "numpy-pandas-scipy-f196d91c5c75807e",
+      "expected": "A correct answer must judge all four by a property. (a) Very likely to help, and it should be tried first: applying a function per row runs an interpreted loop over boxed values and forfeits everything the array layer provides, whereas whole-column expressions push the loop into compiled code \u2014 the deciding property is whether the work is expressed as an operation on a whole column or as a Python callable per element, and this is usually the largest single win available in an existing pipeline. (b) Likely to help: a join at that size on the labelled tabular layer is single-threaded and memory-hungry, several times the file size in RAM, which is exactly the documented exit condition toward a multi-threaded or out-of-core engine or an analytical SQL engine \u2014 the deciding property is size and the shape of the operation, not the code's quality. (c) Likely to help correctness more than speed, and worth doing regardless: vetted numerical routines exist for exactly these problems, and a hand-written one is both slower and, more importantly, easy to get subtly wrong \u2014 the deciding property is that the algorithm is a solved problem someone has already implemented and tested. (d) Probably premature: distributing brings genuine operational overhead and complexity, and is warranted when the work no longer fits on one machine at all, not when one machine is being used badly \u2014 the deciding property is whether a single machine has actually been outgrown, which the other three proposals have not yet established. A good answer notes that these interoperate through a common array or columnar representation, so (b) and (c) can be adopted piecewise rather than as a rewrite."
+    }
+  ]
+}

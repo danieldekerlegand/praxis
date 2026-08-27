@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "polars",
+  "title": "Polars",
+  "domain": "10-data-analysis-research",
+  "runnable": true,
+  "generated": "2026-08-27T06:55:14+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "polars-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "Four tabular jobs on one team. (i) A 400 MB file of events, three joins and a group-by, currently pinning one core for eleven minutes. (ii) A 900-row survey feeding a scikit-learn pipeline. (iii) A colleague who thinks in SQL and wants to query a directory of Parquet files. (iv) Forty terabytes across a cluster. Which allocation matches this notebook's own guidance?",
+      "explanation": "The sweet spot is single-machine work at a size where the older library's single-threaded, eager execution hurts. Below that, familiarity and ecosystem integration win; sideways, the SQL engine is a peer that shares the same memory format; above it, one machine genuinely is not enough. Streaming raises the ceiling on one box \u2014 it does not turn one box into a cluster.",
+      "grade_id": "polars-33a86711e6a2405a",
+      "options": [
+        "(i) here \u2014 that size and shape is squarely what the library exists for; (ii) stay with the classic library, because the data is tiny and the downstream stack speaks it natively; (iii) the embedded SQL engine, which is a companion rather than a competitor and hands results over shared columnar memory at no copy; (iv) a genuinely distributed system, since this engine is single-machine",
+        "All four here: the streaming execution mode removes the memory ceiling, so a cluster is never necessary and the SQL preference is a matter of taste",
+        "(i) and (iv) here because both are large; (ii) and (iii) with the classic library, since small data and SQL-style work are both outside this engine's scope",
+        "(ii) and (iii) here because both are small enough to fit in memory; (i) and (iv) on a distributed system, since anything that currently takes minutes needs more than one machine"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "polars-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A newcomer writes a pipeline, prints an intermediate result after each step to check it, and reports that the library is 'no faster than what we had'. Explain what their debugging habit did to the engine's advantage, describe the difference between how the two libraries treat a sequence of operations, and say what the newcomer should look at instead.",
+      "explanation": "The whole benefit depends on the engine seeing the entire query before it runs any of it. A print between steps is a forced execution, and each one gives the optimiser a smaller problem than the one it was designed to solve.",
+      "grade_id": "polars-816247408dd9a203",
+      "expected": "A correct answer must contrast immediate execution with planned execution. The older library evaluates each statement as it is written, so a sequence of operations is a sequence of materialised intermediate tables. Here, the intended mode builds a description of the whole query first \u2014 operations chained on a deferred frame produce a plan, and nothing runs until the result is requested \u2014 which lets the engine rewrite that plan before executing it: applying row filters while the file is being read rather than after, reading only the columns the query actually mentions, and eliminating repeated sub-expressions. Printing after every step destroys exactly this: each print forces the query to run to that point, so the engine only ever sees one operation at a time and can optimise nothing across the boundary, which reduces it to the immediate behaviour the newcomer was trying to leave behind. It also materialises intermediates the optimiser would otherwise have skipped entirely. What they should look at instead is the plan itself \u2014 the engine can print the optimised plan without executing it, so the filters and the restricted column set can be seen to have moved into the file scan \u2014 and then request the result once at the end. Noting that reading a file eagerly, rather than scanning it lazily, has the same effect of defeating the pushdown before the query even starts is a plus."
+    },
+    {
+      "id": "polars-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "An analyst needs each row to carry its own value, its group's average, and its rank within that group, with the table keeping all its original rows. They reach for the grouped-aggregation context and then try to attach the results back. What is the more direct construction, and what distinguishes it?",
+      "explanation": "The distinction is whether the output has one row per group or one row per input row. Collapsing and then joining back is a real pattern, but it is the long way round when the library offers an aggregation qualified by group that keeps the frame's shape \u2014 and rank within group is the case where the join-back version is most awkward.",
+      "grade_id": "polars-208b178ee71a63c6",
+      "options": [
+        "An aggregation qualified to compute within each group but evaluated in a context that adds columns rather than collapsing rows: the group-level value is computed once per group and broadcast back to every row of that group, so it lines up positionally with the source and no join back is needed. The grouped-aggregation context is for when one row per group IS the desired output",
+        "The grouped context with a flag that preserves the input rows, which is the intended mechanism; the windowed form is only for ordered running totals over time",
+        "Sorting by the grouping column and using a rolling window of the group's size, since per-group values cannot be broadcast without an explicit join",
+        "There is no difference \u2014 the two constructions produce the same shape, and the grouped context is preferred because it parallelises while the windowed form does not"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "polars-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Write the two optimisations the engine performs. Implement `optimize(available, ops)`. `available` is the list of columns stored in the source file. `ops` is the query as a list of dicts applied in order, each one of: `{\"op\": \"filter\", \"column\": c, \"predicate\": ...}`; `{\"op\": \"with_columns\", \"output\": name, \"inputs\": [c, ...]}`; `{\"op\": \"select\", \"columns\": [c, ...]}`; `{\"op\": \"group_by\", \"keys\": [c, ...], \"aggs\": {out: c, ...}}`. A filter moves into the scan only if its column is stored in the source and was not produced by an earlier `with_columns` \u2014 a computed value does not exist on disk. Every other operation stays, in its original order. A column produced by `with_columns` traces back to the stored columns its inputs resolve to, transitively. Return `{\"scan_columns\": sorted stored columns the query touches, \"pushed_filters\": [the filter ops moved into the scan, in order], \"kept\": [the remaining ops, in order]}`. Raise `ValueError` for a reference to a column that is neither stored nor computed earlier. Standard library only.",
+      "explanation": "Both rewrites fall out of one question \u2014 what does this operation actually need from the file? A filter over a stored column can be answered while the bytes are being read, so the rows are never materialised; a filter over a value the query computes cannot be, because there is nothing on disk to compare against. And tracing derived columns back to their sources is what lets the scan skip columns the query never mentions, which is why a wide file costs almost nothing to query narrowly. Note the last case: an unknown column has to fail rather than quietly widen the read, because a planner that guesses is worse than one that stops.",
+      "grade_id": "polars-387e39b2b133ff61",
+      "starter": "def optimize(available, ops):\n    \"\"\"Push filters into the scan and work out which stored columns must be read.\"\"\"\n    ...",
+      "solution": "def optimize(available, ops):\n    available = set(available)\n    provenance = {}\n    needed = set()\n    pushed = []\n    kept = []\n\n    def resolve(name):\n        if name in provenance:\n            return set(provenance[name])\n        if name in available:\n            return {name}\n        raise ValueError(f\"unknown column {name!r}\")\n\n    derived = set()\n    for op in ops:\n        kind = op[\"op\"]\n        if kind == \"filter\":\n            column = op[\"column\"]\n            needed |= resolve(column)\n            if column in available and column not in derived:\n                pushed.append(op)\n            else:\n                kept.append(op)\n        elif kind == \"with_columns\":\n            sources = set()\n            for name in op[\"inputs\"]:\n                sources |= resolve(name)\n            provenance[op[\"output\"]] = sources\n            derived.add(op[\"output\"])\n            needed |= sources\n            kept.append(op)\n        elif kind == \"select\":\n            for name in op[\"columns\"]:\n                needed |= resolve(name)\n            kept.append(op)\n        elif kind == \"group_by\":\n            for name in op[\"keys\"]:\n                needed |= resolve(name)\n            for name in op[\"aggs\"].values():\n                needed |= resolve(name)\n            kept.append(op)\n        else:\n            raise ValueError(f\"unknown operation {kind!r}\")\n\n    return {\n        \"scan_columns\": sorted(needed & available),\n        \"pushed_filters\": pushed,\n        \"kept\": kept,\n    }",
+      "test": "COLS = [\"city\", \"month\", \"temp_f\", \"rain_in\", \"humidity\", \"wind\"]\n\n# A filter on a stored column belongs in the scan; only the touched columns are read.\nplan = optimize(COLS, [\n    {\"op\": \"filter\", \"column\": \"temp_f\", \"predicate\": \"> 40\"},\n    {\"op\": \"group_by\", \"keys\": [\"city\"], \"aggs\": {\"total_rain\": \"rain_in\"}},\n])\nassert plan[\"scan_columns\"] == [\"city\", \"rain_in\", \"temp_f\"], plan[\"scan_columns\"]\nassert len(plan[\"pushed_filters\"]) == 1, plan\nassert plan[\"pushed_filters\"][0][\"column\"] == \"temp_f\"\nassert [o[\"op\"] for o in plan[\"kept\"]] == [\"group_by\"], plan[\"kept\"]\n\n# A filter on a column the query itself computes cannot be applied while reading,\n# because the value does not exist on disk.\nplan = optimize(COLS, [\n    {\"op\": \"with_columns\", \"output\": \"temp_c\", \"inputs\": [\"temp_f\"]},\n    {\"op\": \"filter\", \"column\": \"temp_c\", \"predicate\": \"> 20\"},\n    {\"op\": \"select\", \"columns\": [\"city\", \"temp_c\"]},\n])\nassert plan[\"pushed_filters\"] == [], plan\nassert [o[\"op\"] for o in plan[\"kept\"]] == [\"with_columns\", \"filter\", \"select\"], plan[\"kept\"]\nassert plan[\"scan_columns\"] == [\"city\", \"temp_f\"], plan[\"scan_columns\"]\nassert \"temp_c\" not in plan[\"scan_columns\"], \"a derived column is never read from the source\"\n\n# Both kinds in one query, in order, and the derived column traced to its sources.\nplan = optimize(COLS, [\n    {\"op\": \"filter\", \"column\": \"city\", \"predicate\": \"in {NYC, LA}\"},\n    {\"op\": \"with_columns\", \"output\": \"comfort\", \"inputs\": [\"temp_f\", \"humidity\"]},\n    {\"op\": \"filter\", \"column\": \"comfort\", \"predicate\": \"> 0\"},\n    {\"op\": \"filter\", \"column\": \"wind\", \"predicate\": \"< 20\"},\n    {\"op\": \"select\", \"columns\": [\"city\", \"comfort\"]},\n])\nassert [f[\"column\"] for f in plan[\"pushed_filters\"]] == [\"city\", \"wind\"], plan[\"pushed_filters\"]\nassert [o.get(\"column\", o[\"op\"]) for o in plan[\"kept\"]] == [\n    \"with_columns\", \"comfort\", \"select\"], plan[\"kept\"]\nassert plan[\"scan_columns\"] == [\"city\", \"humidity\", \"temp_f\", \"wind\"], plan[\"scan_columns\"]\nassert \"rain_in\" not in plan[\"scan_columns\"] and \"month\" not in plan[\"scan_columns\"]\n\n# A chain of derivations resolves all the way back to stored columns.\nplan = optimize(COLS, [\n    {\"op\": \"with_columns\", \"output\": \"a\", \"inputs\": [\"temp_f\"]},\n    {\"op\": \"with_columns\", \"output\": \"b\", \"inputs\": [\"a\", \"rain_in\"]},\n    {\"op\": \"select\", \"columns\": [\"b\"]},\n])\nassert plan[\"scan_columns\"] == [\"rain_in\", \"temp_f\"], plan[\"scan_columns\"]\n\n# A query that touches nothing reads nothing.\nassert optimize(COLS, []) == {\"scan_columns\": [], \"pushed_filters\": [], \"kept\": []}\n\n# A reference to a column that neither exists nor was computed is an error, not a silent read.\nfor bad in ([{\"op\": \"filter\", \"column\": \"nope\", \"predicate\": \"x\"}],\n            [{\"op\": \"select\", \"columns\": [\"city\", \"nope\"]}],\n            [{\"op\": \"with_columns\", \"output\": \"z\", \"inputs\": [\"nope\"]}],\n            [{\"op\": \"group_by\", \"keys\": [\"nope\"], \"aggs\": {}}]):\n    try:\n        optimize(COLS, bad)\n    except ValueError:\n        pass\n    else:\n        raise AssertionError(f\"unknown column must be rejected: {bad}\")"
+    },
+    {
+      "id": "polars-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "Two changes are proposed to speed up a slow pipeline. Change A replaces a chain of column expressions with a loop that iterates the rows and applies a small Python function to each. Change B replaces a lazy scan of a wide file with an eager whole-file read, on the grounds that 'reading it once up front must be faster than reading it repeatedly'. Assess both.",
+      "explanation": "The two are the same mistake at different layers. Expressions exist so the compiled engine can evaluate them across cores; a per-row Python callable puts every value back through the interpreter. Lazy scanning exists so the engine can decide what to read; reading eagerly makes that decision for it, and the premise that a lazy scan re-reads the file is simply wrong.",
+      "grade_id": "polars-15f4c7ff0b115126",
+      "options": [
+        "Both make it slower for the same underlying reason: they take work away from the engine. The loop returns execution to single-threaded interpreted Python and forfeits the parallel, compiled evaluation the expressions were getting; the eager read forfeits the planning, so the whole file is loaded including rows and columns the query would have discarded \u2014 a lazy scan does not read the file repeatedly, it reads less of it once",
+        "Change A is a wash but Change B is a genuine improvement, since a single sequential read is always cheaper than a planned read",
+        "Change A is a genuine improvement because a Python function can short-circuit per row, while Change B is neutral on a file that fits in memory",
+        "Both are improvements on small files and regressions on large ones, so the correct answer depends entirely on the file size"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "polars-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "A team is mid-migration and asks four questions in one meeting. (a) 'We have a fitting step that needs the older library's objects \u2014 does that block the migration?' (b) 'Our teammate writes SQL. Do they have to learn expressions?' (c) 'Our nightly job is 300 GB on one 512 GB machine. Cluster time?' (d) 'Should we convert our 5,000-row config table too?' Answer each with the property that decides it.",
+      "explanation": "Three of the four answers are 'no, and here is the seam' \u2014 interoperability at a boundary, a SQL companion sharing the same memory format, and a streaming mode that raises the ceiling on one machine. The fourth is the reminder that a faster engine is only worth adopting where speed was the problem.",
+      "grade_id": "polars-9f9d76d7fa37dc92",
+      "expected": "A correct answer must answer all four by a property rather than a preference. (a) No: conversion at the boundary is supported and the right shape is to convert once, immediately before the step that needs the other representation, rather than to flip back and forth inside a loop \u2014 the deciding property is that the conversion has a cost that is negligible once and ruinous repeatedly, so it is a seam, not a blocker. Noting that the conversion is cheap or free for column types the shared memory format represents directly, and copies for the ones it does not, is a plus. (b) No: the SQL engine in this family is a companion rather than a rival, it queries the same files, and results move between the two over the shared columnar format without copying \u2014 so the teammate writes SQL and hands the result across the seam. (c) Not necessarily: this is still one machine, and the streaming execution mode processes the query in chunks so it can exceed available memory \u2014 the deciding property is that the work is single-machine, and a cluster is warranted by needing more than one machine rather than by a large number. A good answer adds the caveat that not every operation streams, so the plan should be checked rather than assumed. (d) No, or at least it is not where the benefit is: at five thousand rows execution time is irrelevant and the decision should be made on consistency and on which library the surrounding code uses \u2014 the deciding property is that the advantage here is throughput, and there is no throughput problem to solve."
+    }
+  ]
+}

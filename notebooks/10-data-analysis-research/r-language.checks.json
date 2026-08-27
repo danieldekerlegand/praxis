@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "slug": "r-language",
+  "title": "R",
+  "domain": "10-data-analysis-research",
+  "runnable": false,
+  "generated": "2026-08-27T06:54:57+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "r-language-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A team must ship a survival-analysis model as a scoring service behind an HTTP API, with monthly retraining in an existing orchestration platform. One engineer proposes doing everything in the statistical language because the method's canonical implementation lives there; another proposes rewriting the method from scratch in the general-purpose language to keep the stack uniform. What does this notebook's argument actually support?",
+      "explanation": "The comparison in this notebook is not a contest \u2014 it is a division of labour, with interoperability in both directions explicitly noted. The unique asset is the body of implemented statistical methods; the weakness is production engineering. Rewriting a peer-reviewed method to keep a stack uniform throws away the asset, and doing operations in the statistics environment fights its weakness.",
+      "grade_id": "r-language-79309da552531427",
+      "options": [
+        "Neither extreme: the language's strength is that the method already exists, peer-reviewed, so the fitting belongs there \u2014 but deployment, orchestration and the service itself are engineering, which is the other language's ground, so the healthy answer is to use both across a defined seam rather than to pick one and suffer",
+        "The first engineer: once a package for the method exists, the surrounding service and scheduling concerns are minor, and rewriting proven statistical code is always the larger risk",
+        "The second engineer: because the runtime is interpreted and copies on modify, it cannot fit a model of any size, so the method must be reimplemented in a compiled or general-purpose stack",
+        "Neither, but for a different reason: a statistical method with a formula interface cannot be exposed over a network at all, so the deliverable has to change"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "r-language-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A developer arriving from a general-purpose language writes a loop that appends to a result one element at a time, then complains the language is slow, and separately is confused that a function they passed a table to did not change the caller's copy. Explain what single design commitment sits behind both experiences, and what the idiomatic form of each piece of code is instead.",
+      "explanation": "One commitment \u2014 values behave as copies \u2014 explains both the safety and the cost. It is why pipelines return new tables instead of mutating, and why appending in a loop is the pathological case; vectorised expressions are the form the language is built to make fast.",
+      "grade_id": "r-language-bfb22ad084923982",
+      "expected": "A correct answer must connect both to value semantics \u2014 assigning or passing behaves as though the receiver got its own copy, so functions do not mutate their arguments and there is no shared reference for the caller to observe. On the second experience: that is the intended behaviour, and the idiom is to return a new table and reassign it, which is why analysis is written as a chain of transformations each taking a table and yielding a table rather than as a sequence of in-place edits. On the first: growing a container by repeated appending means the whole thing is reallocated and recopied on each step, so the work is quadratic in the number of elements \u2014 and the language is slow at that specifically because of the same commitment. The idiom is not to loop at all: the unit of computation is the whole column, operations apply elementwise across it, and an expression over the entire vector replaces the loop. Where iteration is genuinely needed, the answer is either to preallocate the result to its final size or to use the family of functions that apply a function across elements and assemble the result, rather than to append. Naming a specialised high-performance table package or a compiled-code interface as the escape hatch for a genuinely hot path is a plus."
+    },
+    {
+      "id": "r-language-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "An analyst adds a column by writing an expression that combines a table's column with a separately computed vector, and no warning appears. Later the numbers are wrong for most rows, and it emerges that the separate vector had a different length than the table's column. Which pair of language properties explains this, and what should have been done?",
+      "explanation": "Repetition of the shorter operand is a real convenience for genuinely scalar-like values and a genuine hazard for anything derived elsewhere, and it is silent by design. Nothing here joins on names or pads with missing values. The durable defence is to compute inside the table so lengths cannot disagree.",
+      "grade_id": "r-language-5e816cf2c0babdfa",
+      "options": [
+        "Operations pair up elements positionally and, when lengths differ, the shorter operand is repeated from the beginning until the longer one is exhausted \u2014 silently, since this is a deliberate feature \u2014 so the fix is to check lengths, or better, to derive the value from columns of the same table so alignment is structural rather than assumed",
+        "Vectors carry names, and combining two vectors joins them on those names; the analyst's vector was unnamed, so the values were assigned in arbitrary order and the fix is to name it",
+        "The shorter operand is padded with missing values, which propagate, so the fix is to remove missing values before combining",
+        "Combining a column with an outside vector coerces both to text, so the arithmetic was performed on strings; the fix is an explicit numeric conversion"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "r-language-04",
+      "section": "Worked Examples",
+      "kind": "short",
+      "prompt": "A colleague reads a modelling example and asks: 'why is the categorical predictor wrapped in a conversion before it is used, when it is already a column of whole numbers, and why is the model specified with that two-sided notation instead of just being passed the columns?' Answer both, and say what the second buys you across the ecosystem.",
+      "explanation": "Both answers are about letting a declaration carry the meaning. The type of a column decides whether it is a quantity or a set of labels, and the model notation is a portable statement of structure \u2014 which is what makes learning one interface pay off across thousands of packages.",
+      "grade_id": "r-language-675750be9ef67f0f",
+      "expected": "A correct answer must handle both. On the conversion: a column of whole numbers is numeric, so leaving it alone tells the model to fit a single slope, treating a one-unit change as having the same effect everywhere along the scale \u2014 which is meaningful for a measurement but nonsense for a label that happens to be recorded as a number. Converting it to a categorical type makes the fitting machinery expand it into indicator terms and estimate a separate effect for each level relative to a baseline, which is what the analyst intended. On the notation: it is a first-class object describing the structure of the model \u2014 a response on one side and terms on the other \u2014 rather than a bag of arguments, so the relationship is stated declaratively and the machinery derives the design from it, including expanding categorical terms, and its symbols compose terms in defined ways such as additive terms, interactions, and shorthand for the remaining columns. What it buys across the ecosystem is uniformity: the same notation is accepted by the ordinary linear fit, the generalised one, mixed-effects packages, additive-model packages and most others, so the interface is learned once and transfers to methods the analyst has never used before. Noting that a categorical variable's levels determine which category is the reference, so the coefficients are interpreted relative to it, is a plus."
+    },
+    {
+      "id": "r-language-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A cleaning script drops rows whose value is unavailable by comparing each entry against the marker for a missing value with an equality test. It reports zero rows dropped even on data that is visibly full of gaps. Separately, a check that a computed total matches an expected total fails despite both printing identically. What single family of misconceptions is at work?",
+      "explanation": "Two distinct traps, one habit: assuming equality means what it means for exact, known values. A missing value is unknown, so asking whether it equals anything \u2014 including another missing value \u2014 correctly yields unknown rather than true, and a dedicated predicate exists for exactly this. Floating-point comparison is the other classic, and the remedy is a tolerance rather than exactness.",
+      "grade_id": "r-language-9c185db7b5653814",
+      "options": [
+        "Treating two special comparison behaviours as ordinary equality: a comparison against the missing marker yields missing rather than true, because the language cannot assert two unknowns are the same, so the test selects nothing and a dedicated predicate must be used instead; and comparing two computed decimal numbers exactly fails because they are binary approximations that print the same but differ in the last bits, so a tolerance-based comparison is required",
+        "Operator precedence: both expressions bind more loosely than intended and are evaluated in the wrong order, which a pair of parentheses fixes in each case",
+        "Silent type coercion: both comparisons coerce their operands to text, so the equality is being tested between strings rather than values",
+        "Both are indexing errors caused by the language counting from one, so each comparison is offset by a single position"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "r-language-06",
+      "section": "When to Use",
+      "kind": "choice",
+      "prompt": "Four tasks arrive. (i) A paper figure with a fitted trend per group, going to a journal. (ii) Aggregating a two-billion-row event table down to daily per-customer totals. (iii) A recommendation model retrained nightly and served inside the company's product. (iv) A hierarchical model for a clinical study using a method published last year with one existing implementation. Which allocation matches the notebook's own recommendation?",
+      "explanation": "Each task is placed by what the deliverable is. A figure for print and a newly published statistical method play to the environment's two genuine advantages. Two billion rows of aggregation is set-based work the database should do before anything else sees it. A nightly-retrained model inside a product is software engineering, which is the other language's territory \u2014 and none of these is decided by which language the analyst prefers.",
+      "grade_id": "r-language-d1f8a1927f6d6693",
+      "options": [
+        "(i) and (iv) in the statistics environment \u2014 publication graphics and cutting-edge statistical methods are exactly its strengths; (ii) in the database, because set-based aggregation at that size belongs upstream of any analysis language; (iii) in the general-purpose language, because it is a production system rather than an analysis",
+        "All four in the statistics environment, since it can read from databases and be scripted from the shell, which makes a second language unnecessary",
+        "(i) and (ii) in the statistics environment because both are data-frame work; (iii) and (iv) in the general-purpose language because both involve models",
+        "(ii) and (iii) in the statistics environment because both are batch pipelines; (i) and (iv) in the general-purpose language because plotting and modelling libraries there are more actively maintained"
+      ],
+      "answer": 0
+    }
+  ]
+}

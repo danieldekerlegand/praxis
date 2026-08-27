@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "slug": "quarto",
+  "title": "Quarto",
+  "domain": "10-data-analysis-research",
+  "runnable": false,
+  "generated": "2026-08-27T06:55:31+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "quarto-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A team keeps a monthly board report in a word processor, pasting in charts exported from their analysis scripts. Twice this year a chart in the report disagreed with the underlying numbers. A manager proposes a checklist step: 'always re-export every chart before sending'. What does this notebook's argument say?",
+      "explanation": "The pitch here is structural rather than procedural: if the figure is regenerated from the code every time the document is produced, there is no version of the document that can contain a stale figure. That is a different kind of guarantee from remembering to do something, and it is the whole reason a publishing pipeline is worth its overhead for reports that must stay honest.",
+      "grade_id": "quarto-f58f64d8eae8a2b5",
+      "options": [
+        "A checklist attacks the symptom of a structural problem \u2014 the document and the code that produced its contents are separate artefacts that can drift, and a human step is the weakest possible link between them. Making the prose and the code one source that is executed on every render removes the possibility rather than reducing its frequency, which is the actual claim being made for this tool",
+        "The checklist is the right fix: the drift is a process failure, and a publishing tool would introduce a build step without changing the underlying discipline problem",
+        "Neither helps: charts always drift because the data changes after publication, so the only remedy is to date-stamp each figure",
+        "The proposal is unnecessary because word processors already re-run linked content on open, so the two disagreements must have had another cause"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "quarto-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A user asks two questions. 'Why can the same source file produce a web page, a PDF and a slide deck without my rewriting anything?' and 'Why did adding an R chunk to my Python document change which engine ran everything?' Answer both from the pipeline's structure.",
+      "explanation": "One handoff explains both. Execution is format-blind, so the target is cheap to change; but execution is also whole-document, so the engine is chosen once from the languages present rather than negotiated chunk by chunk.",
+      "grade_id": "quarto-b3aca36499f93143",
+      "expected": "A correct answer must separate the two stages. Rendering is a pipeline with a clean handoff: first an execution stage runs the code chunks and captures whatever they produced \u2014 printed output, figures, tables \u2014 and weaves those results back inline, yielding a plain marked-up document with the results embedded; then a separate conversion stage takes that document and produces the requested target. Because the execution stage knows nothing about the output format and the conversion stage knows nothing about the code, changing the requested format only changes the second stage: the code runs once and its results are laid out differently. That is why several targets can be listed in one header and produced from one render. On the second question: which engine executes the code is determined by the languages of the chunks, and it is a document-level choice rather than a per-chunk one \u2014 one engine runs the whole document, and adding a chunk in the other language causes a different engine to be selected for everything. The engine can also be named explicitly in the header when the automatic choice is not the one you want. Noting that this is also why output-format-specific concerns such as needing a typesetting system installed belong to the conversion stage rather than to the code, is a plus."
+    },
+    {
+      "id": "quarto-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A report should show a data-loading step's code and its resulting table; run a slow database write for display only, never executing it; and run a configuration step whose output should not appear anywhere while its effects persist. Which set of per-chunk settings does this?",
+      "explanation": "The options are independent switches for independent questions: does it run, is the source shown, is the result shown, are warnings surfaced, does anything from it appear at all. Once you read them that way the three requirements map straight onto them, and the common pattern of a document-level default with per-chunk overrides falls out.",
+      "grade_id": "quarto-79b888f15037d984",
+      "options": [
+        "Show the source and the results for the first; for the second, keep the source visible but turn off execution so the code is displayed without running; for the third, leave execution on but suppress everything the chunk emits, so it runs for its side effects and contributes nothing to the page",
+        "Use the option that suppresses warnings for all three, since it is the only one that varies what reaches the reader; the difference between them is then a matter of chunk ordering",
+        "The first needs execution turned off so the table is cached, the second needs the source hidden, and the third needs execution turned on with the source shown",
+        "All three need the same setting \u2014 the one that continues rendering past a failing chunk \u2014 because each involves an operation that may fail; the visible differences follow from that automatically"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "quarto-04",
+      "section": "Worked Examples",
+      "kind": "short",
+      "prompt": "A continuous-integration job that rebuilds a documentation site takes forty minutes, almost all of it re-running the same expensive analyses on unchanged source files, and it needs database credentials in the build environment purely so those analyses can run. A colleague proposes committing the rendered HTML instead and dropping the build. Describe the mechanism this tool offers for the underlying problem, what it stores and where, and why it is a better answer than the colleague's.",
+      "explanation": "The mechanism separates 'when did the source change' from 'when must the code run', which is exactly the distinction a slow build needs. The colleague's shortcut wins the same speed by giving up the property the whole system exists to provide.",
+      "grade_id": "quarto-105764477581ca13",
+      "expected": "A correct answer must name the reuse-of-previous-results mechanism and describe it. The system can be told to reuse stored execution results rather than re-running chunks, with the stored output kept in a dedicated directory alongside the project and committed with it, so that a build that only changes prose or styling re-renders without executing any code at all \u2014 and results are re-executed only when the document that produced them actually changes. There is also a finer-grained memoisation at the level of an individual chunk for expensive steps within a document that is otherwise re-executed. This addresses both complaints directly: the forty minutes disappears for builds that did not change the analysis, and the build environment no longer needs the credentials, because the code is not being run there \u2014 execution happens on a machine that legitimately has access, and the results travel with the source. It is better than committing rendered output because the source of truth remains the executable document: the prose, the code and the results stay in one place and can still be re-executed deliberately, whereas committing the rendered pages recreates the original problem \u2014 a published artefact that is no longer derived from the code and can drift from it silently. Noting that the stored results are an artefact to be reviewed and can go stale if the data changes without the document changing, so a periodic full re-execution is still wanted, is a plus."
+    },
+    {
+      "id": "quarto-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A document renders cleanly to a web page but fails when a second target is added, with an error about a missing external program. Separately, a colleague's figure numbering runs 1, 2, 3 in the web output but 1, 3, 2 in the other target, because they typed the figure numbers into the prose by hand. What is the right diagnosis of each?",
+      "explanation": "The two stages have different dependencies, and the second target's requirement belongs to conversion, not to your code \u2014 which is why it appears only when that target is added. The numbering problem is the same lesson as the figures themselves: anything a human maintains by hand alongside generated content will eventually disagree with it, and labelled cross-references exist so it cannot.",
+      "grade_id": "quarto-4ed504f1e323c103",
+      "options": [
+        "The first is a dependency of the conversion stage rather than of the code: the second target is produced through a typesetting system that must be installed, and the tool can install a minimal distribution for you. The second is a self-inflicted problem: labelling a figure and referencing that label lets the numbering and the hyperlinks be generated per target, so hand-typed numbers are guaranteed to drift the moment anything is reordered or a target places things differently",
+        "Both are engine problems: the second target requires a different execution engine, and figure numbering is assigned by the engine at execution time, so both are fixed by naming the engine explicitly",
+        "The first is a missing package in the analysis environment, and the second is a caching artefact \u2014 clearing the stored results renumbers the figures consistently",
+        "Both indicate the document should be split into a project with a configuration file; single documents do not support multiple targets or automatic numbering"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "quarto-06",
+      "section": "When to Use",
+      "kind": "choice",
+      "prompt": "Four deliverables. (i) A dashboard where a user moves a slider and every chart recomputes. (ii) A 90-page thesis with numbered figures, citations and a PDF target. (iii) A one-off scatter plot to check a hunch. (iv) A team where one member writes analysis in R and another in Python, producing one shared report. Which allocation follows the notebook's guidance?",
+      "explanation": "Two of the four are the intended cases \u2014 long-form reproducible publishing, and a polyglot team producing one document \u2014 and two are not. A stateful application with callbacks is a different kind of artefact, and a throwaway check has no publishing step for the pipeline to pay for.",
+      "grade_id": "quarto-1f892794e2df7cdc",
+      "options": [
+        "(i) an interactive application framework, since output here is largely static even though widgets can be embedded; (ii) this tool, which is squarely the reproducible long-form publishing case; (iii) just run a script \u2014 the value here is in publishing, and there is nothing to publish; (iv) this tool, because being language-agnostic is one of its explicit reasons to exist",
+        "(i) and (ii) this tool, since both need rich output; (iii) and (iv) a plain notebook, since neither is published",
+        "(i) this tool with live-reloading preview, which provides the interactivity; (ii) a word processor, since long documents with citations are what those are for; (iii) this tool; (iv) two separate reports, one per language",
+        "All four this tool: it renders to every format, embeds interactive components, previews live, and supports several languages, so no alternative is warranted"
+      ],
+      "answer": 0
+    }
+  ]
+}

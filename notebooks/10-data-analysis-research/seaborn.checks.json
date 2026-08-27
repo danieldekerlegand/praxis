@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "seaborn",
+  "title": "seaborn",
+  "domain": "10-data-analysis-research",
+  "runnable": true,
+  "generated": "2026-08-27T06:55:25+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "seaborn-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "An analyst needs a chart comparing a measurement across four groups, split into panels by a fifth variable, with markers distinguishing a sixth. They estimate a day of work in the low-level plotting library. What does this notebook claim, and what is the honest limitation of that claim?",
+      "explanation": "The saving is specifically the bookkeeping that grows with the number of mapped variables \u2014 one nested loop, one legend, one palette decision per channel. And the escape hatch is the point of the layering: what it draws is made of the lower library's objects, so final polish is a step down rather than a rewrite.",
+      "grade_id": "seaborn-d402223bb04c284f",
+      "options": [
+        "The claim is that the work collapses to a single call describing the mapping from column names to visual channels, with the grouping, palette, legend and axis labels derived from it \u2014 the day's work is the loop, the legend and the styling, none of which you write. The limitation is that this is a convenience layer producing static images: when the figure needs pixel-level bespoke treatment, you reach down to the underlying plotting object it returns rather than getting it from the mapping",
+        "The claim is that the higher-level library renders faster on large data because it aggregates before drawing; the limitation is that it cannot produce publication-quality output",
+        "The claim is that the mapping is interactive, so panels and markers can be changed after the figure is drawn; the limitation is that it requires a browser to display",
+        "The claim is that it replaces the low-level library entirely; the limitation is that mixing the two in one figure is not supported, so adopting it is all-or-nothing"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "seaborn-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A user builds a two-by-two grid of panels with the low-level library and then tries to place four of this library's charts into those panels by passing each panel as an argument. Two of the four charts appear where expected; the other two silently open figures of their own and their panels stay empty. Explain the distinction they have run into, how to tell which kind a function is, and what to do in each direction.",
+      "explanation": "One question \u2014 does this function own the figure or draw into a region you hand it \u2014 settles composition, faceting and saving all at once. The silent failure is what makes it worth learning early: nothing errors, the chart simply appears somewhere else.",
+      "grade_id": "seaborn-422e503af06644c3",
+      "expected": "A correct answer must name the two families of function. Some functions draw into a single plotting region and accept that region as an argument, returning it; others own an entire figure, because their job includes splitting the data into a grid of panels, and they therefore create and manage that figure themselves \u2014 passing them a region has no effect, which is exactly the silent failure observed. How to tell them apart: the figure-owning ones are the small set that take arguments for splitting into rows and columns of panels and return a grid object, while the region-level ones take the region argument and return the region. Very often the same chart exists in both forms, with the figure-owning one being a wrapper around the region-level one. What to do: to compose charts into a layout you built yourself, use the region-level functions and pass each region; to get panels split by a variable, use the figure-owning function and let it build the whole figure, then adjust it through the grid object it returns. A correct answer should also note that this difference propagates to saving: a figure-owning function's output is saved through the object it returned, because reaching for the module-level save may capture a different, empty figure."
+    },
+    {
+      "id": "seaborn-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A table has one row per month and one column per product line, holding that month's revenue. The analyst wants one coloured line per product over time and cannot get the colour channel to accept anything sensible. Separately, they plan to colour a five-category variable with a perceptually uniform sequential palette 'because it looks modern'. Assess both.",
+      "explanation": "Both errors are about matching a data property to a visual one. A variable that lives in the column headings is metadata, and mapping requires it to be a column of values. And a palette carries a message: a smooth ramp says these values are ordered and comparable in magnitude, which is a false claim about unordered categories.",
+      "grade_id": "seaborn-c53e173aba15f63a",
+      "options": [
+        "The table is in wide form: 'which product' exists only as a column heading, so there is no column to map to the colour channel \u2014 reshape so that product and revenue become two columns, after which one call draws all the lines and builds the legend. And a sequential palette on unordered categories implies a ranking that does not exist; qualitative palettes are for categories, sequential ones for ordered magnitudes, diverging ones for values around a meaningful midpoint",
+        "The wide table is fine and the colour channel accepts a list of column names; the real problem is the palette, which must be declared before the data is loaded",
+        "Both are fine as described: reshaping is only needed for panel splitting, and palette type is a matter of taste as long as the colours are distinguishable",
+        "The table should be reshaped to an even wider form with one column per product-month pair, and the sequential palette is correct because it guarantees distinguishable colours for up to five categories"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "seaborn-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Compute the error bar the library draws for you. Implement `bootstrap_ci(values, resample, n_boot=1000, ci=95)`. `values` is the observations for one category. `resample(values, i)` returns one resample for iteration `i` \u2014 a list the same length as `values`, drawn with replacement; it is passed in so the result is deterministic. Compute the estimate as the plain mean of `values`. Then take `n_boot` resamples, compute each one's mean, and sort those means. With `tail = (100 - ci) / 2 / 100`, the lower bound is the sorted mean at index `round(tail * (n_boot - 1))` and the upper bound the one at index `round((1 - tail) * (n_boot - 1))`, both rounded to the nearest integer and clamped into range. Return `{\"estimate\": ..., \"low\": ..., \"high\": ...}`. Raise `ValueError` for empty `values`, for `n_boot` below 1, for a `ci` not strictly between 0 and 100, and for a resample whose length differs from the sample's. Standard library only.",
+      "explanation": "Writing it out makes clear what the whisker is and is not. It is not the spread of the observations \u2014 it is the spread of the ESTIMATE across resamples of the same data, which is why a resampler that returns the original sample every time produces an interval of zero width even though the observations vary enormously. That distinction is the reason the library asks you to choose between an interval of this kind and a plain standard deviation: they answer different questions, and a reader who assumes the bar shows the data's spread will read a large sample as far more uniform than it is.",
+      "grade_id": "seaborn-18d455c59c81ca76",
+      "starter": "def bootstrap_ci(values, resample, n_boot=1000, ci=95):\n    \"\"\"The estimate a bar's height shows, and the interval its whisker spans.\"\"\"\n    ...",
+      "solution": "def bootstrap_ci(values, resample, n_boot=1000, ci=95):\n    if not values:\n        raise ValueError(\"no observations to summarise\")\n    if n_boot < 1:\n        raise ValueError(\"n_boot must be at least 1\")\n    if not 0 < ci < 100:\n        raise ValueError(\"ci must be strictly between 0 and 100\")\n    estimate = sum(values) / len(values)\n    means = []\n    for i in range(n_boot):\n        draw = resample(values, i)\n        if len(draw) != len(values):\n            raise ValueError(\"a resample must be the same size as the sample\")\n        means.append(sum(draw) / len(draw))\n    means.sort()\n    tail = (100 - ci) / 2 / 100\n    def pick(q):\n        index = int(round(q * (n_boot - 1)))\n        return means[max(0, min(n_boot - 1, index))]\n    return {\"estimate\": estimate, \"low\": pick(tail), \"high\": pick(1 - tail)}",
+      "test": "DATA = [1.0, 2.0, 3.0, 4.0, 100.0]\nMEAN = 22.0\n\n# A resampler that always hands back the original sample: every resample mean is the\n# same, so the interval collapses onto the estimate.\nsame = bootstrap_ci(DATA, lambda v, i: list(v), n_boot=200)\nassert same[\"estimate\"] == MEAN, same\nassert same[\"low\"] == MEAN and same[\"high\"] == MEAN, same\n\n# A resampler that rotates the sample also leaves every mean identical -- the point\n# estimate does not depend on the order, only on the multiset.\nrotate = bootstrap_ci(DATA, lambda v, i: v[i % len(v):] + v[: i % len(v)], n_boot=50)\nassert rotate[\"low\"] == rotate[\"high\"] == MEAN, rotate\n\n# A resampler that genuinely varies which observations are drawn: the interval opens up\n# and brackets the estimate, and the large outlier makes it very wide.\ndef draw(v, i):\n    out = []\n    seed = i + 1\n    for _ in v:\n        seed = (seed * 1103515245 + 12345) % 2147483648\n        out.append(v[seed % len(v)])\n    return out\n\nwide = bootstrap_ci(DATA, draw, n_boot=400, ci=95)\nassert wide[\"low\"] < wide[\"estimate\"] < wide[\"high\"], wide\nassert wide[\"estimate\"] == MEAN, wide\nassert wide[\"high\"] - wide[\"low\"] > 10, wide\n\n# A narrower confidence level is strictly inside a wider one, from the same resamples.\nnarrow = bootstrap_ci(DATA, draw, n_boot=400, ci=50)\nassert narrow[\"low\"] >= wide[\"low\"] and narrow[\"high\"] <= wide[\"high\"], (narrow, wide)\nassert (narrow[\"high\"] - narrow[\"low\"]) < (wide[\"high\"] - wide[\"low\"]), (narrow, wide)\n\n# The estimate is the plain average of the observations, nothing cleverer.\nplain = [5.0, 7.0, 9.0]\nassert bootstrap_ci(plain, lambda v, i: list(v), n_boot=10)[\"estimate\"] == 7.0\n\n# A single bootstrap iteration still produces a well-formed, degenerate interval.\none = bootstrap_ci(plain, lambda v, i: list(v), n_boot=1)\nassert one[\"low\"] == one[\"high\"] == 7.0, one\n\n# Refusals, including a resampler that changes the sample size.\nfor kwargs, fn in (({}, lambda: bootstrap_ci([], lambda v, i: [], n_boot=5)),\n                   ({}, lambda: bootstrap_ci(plain, lambda v, i: list(v), n_boot=0)),\n                   ({}, lambda: bootstrap_ci(plain, lambda v, i: list(v), ci=0)),\n                   ({}, lambda: bootstrap_ci(plain, lambda v, i: list(v), ci=100)),\n                   ({}, lambda: bootstrap_ci(plain, lambda v, i: v[:1], n_boot=3))):\n    try:\n        fn()\n    except ValueError:\n        continue\n    raise AssertionError(\"must be rejected\")"
+    },
+    {
+      "id": "seaborn-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "After importing this library and calling its theme setter at the top of a long notebook, a colleague complains that every chart later in the session \u2014 including ones drawn directly with the low-level library and one produced by a completely different package \u2014 has changed appearance. They file it as a bug. What is the correct explanation and the narrower alternative?",
+      "explanation": "The convenience is exactly the hazard: one call restyles everything because it edits the renderer's global defaults, which is what makes it a one-liner. When that reach is too wide, the scoped form applies the same styling for a block and puts the defaults back, which is the right tool in a shared or long-lived session.",
+      "grade_id": "seaborn-2797cf3a6bb85596",
+      "options": [
+        "Not a bug: the theme setter writes into the low-level library's global default settings, and every figure drawn afterwards in that process inherits them, whatever drew it. If the styling should apply to only part of the work, apply it within a scoped context so the defaults are restored afterwards",
+        "It is a bug in recent versions, caused by the theme being applied at import rather than at the call; pinning an older version restores the intended per-call behaviour",
+        "The theme setter applies only to this library's own functions, so the other charts must have been redrawn from cached state; clearing the output restores their appearance",
+        "The theme is applied per figure, so the colleague is seeing a single figure being reused; creating a new figure explicitly before each chart avoids it"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "seaborn-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four asks in one afternoon. (a) A first look at how three variables relate, on 300 rows. (b) A scatter of two million points that has become a solid blob of ink. (c) A chart in a report where a reviewer wants to hover to read values and zoom into a date range. (d) A figure from (a) that is now going into a paper and needs exact fonts, a specific axis break, and print resolution. Answer each and give the deciding property.",
+      "explanation": "Only one of the four calls for a different library. One is a chart-type decision, one is a polish step within the same stack, and the first is simply the intended case \u2014 which is the rule of thumb the notebook ends on: start here, reach down for control, move out only when interactivity is a genuine requirement.",
+      "grade_id": "seaborn-b8ce6b035a7c1331",
+      "expected": "A correct answer must handle all four. (a) This library: a quick statistical look at relationships on tidy tabular data with good defaults is precisely what it is for \u2014 the deciding property is that the chart is conventional and the value is in not writing the grouping, the legend and the styling. (b) Not a different library but a different representation: at that density individual points carry no information because they overlap, so reduce the ink \u2014 lower the opacity, switch to a density estimate or a two-dimensional binned or hexagonally binned summary, or sample the rows \u2014 the deciding property is overplotting, which is a chart-type problem rather than a tool problem, and a picture that is a solid blob should not be trusted whatever drew it. (c) An interactive, browser-oriented library: hovering and zooming are not things a static image does, and this layer produces static images \u2014 the deciding property is that the deliverable is an interface. (d) Stay where you are and reach downward: what this library drew is made of the lower library's objects and it hands the relevant one back, so the fonts, the axis treatment and the export resolution are all adjustable there without rebuilding the chart \u2014 the deciding property is that the two are layers rather than rivals, so final polish is a step down rather than a migration."
+    }
+  ]
+}

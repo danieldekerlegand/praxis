@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "plotly",
+  "title": "Plotly",
+  "domain": "10-data-analysis-research",
+  "runnable": true,
+  "generated": "2026-08-27T06:55:28+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "plotly-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A team renders 4,000 small charts nightly, one per account, and emails them as an attachment pack. Someone suggests switching to this library so recipients could zoom. What is the strongest objection this notebook supports?",
+      "explanation": "The trade is explicit: interactivity is bought with a heavier artefact that embeds its own data and a rendering runtime. That is an excellent bargain for one figure someone will poke at and a poor one repeated thousands of times for a glance \u2014 which is the notebook's own rule about when to skip it.",
+      "grade_id": "plotly-c4a957b477f82f87",
+      "options": [
+        "Each interactive figure is a self-contained payload that carries its own data and, unless it is told to fetch the rendering library from a shared location, a copy of that library too \u2014 so a batch of thousands turns a set of small images into a very large delivery for a benefit almost no recipient will use. Interactivity is worth its weight when someone is exploring, not when they are glancing at one chart",
+        "The library cannot produce output that survives being emailed, because its figures require a running Python process to render",
+        "The objection is quality: interactive figures cannot be styled to a consistent house look, so 4,000 of them would be visually inconsistent",
+        "There is no objection \u2014 the payload is identical to a static image and the interactivity is free, so the switch is strictly better"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "plotly-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A colleague believes the high-level, one-call front door and the explicit trace-by-trace object model are two rival libraries, so when the high-level call gets them 90% of the way they rebuild the chart from scratch in the low-level one. Explain what both actually produce, why the rebuild is unnecessary, and what the correct final step is.",
+      "explanation": "One representation, two authoring conveniences. Once the figure is understood as a document that both paths produce, 'start high-level and keep customising' stops being a compromise and becomes the obvious workflow.",
+      "grade_id": "plotly-a1d1d1114c5d8f74",
+      "expected": "A correct answer must identify the shared representation. Underneath, a figure is a document with exactly two important parts: a list of traces \u2014 each one a dataset together with how it should be drawn \u2014 and a layout holding everything that is not data, such as the title, the axes, the legend, annotations and shapes. The one-call front door is a factory that builds and returns exactly the same figure object the explicit model builds by hand; it is not a separate representation, and the object it returns can be inspected as the underlying document. So the rebuild is unnecessary: the 90% result is already the same kind of object, and the remaining 10% is applied by mutating it \u2014 there are chainable updaters for the layout, for the traces and for individual axes, and further traces can simply be added to the existing figure. The correct final step is therefore to keep the high-level call and follow it with those updates, which is both less code and less risk than reconstructing the data mapping by hand. Noting that the same document can be exported as raw structured data, which is a good way to discover which key an updater should target, is a plus."
+    },
+    {
+      "id": "plotly-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A batch job builds figures and needs two artefacts: a self-contained file a stakeholder can open and interact with in a browser, and a fixed image to paste into a slide. The first works; the second fails complaining about a missing component. On a colleague's machine, calling the display method inside a plain script prints nothing at all. Diagnose all three.",
+      "explanation": "Three different mechanisms: interactive export is native, fixed-image export delegates to a separate installable component, and display is mediated by a configured renderer whose sensible choice depends on where the code is running. Conflating them is why 'it shows nothing' and 'it will not export' get reported as the same bug.",
+      "grade_id": "plotly-35b26d428e4403e8",
+      "options": [
+        "Producing a standalone interactive file has no extra requirement, which is why it works. Producing a fixed image goes through a separate rendering component that is installed independently \u2014 install it, or export the interactive file and capture it another way. And the display method routes through a configured renderer: outside a notebook there is nowhere for it to display, so either configure the renderer to open a browser or skip display and write the file",
+        "All three are the same missing component; installing it fixes the image export and also gives the display method somewhere to render",
+        "The image export fails because the figure must first be converted to the explicit object model, and the display method prints nothing because a script must call it on the layout rather than the figure",
+        "The interactive file only appears to work \u2014 it requires a network connection at open time in every configuration \u2014 and both other symptoms follow from the same offline environment"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "plotly-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement the mutators that make 'start high-level, then customise' work. Write `update(spec, layout=None, traces=None, selector=None)`. `spec` is a figure document: `{\"data\": [trace dicts], \"layout\": {...}}`. Return a NEW document, leaving the input completely unmodified and sharing no nested state with it. `layout` is a patch merged into the document's layout by these rules, applied recursively: a value that is a dict, where the target also holds a dict, merges key by key; a value of `None` removes that key; any other value replaces. `traces` is a patch merged into traces by the same rules. `selector` chooses which traces are patched: `None` means all of them, and a dict means only traces that contain every one of its keys with an equal value. Raise `ValueError` if `spec` is not a dict with both `\"data\"` and `\"layout\"`, or if `\"data\"` is not a list. Standard library only.",
+      "explanation": "The recursive merge is the whole reason customising beats rebuilding: patching one property of an axis leaves the rest of that axis alone, so a one-line adjustment cannot silently discard everything the high-level call configured. A replacing assignment would do exactly that, which is what makes the distinction worth implementing by hand once. The selector is the same idea applied across traces \u2014 say which traces you mean rather than reaching in by position \u2014 and the independence assertions matter because a caller reasonably expects to keep the original around for comparison.",
+      "grade_id": "plotly-3d41f6b64219dd1a",
+      "starter": "def update(spec, layout=None, traces=None, selector=None):\n    \"\"\"Merge patches into a figure document without rebuilding or mutating it.\"\"\"\n    ...",
+      "solution": "import copy\n\n\ndef _merge(base, patch):\n    out = copy.deepcopy(base)\n    for key, value in patch.items():\n        if value is None:\n            out.pop(key, None)\n        elif isinstance(value, dict) and isinstance(out.get(key), dict):\n            out[key] = _merge(out[key], value)\n        else:\n            out[key] = copy.deepcopy(value)\n    return out\n\n\ndef _matches(trace, selector):\n    if selector is None:\n        return True\n    return all(key in trace and trace[key] == value\n               for key, value in selector.items())\n\n\ndef update(spec, layout=None, traces=None, selector=None):\n    if not isinstance(spec, dict) or \"data\" not in spec or \"layout\" not in spec:\n        raise ValueError(\"a figure spec needs both 'data' and 'layout'\")\n    if not isinstance(spec[\"data\"], list):\n        raise ValueError(\"'data' must be a list of traces\")\n    new_layout = _merge(spec[\"layout\"], layout or {})\n    new_data = []\n    for trace in spec[\"data\"]:\n        if traces is not None and _matches(trace, selector):\n            new_data.append(_merge(trace, traces))\n        else:\n            new_data.append(copy.deepcopy(trace))\n    return {\"data\": new_data, \"layout\": new_layout}",
+      "test": "import copy\n\nSPEC = {\n    \"data\": [\n        {\"type\": \"scatter\", \"name\": \"widgets\", \"x\": [1, 2], \"y\": [3, 4],\n         \"marker\": {\"size\": 6, \"color\": \"blue\", \"line\": {\"width\": 1}}},\n        {\"type\": \"bar\", \"name\": \"gadgets\", \"x\": [1, 2], \"y\": [5, 6],\n         \"marker\": {\"size\": 6, \"color\": \"green\"}},\n    ],\n    \"layout\": {\"title\": \"sales\",\n               \"xaxis\": {\"title\": \"month\", \"showgrid\": True},\n               \"yaxis\": {\"title\": \"units\"}},\n}\nORIGINAL = copy.deepcopy(SPEC)\n\n# A nested patch merges key by key -- siblings inside the same nested object survive.\nout = update(SPEC, layout={\"xaxis\": {\"showgrid\": False}})\nassert out[\"layout\"][\"xaxis\"] == {\"title\": \"month\", \"showgrid\": False}, out[\"layout\"]\nassert out[\"layout\"][\"yaxis\"] == {\"title\": \"units\"}, out[\"layout\"]\nassert out[\"layout\"][\"title\"] == \"sales\"\n\n# The input is never modified -- a new document comes back.\nassert SPEC == ORIGINAL, \"update must not mutate its input\"\nout[\"layout\"][\"xaxis\"][\"title\"] = \"MONTH\"\nout[\"data\"][0][\"marker\"][\"size\"] = 99\nassert SPEC == ORIGINAL, \"the result must not share nested state with the input\"\n\n# No selector: every trace is patched, and nested keys merge rather than replace.\nout = update(SPEC, traces={\"marker\": {\"color\": \"red\"}})\nassert [t[\"marker\"] for t in out[\"data\"]] == [\n    {\"size\": 6, \"color\": \"red\", \"line\": {\"width\": 1}},\n    {\"size\": 6, \"color\": \"red\"}], out[\"data\"]\n\n# A selector restricts the patch to the traces that match on every listed key.\nout = update(SPEC, traces={\"opacity\": 0.5}, selector={\"type\": \"bar\"})\nassert \"opacity\" not in out[\"data\"][0], out[\"data\"][0]\nassert out[\"data\"][1][\"opacity\"] == 0.5, out[\"data\"][1]\n\nout = update(SPEC, traces={\"opacity\": 0.5}, selector={\"type\": \"bar\", \"name\": \"widgets\"})\nassert all(\"opacity\" not in t for t in out[\"data\"]), \"no trace matches both keys\"\n\n# A selector naming a key a trace does not carry matches nothing.\nout = update(SPEC, traces={\"opacity\": 0.5}, selector={\"legendgroup\": \"a\"})\nassert all(\"opacity\" not in t for t in out[\"data\"]), out[\"data\"]\n\n# None removes a key, at any depth, and leaves its siblings alone.\nout = update(SPEC, layout={\"title\": None, \"xaxis\": {\"showgrid\": None}})\nassert \"title\" not in out[\"layout\"], out[\"layout\"]\nassert out[\"layout\"][\"xaxis\"] == {\"title\": \"month\"}, out[\"layout\"]\n\n# Patching a key that is not currently an object installs a copy of the patch.\nout = update(SPEC, layout={\"legend\": {\"orientation\": \"h\"}})\nassert out[\"layout\"][\"legend\"] == {\"orientation\": \"h\"}, out[\"layout\"]\n\n# Neither patch given: an equal but independent document.\nout = update(SPEC)\nassert out == SPEC and out is not SPEC\nout[\"data\"][0][\"name\"] = \"changed\"\nassert SPEC == ORIGINAL\n\nfor bad in ({}, {\"data\": []}, {\"layout\": {}}, {\"data\": {}, \"layout\": {}}, \"not a spec\"):\n    try:\n        update(bad)\n    except ValueError:\n        continue\n    raise AssertionError(f\"must be rejected: {bad!r}\")"
+    },
+    {
+      "id": "plotly-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "Two charts misbehave. One plots a value per month, and the months come out evenly spaced and in the order they appeared in the table, with a gap month absent entirely rather than shown as a gap. The other, a scatter of 80,000 points, takes several seconds to respond to every zoom. What are the two causes?",
+      "explanation": "Both come from what the library was handed. Text where a date belongs is read as a category, so nothing about ordering or spacing can be inferred and a missing month simply is not there. And the default drawing mode makes one vector element per point, which is fine for hundreds and painful for tens of thousands \u2014 the accelerated mode exists exactly for that crossover.",
+      "grade_id": "plotly-14e00ccf1d2fb110",
+      "options": [
+        "The first passes the dates as text, so the axis is treated as an unordered set of categories rather than as time \u2014 supply genuine date values and the axis becomes continuous, spaced by the actual intervals. The second is being drawn with one vector element per point, which does not scale \u2014 switch that trace to the hardware-accelerated rendering mode for large point clouds, or aggregate before drawing",
+        "The first is a sorting problem in the source table, fixed by sorting before plotting; the second is a data-transfer problem, fixed by exporting to a file rather than displaying inline",
+        "Both are caused by the wrong data shape: reshaping to long form makes the axis continuous and reduces the number of drawn elements",
+        "The first is a locale setting on the axis formatter, and the second is the browser's zoom implementation, neither of which the library controls"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "plotly-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four deliverables. (a) A figure for a journal PDF, exact fonts and vector output. (b) A quick statistical comparison across groups with confidence intervals. (c) A page where a colleague filters by region and the charts respond. (d) A scatter of twelve million points. Recommend one per case and give the deciding property.",
+      "explanation": "Only the third is squarely this library's home ground, and even there the chart is the easy part. The others are decided by whether the output is printed, whether the work is statistical summarisation, and whether the point count has outgrown drawing points at all.",
+      "grade_id": "plotly-63d66394106115fc",
+      "expected": "A correct answer must place all four with a decisive property. (a) The static plotting library: the deliverable is a printed page, where interactivity is worthless and what matters is vector output, precise typography and a light artefact \u2014 the deciding property is that the output is static and print-grade. (b) The statistical convenience layer: computing group summaries and their intervals is what it does in one call, and this library's defaults for pure statistical summaries are less polished \u2014 the deciding property is that the value is in the built-in statistical estimation rather than in interaction. (c) A dashboard framework: filtering that makes charts respond is application behaviour with state and callbacks, not a property of a chart, and the natural choice is the framework built around this library's own figure objects, so the charts carry over unchanged \u2014 the deciding property is that the deliverable is a reactive application. (d) Neither of the ordinary drawing paths: at twelve million points the answer is to aggregate or rasterise before drawing \u2014 a dedicated rasterising tool, or at minimum the hardware-accelerated trace type \u2014 because the browser cannot be handed one element per point and the picture would be a solid mass anyway; the deciding property is that the count exceeds what any per-point renderer can serve. Noting that this library's figures feed directly into the dashboard framework, so (c) is a continuation rather than a switch, is a plus."
+    }
+  ]
+}

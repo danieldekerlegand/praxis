@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "montreal-forced-aligner",
+  "title": "Montreal Forced Aligner",
+  "domain": "10-data-analysis-research",
+  "runnable": true,
+  "generated": "2026-08-27T06:55:00+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "montreal-forced-aligner-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A team has 400 hours of interview audio with no transcripts and needs word- and phone-level timings for a phonetics study. An engineer proposes running this aligner over the audio directly. What is wrong, and what is the correct pipeline?",
+      "explanation": "The distinction between recognition and alignment is the first thing to get right about this tool: one answers what, the other answers where, and the second takes the first's answer as an input. The correct pipeline chains them \u2014 and the caveat that follows is that a recognition error becomes an alignment error silently, since the aligner will dutifully place words that were never spoken.",
+      "grade_id": "montreal-forced-aligner-93cc0976b3651243",
+      "options": [
+        "This tool does not determine what was said \u2014 it determines where known words fall on the timeline, and it requires the transcript as an input. With no transcripts the pipeline is to run speech recognition first to produce them, correct them, and then align; feeding audio without a transcript is not a degraded mode, it is a missing input",
+        "Nothing is wrong: the tool falls back to recognition when no transcript is supplied, at somewhat lower accuracy",
+        "The problem is only the volume: at 400 hours the tool must be run in a distributed configuration, but the approach is otherwise correct",
+        "The problem is granularity: this tool produces sentence-level timings only, so a different tool is needed for word and phone boundaries regardless of the transcripts"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "montreal-forced-aligner-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A colleague asks why this task is so much more accurate and so much faster than recognising the same audio, given both use an acoustic model over the same frames. Explain what makes the search easier, what the transcript has to be turned into first, and why the process is organised around speakers rather than around files.",
+      "explanation": "Fixing the sequence converts an open search into a timing problem, which is the whole efficiency and accuracy story \u2014 and also the whole failure mode, since a fixed wrong sequence is placed just as confidently as a right one.",
+      "grade_id": "montreal-forced-aligner-a72a844b8db23265",
+      "expected": "A correct answer must identify what the transcript removes from the search. Recognition has to consider every word sequence the vocabulary permits, so the space of candidate answers is enormous. Here the sequence is already known, so the only unknowns are the times at which one unit gives way to the next: the search is over alignments of a fixed sequence onto the frames rather than over sequences, which is both a far smaller problem and a far better-determined one. Before that can happen the transcript has to be turned into a sequence of sound units by looking each written word up in a pronunciation dictionary, so the units the acoustic model scores are the ones the sequence is made of. The optimisation itself finds the single most probable path through the frames consistent with that fixed sequence, and the boundaries fall out of where that path changes state. On speakers: after a first pass, the model is adapted to each speaker's voice and the audio is aligned again with the adapted model, which is why accuracy depends on the tool knowing which recordings belong to the same person \u2014 grouping a speaker's material together gives the adaptation something to work with, and scattering it, or putting everything in one undifferentiated pile, weakens the second pass. Noting that a wrong transcript produces confidently wrong boundaries rather than an error, precisely because the sequence is treated as given, is a plus."
+    },
+    {
+      "id": "montreal-forced-aligner-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A run over Dutch clinical recordings produces boundaries that are nonsense on some utterances. Investigation shows the dictionary was chosen for the right language but from a different transcription convention than the acoustic model was trained on, and that drug names and numerals appear in transcripts but not in the dictionary. What are the two problems and their remedies?",
+      "explanation": "Two independent contracts. The dictionary's output has to be in the same alphabet the acoustic model was trained to recognise, or the units being scored are not the units being sought. And a word absent from the dictionary has no pronunciation at all, which is why validating the corpus and closing those gaps \u2014 automatically or by hand \u2014 is the standard first step rather than an optimisation.",
+      "grade_id": "montreal-forced-aligner-ac61907afeb78f30",
+      "options": [
+        "The dictionary and the acoustic model must use the same inventory of sound units, because the units the dictionary emits are exactly what the model scores \u2014 mixing conventions produces failure or garbage, so pair a dictionary and model that share the inventory. Separately, a transcript word with no dictionary entry has no pronunciation to align, so validate the corpus first, then generate pronunciations for the missing words with the grapheme-to-sound model or add entries by hand",
+        "Both are solved by widening the search: an unfamiliar unit inventory and a missing word both manifest as search failures, so raising the beam and retry beam resolves them",
+        "The conventions are interchangeable because both describe the same sounds; the only real problem is the missing words, which the tool silently skips with no effect on neighbouring boundaries",
+        "Both indicate the audio needs converting to the expected sample rate and channel count, after which the dictionary and model negotiate a shared inventory automatically"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "montreal-forced-aligner-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Parse the output the way a downstream analysis does. Implement `phone_durations(words, phones)`. Each argument is a tier: a list of `(start, end, text)` intervals in time order, where an empty text marks silence. Return a list of dicts, one per non-empty word interval in order: `{\"word\": text, \"start\": start, \"end\": end, \"phones\": [(text, duration), ...]}`, where a non-empty phone interval belongs to a word when it lies within that word's interval, endpoints included, and its duration is `end - start`; phones appear in time order and empty-text phones are ignored. Raise `ValueError` if either tier has an interval whose end is not strictly after its start, if a tier's intervals overlap or are out of time order, or if a non-empty phone is not contained in exactly one non-empty word interval. Standard library only.",
+      "explanation": "The two rejections are the ones that matter in practice. A phone that crosses a word boundary means the two tiers disagree about where a word ended, which is a symptom of a transcript that does not match the audio rather than a parsing problem \u2014 and code that silently assigned it to whichever word it overlapped more would hide exactly the failure you most need to see. A phone sitting in a silence region is the same disagreement from the other direction. Note also the word that ends up with an empty phone list: it is reported rather than dropped, because a word with no sounds under it is evidence, not an absence.",
+      "grade_id": "montreal-forced-aligner-6c36301ee1f3ae60",
+      "starter": "def phone_durations(words, phones):\n    \"\"\"Attribute each phone interval to its word, and report per-phone durations.\"\"\"\n    ...",
+      "solution": "def _check_tier(tier, label):\n    previous_end = None\n    for start, end, _ in tier:\n        if end <= start:\n            raise ValueError(f\"{label}: interval [{start}, {end}] is not positive length\")\n        if previous_end is not None and start < previous_end:\n            raise ValueError(f\"{label}: intervals overlap or are out of order at {start}\")\n        previous_end = end\n\n\ndef phone_durations(words, phones):\n    _check_tier(words, \"words\")\n    _check_tier(phones, \"phones\")\n    spoken = [(s, e, t) for s, e, t in words if t]\n    out = [{\"word\": t, \"start\": s, \"end\": e, \"phones\": []} for s, e, t in spoken]\n    for start, end, text in phones:\n        if not text:\n            continue\n        owners = [i for i, (s, e, _) in enumerate(spoken) if s <= start and end <= e]\n        if len(owners) != 1:\n            raise ValueError(\n                f\"phone {text!r} at [{start}, {end}] is not inside exactly one word\"\n            )\n        out[owners[0]][\"phones\"].append((text, end - start))\n    return out",
+      "test": "WORDS = [(0.0, 0.2, \"\"), (0.2, 0.5, \"the\"), (0.5, 0.9, \"fox\"), (0.9, 1.0, \"\")]\nPHONES = [(0.0, 0.2, \"\"), (0.2, 0.35, \"DH\"), (0.35, 0.5, \"AH\"),\n          (0.5, 0.65, \"F\"), (0.65, 0.8, \"AA\"), (0.8, 0.9, \"K\"), (0.9, 1.0, \"\")]\n\nout = phone_durations(WORDS, PHONES)\nassert [w[\"word\"] for w in out] == [\"the\", \"fox\"], out\nassert out[0][\"start\"] == 0.2 and out[0][\"end\"] == 0.5\nassert [p[0] for p in out[0][\"phones\"]] == [\"DH\", \"AH\"], out[0]\nassert [p[0] for p in out[1][\"phones\"]] == [\"F\", \"AA\", \"K\"], out[1]\n\n# Where the phones tile the word, their durations account for all of it.\nfor word in out:\n    total = sum(d for _, d in word[\"phones\"])\n    assert abs(total - (word[\"end\"] - word[\"start\"])) < 1e-9, word\n\n# Silence on either tier contributes nothing and is not an error.\nassert phone_durations([(0.0, 1.0, \"\")], [(0.0, 1.0, \"\")]) == []\n\n# A phone lying exactly on the word's boundaries is inside it.\none = phone_durations([(0.0, 0.5, \"a\")], [(0.0, 0.5, \"AH\")])\nassert one == [{\"word\": \"a\", \"start\": 0.0, \"end\": 0.5, \"phones\": [(\"AH\", 0.5)]}], one\n\ndef rejects(w, p, why):\n    try:\n        phone_durations(w, p)\n    except ValueError:\n        return\n    raise AssertionError(why)\n\n# A phone that straddles a word boundary means the two tiers disagree.\nrejects([(0.0, 0.4, \"one\"), (0.4, 0.8, \"two\")], [(0.3, 0.5, \"N\")],\n        \"a phone crossing a word boundary must be rejected\")\n\n# A phone sitting in silence belongs to no word.\nrejects([(0.0, 0.4, \"one\"), (0.4, 0.8, \"\")], [(0.5, 0.6, \"Z\")],\n        \"a phone outside every spoken word must be rejected\")\n\n# Malformed tiers.\nrejects([(0.0, 0.4, \"a\"), (0.3, 0.8, \"b\")], [], \"overlapping words must be rejected\")\nrejects([(0.4, 0.8, \"b\"), (0.0, 0.4, \"a\")], [], \"out-of-order words must be rejected\")\nrejects([(0.0, 0.0, \"a\")], [], \"a zero-length interval must be rejected\")\nrejects([(0.0, 0.5, \"a\")], [(0.3, 0.2, \"X\")], \"a reversed phone must be rejected\")\n\n# Two words with identical text are two separate entries, in order.\ndup = phone_durations([(0.0, 0.2, \"a\"), (0.2, 0.4, \"a\")],\n                      [(0.0, 0.2, \"AH\"), (0.2, 0.4, \"EY\")])\nassert len(dup) == 2 and dup[0][\"phones\"][0][0] == \"AH\" and dup[1][\"phones\"][0][0] == \"EY\"\n\n# A word with no phones under it is reported with an empty list rather than dropped.\nsparse = phone_durations([(0.0, 0.2, \"a\"), (0.2, 0.4, \"b\")], [(0.0, 0.2, \"AH\")])\nassert sparse[1] == {\"word\": \"b\", \"start\": 0.2, \"end\": 0.4, \"phones\": []}, sparse"
+    },
+    {
+      "id": "montreal-forced-aligner-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A batch reports that 40 of 900 utterances failed to align at the default search width. An engineer plans to raise the search width and the retry width until the failures stop. What does this notebook say, and what is the more likely diagnosis?",
+      "explanation": "A failure is information: the model could not thread the given sequence onto this audio at a reasonable width, and by far the most common reason is that the sequence is not what was said. Widening the search removes the message without addressing what it was telling you, and the result is an alignment that exists rather than one that is right.",
+      "grade_id": "montreal-forced-aligner-dde48d956f0d4ec1",
+      "options": [
+        "Widening the search is usually the wrong response: a failure at the default width most often means the transcript and the audio do not correspond \u2014 a mis-typed line, a clip paired with the wrong text, or an unusable recording \u2014 so the failing utterances should be inspected and their transcripts fixed. Forcing them through a wider search does not produce correct boundaries, it produces boundaries",
+        "Raising the widths is the standard remedy and carries no risk beyond additional computation, since the search either finds the correct path or fails",
+        "Failures at the default width indicate the audio is not at the expected sample rate, which widening the search compensates for by allowing more frames per unit",
+        "A failure rate under five per cent is expected and those utterances should simply be discarded without investigation"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "montreal-forced-aligner-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four jobs. (a) Sync an audiobook to its printed text so a reader can tap a paragraph and hear it. (b) Prepare a single-speaker dataset for a neural speech synthesiser that expects sound-unit boundaries. (c) Timestamp words in podcast episodes for which no transcript exists, on a machine with a GPU and a preference for installing everything with the usual Python packaging. (d) Hand-check and adjust twenty tricky boundaries a colleague disputes. Recommend and justify each.",
+      "explanation": "Granularity and whether a transcript exists decide three of the four; the fourth is decided by volume. It is also worth noticing that these tools chain \u2014 recognition produces the transcript that alignment consumes, and the annotation program is where the result is inspected.",
+      "grade_id": "montreal-forced-aligner-2422eca7ae6632f7",
+      "expected": "A correct answer must place all four with a decisive property. (a) A lightweight fragment-synchronisation tool: the requirement is sentence- or paragraph-level correspondence, and a tool that produces that with almost no setup is the right size \u2014 the deciding property is that sound-unit precision is not needed, so paying for a dictionary, a model and a heavier install buys nothing. (b) This tool: sound-unit boundaries are its output and are what the synthesis pipeline consumes, and a clean single-speaker corpus with a known transcript is the ideal case, with the per-speaker adaptation working in its favour \u2014 the deciding property is the granularity required. (c) A recognition-plus-alignment tool from the neural family: there is no transcript, so recognition has to happen anyway, and that family installs through ordinary Python packaging and uses the accelerator \u2014 the deciding property is the absence of a transcript combined with only needing word-level timings, since its unit-level precision is weaker. (d) The manual annotation program everyone uses downstream: for twenty intervals, total control beats any automation, and the output format the aligner writes is that program's native format, so the corrections happen in place \u2014 the deciding property is that the volume is tiny and the judgement is human. Noting that (c) could still be followed by an alignment pass over the corrected recognition output if unit-level precision were later required is a plus."
+    }
+  ]
+}

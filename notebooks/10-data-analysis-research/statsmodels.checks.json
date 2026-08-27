@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "statsmodels",
+  "title": "statsmodels",
+  "domain": "10-data-analysis-research",
+  "runnable": true,
+  "generated": "2026-08-27T06:55:20+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "statsmodels-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "An analyst must report whether a treatment changed conversion after controlling for tenure and channel, and how large the change was with an interval. A teammate fits a gradient-boosted classifier, reports held-out accuracy of 0.91 and a permutation importance ranking, and considers the question answered. What is the accurate critique?",
+      "explanation": "Two different products. One library exists to predict and reports how well it does; the other exists to estimate relationships and reports the uncertainty attached to each estimate. An importance score has no units, no sign and no interval, so it cannot be the answer to 'how big is the effect and how sure are we', however accurate the model that produced it.",
+      "grade_id": "statsmodels-f1b790a395651fb1",
+      "options": [
+        "Neither number answers the question: accuracy says how well outcomes are predicted, not how much the treatment moved them, and an importance ranking is an ordering of usefulness to a predictor rather than an effect with a direction, a magnitude and an interval. The deliverable calls for a coefficient with its standard error and confidence interval, adjusted for the other terms \u2014 which is what a classical inferential fit produces and the predictor does not",
+        "The critique is only about calibration: the classifier's probabilities need calibrating, after which its importances can be read as effect sizes with intervals",
+        "The teammate is right \u2014 with enough data, held-out accuracy and importances are a strictly more reliable route to the same conclusions, and coefficients are a legacy summary of them",
+        "The critique is that the classifier was not cross-validated; with proper cross-validation its importances would carry the required uncertainty"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "statsmodels-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A newcomer writes a line that builds a model, is puzzled that asking it for coefficients raises an attribute error, and separately asks why the printed report contains 'so many numbers I did not ask for'. Explain the three-step workflow they are missing, the object distinction behind the error, and what the extra numbers are for.",
+      "explanation": "The unfitted-model versus results split is what the attribute error is telling them, and the density of the report is the point of the library: the extra numbers are how you decide whether to believe the ones you asked for.",
+      "grade_id": "statsmodels-8b732e923a09f739",
+      "expected": "A correct answer must lay out the three steps and the two objects. The workflow is: specify the model, fit it, then interrogate the result. Specifying builds an unfitted model object that knows the outcome, the regressors and the family \u2014 it holds a specification, not estimates \u2014 which is why asking it for coefficients fails. Fitting returns a distinct results object, and everything of interest lives there: the point estimates, their standard errors, the test statistics and their probabilities, the confidence intervals, predictions, and the diagnostics. Keeping the two apart is deliberate, since one specification can be fitted more than once under different assumptions. On the report: it is the deliverable rather than a debug dump. It contains three groups \u2014 overall fit and information criteria at the top, the per-term block with the estimate, its standard error, its test statistic, its probability and its interval in the middle, and residual diagnostics at the bottom, including warnings about near-collinearity among the regressors. Each group answers a different question \u2014 is the model worth anything, is this particular term distinguishable from zero and by how much, and are the assumptions behind those probabilities plausible \u2014 and the third exists precisely because the second is meaningless if the assumptions fail. Noting that every number in the report is also reachable programmatically, so the printed table is a view rather than the only access, is a plus."
+    },
+    {
+      "id": "statsmodels-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A logistic fit reports a coefficient of 0.7 for a binary predictor. Three readings are proposed: (i) the predictor raises the probability of the outcome by 0.7; (ii) it raises the probability by 70 percentage points; (iii) it multiplies the odds of the outcome by about two. Which is right, and what is the general rule?",
+      "explanation": "The whole point of the generalisation is a linear predictor mapped onto the outcome's scale by a link, so the estimates live on the link's scale and must be transformed back before they mean anything familiar. For a binary outcome that gives a ratio of odds; the effect on the probability itself depends on where you start, which is why it cannot be a single coefficient.",
+      "grade_id": "statsmodels-da4605692a4ac914",
+      "options": [
+        "(iii). Coefficients in this family are on the link scale, not the outcome scale \u2014 for a binary outcome the link is the log of the odds, so exponentiating gives a multiplicative effect on the odds; and because the mapping from odds to probability is nonlinear, no single number expresses the effect on probability without saying at what baseline. The same rule applies to a count model, where exponentiating gives a multiplicative effect on the rate",
+        "(i). The link is applied to the predictors before fitting, so the coefficient is already on the probability scale and reads directly as a change in probability",
+        "(ii). The coefficient is a proportion, so it is read as a change in percentage points, and exponentiating would double-count the transformation",
+        "None: coefficients in this family have no interpretation on their own and can only be read as a ranking of importance"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "statsmodels-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Build the design a formula describes. Implement `design_columns(formula, levels, intercept=True)`. `formula` is a string with a response, a `~`, and terms separated by `+`. `levels` maps each categorical variable to its levels in order. Return `(response, column_names)`. Rules: when `intercept` is true the first column is `\"Intercept\"`. A plain name contributes one column of that name. A term `C(name)` contributes one indicator column per level EXCEPT the first, which is the reference, named `\"C(name)[T.<level>]\"`. A term joined by `:` is the interaction of its sub-terms: the product of their columns, taken with the leftmost varying slowest, each joined by `:`. A term joined by `*` crosses exactly two sub-terms and contributes the left sub-term's columns, then the right's, then their interaction. Whitespace is insignificant, and a column name already present is not added again. Raise `ValueError` for a formula with no `~`, an empty response, an empty term, a `C(...)` naming a variable absent from `levels` or having fewer than two levels, and a `*` with other than two sub-terms. Standard library only.",
+      "explanation": "Writing the expansion out shows why the formula front door is worth using. A categorical does not become a column \u2014 it becomes several, one fewer than it has levels, because one level has to be the baseline the others are measured against, and getting that wrong by hand produces a design that cannot be fitted. An interaction with a categorical multiplies out across all of those indicators, so a term that looks like one thing in the formula is several columns in the design and several rows in the report. And the intercept is a column like any other, which is exactly why the two front doors differ: one inserts it for you and the other does not, so an array-based fit that forgets it silently estimates a model forced through the origin.",
+      "grade_id": "statsmodels-0778bda6b30a5444",
+      "starter": "def design_columns(formula, levels, intercept=True):\n    \"\"\"The response and the design-matrix column names a formula expands to.\"\"\"\n    ...",
+      "solution": "def _expand(term, levels):\n    term = term.strip()\n    if not term:\n        raise ValueError(\"empty term\")\n    if \"*\" in term:\n        parts = [p.strip() for p in term.split(\"*\")]\n        if len(parts) != 2:\n            raise ValueError(\"'*' must cross exactly two sub-terms\")\n        left = _expand(parts[0], levels)\n        right = _expand(parts[1], levels)\n        both = [f\"{a}:{b}\" for a in left for b in right]\n        return left + right + both\n    if \":\" in term:\n        groups = [_expand(p, levels) for p in term.split(\":\")]\n        out = [\"\"]\n        for group in groups:\n            out = [f\"{prefix}:{name}\" if prefix else name\n                   for prefix in out for name in group]\n        return out\n    if term.startswith(\"C(\") and term.endswith(\")\"):\n        name = term[2:-1].strip()\n        if name not in levels:\n            raise ValueError(f\"no levels declared for {name!r}\")\n        values = levels[name]\n        if len(values) < 2:\n            raise ValueError(f\"{name!r} has fewer than two levels\")\n        return [f\"C({name})[T.{v}]\" for v in values[1:]]\n    return [term]\n\n\ndef design_columns(formula, levels, intercept=True):\n    if \"~\" not in formula:\n        raise ValueError(\"a formula needs a '~' separating response from terms\")\n    response, rhs = formula.split(\"~\", 1)\n    response = response.strip()\n    if not response:\n        raise ValueError(\"a formula needs a response on the left of '~'\")\n    columns = [\"Intercept\"] if intercept else []\n    for term in rhs.split(\"+\"):\n        for name in _expand(term, levels):\n            if name not in columns:\n                columns.append(name)\n    return response, columns",
+      "test": "LEVELS = {\"g\": [\"a\", \"b\", \"c\"], \"sex\": [\"F\", \"M\"], \"one\": [\"only\"]}\n\n# The plainest case, and the rule that differs between the two front doors.\nassert design_columns(\"y ~ x\", LEVELS) == (\"y\", [\"Intercept\", \"x\"])\nassert design_columns(\"y ~ x\", LEVELS, intercept=False) == (\"y\", [\"x\"])\n\n# A categorical becomes indicator columns for every level but the first, which is\n# the reference the others are compared against.\nresp, cols = design_columns(\"y ~ C(g)\", LEVELS)\nassert resp == \"y\"\nassert cols == [\"Intercept\", \"C(g)[T.b]\", \"C(g)[T.c]\"], cols\n\n# A two-level categorical yields exactly one column, not two.\nassert design_columns(\"y ~ C(sex)\", LEVELS)[1] == [\"Intercept\", \"C(sex)[T.M]\"]\n\n# Crossing gives both main effects and their interaction; a bare interaction gives\n# only the interaction.\nassert design_columns(\"y ~ x*z\", LEVELS)[1] == [\"Intercept\", \"x\", \"z\", \"x:z\"]\nassert design_columns(\"y ~ x:z\", LEVELS)[1] == [\"Intercept\", \"x:z\"]\n\n# An interaction with a categorical multiplies out across its indicator columns.\ncols = design_columns(\"y ~ x + C(g) + x:C(g)\", LEVELS)[1]\nassert cols == [\"Intercept\", \"x\", \"C(g)[T.b]\", \"C(g)[T.c]\",\n                \"x:C(g)[T.b]\", \"x:C(g)[T.c]\"], cols\n\n# Crossing a numeric with a categorical produces the same set in one term.\nassert design_columns(\"y ~ x*C(g)\", LEVELS)[1] == cols\n\n# A three-way interaction expands as the full product, left to right.\nassert design_columns(\"y ~ a:b:c\", LEVELS)[1] == [\"Intercept\", \"a:b:c\"]\nassert design_columns(\"y ~ C(sex):C(g)\", LEVELS)[1] == [\n    \"Intercept\", \"C(sex)[T.M]:C(g)[T.b]\", \"C(sex)[T.M]:C(g)[T.c]\"]\n\n# A term named twice contributes one column -- including via a crossing.\nassert design_columns(\"y ~ x + x\", LEVELS)[1] == [\"Intercept\", \"x\"]\nassert design_columns(\"y ~ x + x*z\", LEVELS)[1] == [\"Intercept\", \"x\", \"z\", \"x:z\"]\n\n# Whitespace is not significant.\nassert design_columns(\"  y   ~   x  +  C( g )  \", LEVELS) == (\n    \"y\", [\"Intercept\", \"x\", \"C(g)[T.b]\", \"C(g)[T.c]\"])\n\nfor bad in (\"y + x\", \"~ x\", \"y ~ C(missing)\", \"y ~ C(one)\", \"y ~ a*b*c\", \"y ~ x + \"):\n    try:\n        design_columns(bad, LEVELS)\n    except ValueError:\n        continue\n    raise AssertionError(f\"must be rejected: {bad!r}\")"
+    },
+    {
+      "id": "statsmodels-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A model fitted through the array-based interface reports an implausibly large coefficient and a suspiciously high fit statistic; the same specification through the formula interface on the same data gives different, sensible numbers. Later, a reviewer points out the residuals fan out with the fitted value. What are the two issues and their remedies?",
+      "explanation": "Two independent traps that often appear together. The intercept rule differing between the two front doors is the single most common bug here, and it fails silently because a through-the-origin fit is a legitimate model that nobody asked for. The variance problem is the standard one: what breaks is the uncertainty machinery, so a different covariance estimator fixes the inference without touching the coefficients.",
+      "grade_id": "statsmodels-091c8e4f7b935322",
+      "options": [
+        "The array-based interface does not add a constant term, so that fit had no intercept and was forced through the origin \u2014 which both distorts the slope and inflates the reported fit, since the fit statistic is computed differently without an intercept; add the constant column explicitly. The fanning residuals are a separate problem: the default standard errors assume constant variance, so refit asking for heteroskedasticity-robust standard errors, which leaves the estimates alone and repairs the inference",
+        "Both come from the formula interface silently dropping rows with missing values, so the two fits used different data; aligning the missing-value handling resolves both",
+        "The array-based interface expects the regressors first and the outcome second, so the arguments were swapped; and the fanning residuals mean the estimates are biased and the outcome must be transformed",
+        "The coefficient difference is a scaling artefact removed by standardising the regressors, and the fanning residuals require dropping the influential observations before refitting"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "statsmodels-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Route four tasks and give the deciding property. (1) Choose the model that predicts churn most accurately next quarter; coefficients will never be read. (2) Estimate a policy's effect on spending, controlling for three covariates, for a published report. (3) A hierarchical design with pupils in classrooms in schools and several group-varying slopes. (4) A small study where the team wants to encode prior knowledge and report intervals that are probability statements about the parameter.",
+      "explanation": "Four different deciding properties: whether coefficients are read at all, whether the estimate's uncertainty is the deliverable, how complex the grouping is, and whether the interval must be a probability statement about the parameter. None of them is about which library is better.",
+      "grade_id": "statsmodels-19fb938167ed8c94",
+      "expected": "A correct answer must place all four by a property. (1) The predictive machine-learning library: the deliverable is out-of-sample accuracy, and that library supplies the pipelines, cross-validation and regularisation that goal needs, none of which the inferential library provides by default \u2014 the deciding property is that no coefficient will be interpreted, so uncertainty about coefficients is worthless here. (2) The inferential library: the deliverable is an adjusted effect with a standard error and an interval, in a form a reader can check \u2014 the deciding property is that the estimate and its uncertainty are the product. A good answer adds that the report should use standard errors appropriate to the data's structure if the constant-variance or independence assumptions are doubtful. (3) The R package that is the reference implementation for mixed models: nesting to that depth with several group-varying slopes is beyond what the Python library's mixed-model support handles comfortably \u2014 the deciding property is the richness of the grouping structure, not the language. (4) A Bayesian modelling library: wanting priors and an interval that is genuinely a probability statement about the parameter is a request for a posterior, which the frequentist tools do not produce \u2014 the deciding property is the kind of uncertainty statement required, and the cost is sampling time and having to justify the priors. Noting that the first two are complements rather than rivals \u2014 explain with one, productionise prediction with the other \u2014 is a plus."
+    }
+  ]
+}
