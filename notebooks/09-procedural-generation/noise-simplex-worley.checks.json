@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "noise-simplex-worley",
+  "title": "Noise Functions (Simplex, Worley)",
+  "domain": "09-procedural-generation",
+  "runnable": true,
+  "generated": "2026-08-27T07:19:53+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "noise-simplex-worley-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A texture artist needs cracked mud and reptile scales, and separately an animated volumetric fog field in three dimensions plus time. They currently use the classic square-lattice gradient noise for everything. Which changes should they make and why?",
+      "explanation": "The two successors solve different problems. One is a cheaper, artefact-free replacement for the smooth noise you already had, and its advantage grows with dimension because the classic version samples every corner of a hypercube. The other is not a replacement at all \u2014 it is a different construction that yields structure with edges, which no amount of blending smooth gradients produces.",
+      "grade_id": "noise-simplex-worley-2713708f24150050",
+      "options": [
+        "The cracked and scaled patterns are not smooth fields at all \u2014 they need the cellular family, where the value comes from the distance to the nearest of a set of scattered feature points, which is what produces edges and cells. The animated fog should move to the triangular-lattice gradient noise, whose cost grows far better with dimension and which has no axis-aligned bias \u2014 exactly the two weaknesses that bite hardest in four dimensions",
+        "Both should move to the cellular family, which subsumes smooth noise as the special case of a very dense set of feature points",
+        "Neither needs to change: the classic noise produces cellular patterns when its output is thresholded, and its cost in four dimensions is comparable to the alternatives",
+        "The cracked patterns should use the triangular-lattice gradient noise, and the fog should use the cellular family, since the latter is cheaper to animate"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "noise-simplex-worley-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Describe the two constructions in one sentence each, then explain what the difference between the distance to the nearest feature point and the distance to the second nearest represents, and why that particular combination is the one people reach for.",
+      "explanation": "One construction is a cheaper, more isotropic way to get the smooth noise you already wanted; the other is a distance field over scattered points. The difference of the two nearest distances is the trick that turns that distance field into visible edges.",
+      "grade_id": "noise-simplex-worley-5e27ad51244368c5",
+      "expected": "A correct answer must describe both constructions and the difference measure. The first construction skews space so that the square lattice becomes a lattice of triangles \u2014 or their higher-dimensional analogues \u2014 finds which one contains the sample point using ordinary flooring, and sums a radial contribution from each of that shape's corners; because the shape has one more corner than the number of dimensions rather than two to the power of the dimensions, it is cheaper, and because triangles have no preferred direction there is no axis-aligned bias. The second scatters feature points through space and returns a function of the distance from the sample to the nearest of them, which produces smooth bumps rising away from each point \u2014 cells. On the difference: the distance to the nearest point minus... more precisely, the second-nearest distance minus the nearest one is zero exactly where the sample is equidistant from two feature points, and grows as one point becomes clearly closer than the other. The set of equidistant places is precisely the boundary between two cells, so this quantity is a measure of how far you are from a cell border \u2014 plot it and the borders light up as dark lines. That is why it is the standard recipe: the raw nearest distance gives you rounded bumps, whereas the difference gives you the network of edges that reads as cracks, scales, cell walls or caustics. Noting that the raw nearest distance grows away from a point, so an image with bright cell centres requires inverting it, is a plus."
+    },
+    {
+      "id": "noise-simplex-worley-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Three implementation choices are made for a cellular texture: compare every pixel against all ten thousand feature points; use the Manhattan distance because it is cheaper than a square root; and do nothing special at the texture's borders. What is the consequence of each?",
+      "explanation": "Three independent decisions, each with a visible consequence. Constraining the search to a neighbourhood of cells makes the cost per sample constant rather than proportional to the point count. The distance metric is what the cell shape is made of, and the axis-aligned metrics bring back the very bias that motivated the triangular lattice. And seamless tiling is something you arrange, by wrapping the feature points, rather than something you get.",
+      "grade_id": "noise-simplex-worley-f8a9057e482b41d0",
+      "options": [
+        "The exhaustive comparison is quadratic and needless \u2014 placing one feature point per grid cell and searching only the surrounding nine cells gives the same answer at a fixed cost per pixel. The Manhattan metric reintroduces exactly the axis alignment the other successor exists to remove, so the cells become diamond-shaped and grid-aligned, which is fine as a stylistic choice and wrong if isotropy was the goal. And the borders will not match, so the texture does not tile \u2014 feature points have to wrap for that",
+        "The exhaustive comparison is the only correct approach since the grid trick can miss the true nearest point; the metric is a free choice with no visual consequence; and tiling works automatically because the noise is periodic",
+        "The exhaustive comparison is fine at ten thousand points; the metric changes only the brightness scale; and the border problem is solved by normalising the output range",
+        "All three are performance choices with no effect on the image: the result is determined by the feature points alone"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "noise-simplex-worley-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement the cellular construction with the grid trick. Write `feature_points(width, height, jitter, rand)` and `worley(x, y, points, width, height, metric=\"euclidean\", wrap=False)`. `feature_points` places one point per integer cell of a `width` by `height` grid, at `(cx + jitter * rand(cx, cy, 0), cy + jitter * rand(cx, cy, 1))`, returning a dict keyed by `(cx, cy)`. `worley` finds the cell containing `(x, y)` by flooring, gathers the feature points of that cell and its eight neighbours, and returns `{\"f1\": nearest distance, \"f2\": second nearest, \"edge\": f2 - f1}`. With `wrap` false, neighbours outside the grid are skipped; with `wrap` true they come from the opposite edge and their coordinates are offset by the wrap so the distance is measured across the seam. `metric` selects the distance: straight-line, sum of the absolute coordinate differences, or the larger of them. Raise `ValueError` for an unknown metric, for a grid smaller than one by one, and if fewer than two feature points are in range. Standard library only.",
+      "explanation": "Three assertions carry the ideas. Exactly halfway between two feature points the two nearest distances coincide and the difference vanishes \u2014 that zero is the cell border, and plotting the difference is what draws the network of edges. The three metrics disagree on the same diagonal point, with the axis-aligned ones bracketing the straight-line answer, which is the sense in which the metric determines the shape of the cells rather than just their brightness. And the answer near the origin is identical whether the grid is four cells across or sixty-four, because only the surrounding nine cells are ever consulted \u2014 that is the whole reason the construction is affordable, and it is why the cost does not grow with the number of feature points.",
+      "grade_id": "noise-simplex-worley-37b4aaa74546ffa5",
+      "starter": "def feature_points(width, height, jitter, rand):\n    ...\n\n\ndef worley(x, y, points, width, height, metric=\"euclidean\", wrap=False):\n    ...",
+      "solution": "import math\n\n\ndef feature_points(width, height, jitter, rand):\n    points = {}\n    for cy in range(height):\n        for cx in range(width):\n            points[(cx, cy)] = (cx + jitter * rand(cx, cy, 0),\n                                cy + jitter * rand(cx, cy, 1))\n    return points\n\n\ndef worley(x, y, points, width, height, metric=\"euclidean\", wrap=False):\n    if metric not in (\"euclidean\", \"manhattan\", \"chebyshev\"):\n        raise ValueError(f\"unknown metric {metric!r}\")\n    if width < 1 or height < 1:\n        raise ValueError(\"the cell grid must be at least 1 by 1\")\n    cx, cy = int(math.floor(x)), int(math.floor(y))\n    distances = []\n    for dy in (-1, 0, 1):\n        for dx in (-1, 0, 1):\n            gx, gy = cx + dx, cy + dy\n            if wrap:\n                key = (gx % width, gy % height)\n            else:\n                if not (0 <= gx < width and 0 <= gy < height):\n                    continue\n                key = (gx, gy)\n            px, py = points[key]\n            if wrap:\n                px += (gx - key[0])\n                py += (gy - key[1])\n            ax, ay = abs(px - x), abs(py - y)\n            if metric == \"euclidean\":\n                distances.append(math.hypot(ax, ay))\n            elif metric == \"manhattan\":\n                distances.append(ax + ay)\n            else:\n                distances.append(max(ax, ay))\n    if len(distances) < 2:\n        raise ValueError(\"fewer than two feature points are in range\")\n    distances.sort()\n    return {\"f1\": distances[0], \"f2\": distances[1],\n            \"edge\": distances[1] - distances[0]}",
+      "test": "import math\n\n# A deterministic \"random\" offset so the whole thing is reproducible.\ndef centred(cx, cy, axis):\n    return 0.5\n\n\nPTS = feature_points(4, 4, 1.0, centred)\nassert PTS[(0, 0)] == (0.5, 0.5) and PTS[(3, 2)] == (3.5, 2.5), PTS[(3, 2)]\n\n# Standing on a feature point, the nearest distance is zero and the edge measure\n# is largest -- the cell centre.\nat_point = worley(0.5, 0.5, PTS, 4, 4)\nassert at_point[\"f1\"] == 0.0, at_point\nassert at_point[\"f2\"] > 0.9, at_point\nassert at_point[\"edge\"] == at_point[\"f2\"], at_point\n\n# Exactly halfway between two feature points, the two nearest are equidistant, so\n# the edge measure vanishes -- this is what draws the cell borders.\nborder = worley(1.0, 0.5, PTS, 4, 4)\nassert abs(border[\"f1\"] - border[\"f2\"]) < 1e-12, border\nassert abs(border[\"edge\"]) < 1e-12, border\nassert abs(border[\"f1\"] - 0.5) < 1e-12, border\n\n# The nearest distance grows as you move away from a point, which is why bright\n# cell centres need the value inverted.\nnear = worley(0.6, 0.5, PTS, 4, 4)[\"f1\"]\nfar = worley(0.9, 0.5, PTS, 4, 4)[\"f1\"]\nassert 0 < near < far, (near, far)\n\n# The metric changes the shape of the cells. Along a diagonal the three disagree.\np = (1.0, 1.0)\neuclid = worley(*p, PTS, 4, 4, metric=\"euclidean\")[\"f1\"]\nmanhattan = worley(*p, PTS, 4, 4, metric=\"manhattan\")[\"f1\"]\nchebyshev = worley(*p, PTS, 4, 4, metric=\"chebyshev\")[\"f1\"]\nassert chebyshev < euclid < manhattan, (chebyshev, euclid, manhattan)\nassert abs(euclid - math.hypot(0.5, 0.5)) < 1e-12\nassert abs(manhattan - 1.0) < 1e-12 and abs(chebyshev - 0.5) < 1e-12\n\n# Only the surrounding nine cells are consulted, so cost does not grow with the\n# number of feature points: a much larger grid gives the same answer near the origin.\nbig = feature_points(64, 64, 1.0, centred)\nassert abs(worley(0.6, 0.5, big, 64, 64)[\"f1\"] - near) < 1e-12\n\n# Without wrapping, a sample at the edge sees fewer neighbours, so the value differs\n# from the wrapped one -- which is why a texture does not tile for free.\nplain = worley(0.1, 0.1, PTS, 4, 4)\ntiled = worley(0.1, 0.1, PTS, 4, 4, wrap=True)\nassert tiled[\"f1\"] == plain[\"f1\"], (tiled, plain)\nassert tiled[\"f2\"] < plain[\"f2\"], (tiled, plain)\nassert tiled[\"edge\"] < plain[\"edge\"], (tiled, plain)\n# Wrapped, opposite edges of the texture agree.\nleft = worley(0.1, 1.5, PTS, 4, 4, wrap=True)[\"f1\"]\nright = worley(4.1, 1.5, PTS, 4, 4, wrap=True)[\"f1\"]\nassert abs(left - right) < 1e-12, (left, right)\n\nfor bad in (lambda: worley(0.5, 0.5, PTS, 4, 4, metric=\"cosine\"),\n            lambda: worley(0.5, 0.5, PTS, 0, 4)):\n    try:\n        bad()\n    except ValueError:\n        continue\n    raise AssertionError(\"must be rejected\")"
+    },
+    {
+      "id": "noise-simplex-worley-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "Two textures come out wrong. The smooth one, mapped directly onto a zero-to-one colour ramp, never reaches white or black. The cellular one is dark in the middle of every cell and bright at the borders, which is the opposite of what the artist wanted. What are the two explanations?",
+      "explanation": "Two separate facts about the raw output. Neither function is guaranteed to span its nominal range, so mapping to colour should always normalise against the observed extremes. And the cellular value is literally a distance from the nearest feature point, so its minimum is at the point \u2014 which reads as dark centres unless you invert it. Nothing is broken in either case.",
+      "grade_id": "noise-simplex-worley-d71b71a1532b2848",
+      "options": [
+        "Neither construction produces a clean, fully occupied output range \u2014 the scaling constants are empirical and dimension-specific \u2014 so the sensible practice is to rescale from the values actually produced rather than assume the theoretical extremes. And the cellular value is a distance, which is zero at a feature point and grows away from it, so bright cell centres require inverting it; the artist got exactly what a distance field looks like",
+        "Both are normalisation bugs of the same kind: dividing by the wrong constant compresses the smooth output and inverts the cellular one",
+        "The smooth one is missing octaves, which is what widens its range; the cellular one has its feature points outside the grid, which puts the minima at the borders",
+        "The smooth one needs a different distance metric and the cellular one needs more jitter; both are parameter choices rather than misunderstandings"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "noise-simplex-worley-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four asks. (a) Soft clouds animated over time, in three spatial dimensions. (b) A stone wall texture with visible cracks. (c) A world map that needs the actual polygons of its regions, with a list of which regions border which. (d) A single fractal heightmap on a fixed grid, where reference code that is quick to adapt matters more than quality. Recommend and justify each, then describe how two of them combine.",
+      "explanation": "The interesting distinction is the third: a field that varies cell by cell and an actual set of polygons with adjacency are different things, and only one of them can answer 'which regions border which'. The combination at the end is why these are usually layered rather than chosen between.",
+      "grade_id": "noise-simplex-worley-9734990f93065975",
+      "expected": "A correct answer must place all four. (a) The triangular-lattice gradient noise: it is the drop-in smooth noise whose cost grows far better with dimension, and animating means adding time as a further dimension, which is exactly where the square-lattice version becomes expensive and where its directional bias is most visible \u2014 the deciding property is a smooth field in high dimension. (b) The cellular construction: cracks are edges between cells, obtained from the difference between the two nearest feature-point distances \u2014 the deciding property is that the pattern has edges and cells rather than soft undulation. (c) Not a noise function at all but the exact geometric construction of the cells and their dual triangulation: what is wanted is polygons and an adjacency list, which is combinatorial structure, whereas the cellular noise gives a value per sample and never materialises a cell as an object \u2014 the deciding property is that the deliverable is a data structure, not a field. (d) The classic square-lattice noise, or the midpoint-displacement scheme: for a single two-dimensional heightmap where the priority is adapting reference code quickly, the classic version is perfectly serviceable and reference implementations are everywhere \u2014 the deciding property is expedience, and the known artefacts are acceptable at that stage. How two combine: the standard recipe pairs the cellular construction for the large-scale structure with layered smooth noise for the fine detail, multiplied or blended together, so the stone has both its crack network and a believable surface."
+    }
+  ]
+}

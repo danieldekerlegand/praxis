@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "bsp-dungeon-generation",
+  "title": "BSP Dungeon Generation",
+  "domain": "09-procedural-generation",
+  "runnable": true,
+  "generated": "2026-08-27T07:20:09+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "bsp-dungeon-generation-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A developer generates a dungeon by scattering thirty random rectangles, discarding any that overlap, then joining each room to its nearest neighbour. They spend most of their time on overlap rejection and on a repair pass for rooms that ended up unreachable. What does the partitioning approach change?",
+      "explanation": "The two guarantees come from the same structure. Leaves partition the region, so distinct leaves are disjoint and one room per leaf cannot overlap another. And the tree records exactly which regions are siblings, so connecting each internal node's two children joins every leaf into one component \u2014 with no separate reachability analysis at any point.",
+      "grade_id": "bsp-dungeon-generation-82f877d616a64ab2",
+      "options": [
+        "Both problems disappear as consequences of the structure rather than being solved. Recursively cutting the region produces leaves that tile it exactly, so rooms carved inside distinct leaves cannot overlap and are spread across the map by construction. And because the recursion builds a tree, joining the two children of every internal node connects everything with no repair pass and no reachability check",
+        "Overlap is still possible and must be checked, but connectivity comes free from the tree; the approach halves the work rather than eliminating it",
+        "Connectivity still needs a repair pass because the tree only records how the region was cut, not which rooms are adjacent; what the approach eliminates is the overlap check",
+        "Neither problem is addressed \u2014 the approach is about producing rectangular rooms quickly, and both the overlap and reachability passes are still required"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "bsp-dungeon-generation-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Walk through the algorithm as a sequence of phases and say what each phase produces, then explain precisely which pairs must be joined for the connectivity guarantee to hold and why joining nearby rooms instead would not be enough.",
+      "explanation": "The induction is the whole argument: connect siblings at every internal node and each subtree is connected before being attached, so the result is one component with no spare edges. Any proximity-based rule abandons that argument and brings the repair pass back.",
+      "grade_id": "bsp-dungeon-generation-552d41abce45794f",
+      "expected": "A correct answer must give the three phases and the connection rule. First, partition: start with the whole map as one rectangle and cut it with a single straight line into two child rectangles, then recurse into each child, stopping when a rectangle is small enough to hold a room. What this produces is a binary tree whose leaves tile the map with no gaps and no overlaps. Second, carve: place one room inside each leaf, inset from the leaf's edges by a margin rather than filling it, so adjacent rooms do not touch and corridors are visible. Third, connect: walk back up the tree and, at every internal node, join the two children. Which pairs: specifically the two children of each internal node, joined bottom-up, using the actual carved rooms' centres rather than the leaves' geometric centres. Why that rule and not proximity: connecting each internal node's children makes each subtree internally connected before it is joined to its sibling, so by induction the whole tree ends up as one component, and the number of corridors is exactly one fewer than the number of rooms. Joining nearby rooms instead is a heuristic with no such guarantee \u2014 it can produce several dense clusters with nothing between them, leaving whole subtrees isolated, which is the very repair problem the structure was supposed to remove. A correct answer should also note the practical detail that the endpoints must be the rooms' centres, since a leaf's centre can fall in the margin outside its room and the corridor would then not actually reach it. Observing that the result is a tree, so there is exactly one path between any two rooms and loops must be added deliberately as extra corridors, is a plus."
+    },
+    {
+      "id": "bsp-dungeon-generation-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Three tuning problems appear at once: some partitions come out two cells wide and cannot hold a room; the dungeon reads as one blob rather than distinct rooms; and the layout feels linear, with exactly one route between any two places. What causes each?",
+      "explanation": "Three independent knobs. Guarding the cut position keeps every partition usable and biasing toward the long axis keeps them from becoming ribbons. Insetting is what makes a room a room rather than a filled cell. And the absence of loops is not a defect \u2014 it follows from connecting a tree \u2014 so tactical loops are an explicit extra step, not a tuning fix.",
+      "grade_id": "bsp-dungeon-generation-ba9d0d726abb7987",
+      "options": [
+        "The slivers come from cutting too close to an edge \u2014 guard the cut so both sides keep at least the minimum size, and prefer cutting the longer axis so partitions stay roughly square. The blob comes from carving rooms that fill their partitions, so neighbours touch \u2014 inset each room within its leaf. And the single route is inherent: the connection structure is a tree, so loops must be added deliberately as extra corridors between nearby rooms after the tree pass",
+        "All three come from too much recursion depth: stopping the subdivision earlier gives larger partitions, distinct rooms and multiple routes",
+        "The slivers and the blob are the same problem, solved by insetting; the single route means the tree was built incorrectly and should have joined every leaf pair",
+        "The slivers come from insetting too aggressively, the blob from cutting the short axis, and the single route from connecting room centres rather than leaf centres"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "bsp-dungeon-generation-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement the three phases. Provide a `Node` class holding `x, y, w, h`, `left`, `right` and `room`, with a `leaves()` method returning its leaf descendants left to right. `partition(x, y, w, h, min_size, cut, depth=0, max_depth=6)` returns the root: stop and return a leaf when `depth` reaches `max_depth` or neither side can be split, otherwise cut the longer axis (breaking a tie with `cut(0, 1)`, where 1 means horizontal), choose the position with `cut(min_size, extent - min_size)`, and recurse into both halves. `cut(lo, hi)` returns an integer in `[lo, hi]` and is passed in so the result is deterministic. `carve(node, inset, room_of)` sets each leaf's `room` to `room_of(x + inset, y + inset, w - 2 * inset, h - 2 * inset)`. `corridors(node)` returns, for every internal node, a pair of the two children's room centres, where a subtree's centre is its leftmost room's centre and a room's centre is its top-left plus half its size in each direction, floored; the list is bottom-up. Raise `ValueError` if a chosen cut position would leave either side below `min_size`, and if a leaf is too small to inset a room into. Standard library only.",
+      "explanation": "The assertions state the two guarantees the structure buys. The leaves tile the region exactly \u2014 their areas sum to the whole and no cell is claimed twice \u2014 which is why rooms carved one per leaf cannot overlap and why they end up spread across the map rather than clustered. And the corridors form a connected graph with exactly one fewer edge than there are rooms, which is both halves of the story: connected, so no repair pass is needed, and edge-minimal, so there are no loops. If tactical loops are wanted they have to be added on purpose, which is the honest trade the tree makes.",
+      "grade_id": "bsp-dungeon-generation-40d38d32518578fe",
+      "starter": "class Node:\n    ...\n\n\ndef partition(x, y, w, h, min_size, cut, depth=0, max_depth=6):\n    ...\n\n\ndef carve(node, inset, room_of):\n    ...\n\n\ndef corridors(node):\n    ...",
+      "solution": "class Node:\n    def __init__(self, x, y, w, h):\n        self.x, self.y, self.w, self.h = x, y, w, h\n        self.left = None\n        self.right = None\n        self.room = None\n\n    def leaves(self):\n        if self.left is None and self.right is None:\n            return [self]\n        return self.left.leaves() + self.right.leaves()\n\n\ndef partition(x, y, w, h, min_size, cut, depth=0, max_depth=6):\n    node = Node(x, y, w, h)\n    if depth >= max_depth or (w < 2 * min_size and h < 2 * min_size):\n        return node\n    horizontal = h > w if h != w else cut(0, 1) == 1\n    extent = h if horizontal else w\n    if extent < 2 * min_size:\n        horizontal = not horizontal\n        extent = h if horizontal else w\n        if extent < 2 * min_size:\n            return node\n    position = cut(min_size, extent - min_size)\n    if not min_size <= position <= extent - min_size:\n        raise ValueError(\"cut position leaves a partition below min_size\")\n    if horizontal:\n        node.left = partition(x, y, w, position, min_size, cut, depth + 1, max_depth)\n        node.right = partition(x, y + position, w, h - position, min_size, cut,\n                               depth + 1, max_depth)\n    else:\n        node.left = partition(x, y, position, h, min_size, cut, depth + 1, max_depth)\n        node.right = partition(x + position, y, w - position, h, min_size, cut,\n                               depth + 1, max_depth)\n    return node\n\n\ndef carve(node, inset, room_of):\n    for leaf in node.leaves():\n        if leaf.w <= 2 * inset or leaf.h <= 2 * inset:\n            raise ValueError(\"a leaf is too small to inset a room into\")\n        leaf.room = room_of(leaf.x + inset, leaf.y + inset,\n                            leaf.w - 2 * inset, leaf.h - 2 * inset)\n    return node\n\n\ndef _centre(node):\n    if node.room is not None:\n        x, y, w, h = node.room\n        return (x + w // 2, y + h // 2)\n    return _centre(node.left) if node.left is not None else None\n\n\ndef corridors(node):\n    if node.left is None and node.right is None:\n        return []\n    out = corridors(node.left) + corridors(node.right)\n    out.append((_centre(node.left), _centre(node.right)))\n    return out",
+      "test": "MID = lambda lo, hi: (lo + hi) // 2\nROOM = lambda x, y, w, h: (x, y, w, h)\n\ntree = partition(0, 0, 64, 64, 8, MID, max_depth=3)\nleaves = tree.leaves()\n\n# The leaves tile the region exactly: no gaps, no overlaps, and the areas sum\n# to the whole. That is what makes rooms non-overlapping and well spread for free.\nassert sum(l.w * l.h for l in leaves) == 64 * 64, sum(l.w * l.h for l in leaves)\ncovered = set()\nfor leaf in leaves:\n    for yy in range(leaf.y, leaf.y + leaf.h):\n        for xx in range(leaf.x, leaf.x + leaf.w):\n            assert (xx, yy) not in covered, \"leaves overlap\"\n            covered.add((xx, yy))\nassert len(covered) == 64 * 64\n\n# No partition is thinner than the minimum -- the cut is guarded on both sides.\nassert all(l.w >= 8 and l.h >= 8 for l in leaves), [(l.w, l.h) for l in leaves]\n\n# Rooms are inset inside their leaf, so adjacent rooms never touch.\ncarve(tree, 2, ROOM)\nfor leaf in leaves:\n    rx, ry, rw, rh = leaf.room\n    assert rx > leaf.x and ry > leaf.y\n    assert rx + rw < leaf.x + leaf.w and ry + rh < leaf.y + leaf.h\n\n# One corridor per internal node, joining the two children -- which is exactly\n# the number of edges a tree needs to connect every leaf, with none spare.\nlinks = corridors(tree)\nassert len(links) == len(leaves) - 1, (len(links), len(leaves))\nassert all(a is not None and b is not None for a, b in links)\n\n# Every room centre is reachable from every other: build the graph the corridors\n# describe and check it is one component.\ncentres = {leaf.room[0] + leaf.room[2] // 2: None for leaf in leaves}\nadjacency = {}\nfor a, b in links:\n    adjacency.setdefault(a, set()).add(b)\n    adjacency.setdefault(b, set()).add(a)\nseen = set()\nstack = [links[0][0]]\nwhile stack:\n    node = stack.pop()\n    if node in seen:\n        continue\n    seen.add(node)\n    stack.extend(adjacency.get(node, ()))\nassert len(seen) == len(adjacency), (len(seen), len(adjacency))\n\n# ...and it is a tree, so there are no loops: edges are exactly nodes minus one.\nassert len(links) == len(adjacency) - 1\n\n# A region too small to split is a single leaf, not an error.\nsmall = partition(0, 0, 10, 10, 8, MID)\nassert small.leaves() == [small]\n\n# The cut always lands far enough from both edges to leave room on each side.\ntall = partition(0, 0, 20, 100, 8, MID, max_depth=1)\nassert tall.left.h >= 8 and tall.right.h >= 8, (tall.left.h, tall.right.h)\n\nfor bad in (lambda: partition(0, 0, 64, 64, 8, lambda lo, hi: 1, max_depth=1),\n            lambda: carve(partition(0, 0, 20, 20, 8, MID, max_depth=1), 20, ROOM)):\n    try:\n        bad()\n    except ValueError:\n        continue\n    raise AssertionError(\"must be rejected\")"
+    },
+    {
+      "id": "bsp-dungeon-generation-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A generated dungeon looks right but a few corridors terminate in solid rock just short of a room, and one small subtree of rooms turns out to be unreachable. What are the two likely causes?",
+      "explanation": "Two failures that both come from using the wrong reference. A corridor must be aimed at the room that was actually carved, not at the region it sits inside, because insetting means those are different points. And the connectivity argument is an induction over the tree \u2014 join each node's two children \u2014 so any other pairing rule loses the guarantee it was chosen for.",
+      "grade_id": "bsp-dungeon-generation-45484e1d8a04741a",
+      "options": [
+        "The dead-ending corridors are routed to the geometric centres of the partitions rather than to the centres of the carved rooms \u2014 because rooms are inset, a partition's centre can lie in the margin outside its room, so the corridor stops in wall space. The isolated subtree comes from connecting the wrong pairs: the guarantee holds only when each internal node's two children are joined, so connecting arbitrary leaf pairs, or only leaves, can leave a whole subtree unattached",
+        "Both come from insetting the rooms too far, which shrinks them below the corridor width; reducing the inset resolves both",
+        "The dead ends are an axis-ordering bug in the grid indexing, and the isolated subtree indicates the recursion stopped at different depths in different branches, which must be equalised",
+        "Both are caused by cutting the short axis instead of the long one, which produces partitions whose centres fall outside the region"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "bsp-dungeon-generation-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four levels. (a) A classic room-and-corridor dungeon where every room must be reachable. (b) A natural cavern with irregular walls. (c) A mine of winding tunnels, wanted in about twenty lines for a prototype. (d) A dungeon like (a) but with several routes between areas so players can flank. Assign each and give the deciding property.",
+      "explanation": "The fourth case is the useful one: the tree is why connectivity is free and also why there are no loops, so the two properties are the same fact seen from either side. Adding loops is cheap but must be chosen, not tuned into existence.",
+      "grade_id": "bsp-dungeon-generation-9a42fca813a170cd",
+      "expected": "A correct answer must place all four. (a) This technique: discrete non-overlapping rooms, spread across the map, joined so that everything is reachable, are all consequences of the structure \u2014 the deciding property is that the layout should read as deliberately built and reachability must be guaranteed rather than checked. (b) Neighbour-rule region growth of the cellular-automaton kind: irregular organic walls are what repeated local smoothing of random fill produces, and the rectangular, axis-aligned bias here would fight the requirement \u2014 the deciding property is the visual character, with the caveat that that technique needs a separate pass to guarantee reachability. (c) A random-walk carver: a single wandering digger produces twisty tunnels in very little code and, because every carved cell extends the existing carved region, the result is connected for free \u2014 the deciding property is minimal effort plus connectivity, accepting almost no control over the shape. (d) This technique plus a deliberate extra step: the connection structure is a tree, so there is exactly one route between any two rooms, and flanking routes must be added as extra corridors between nearby rooms after the tree pass \u2014 the deciding property is that loops are a design requirement and the base algorithm produces none. Noting that the blocky bias can be softened by running an organic smoothing pass over the result, so (a) and (b) can be combined rather than chosen between, is a plus."
+    }
+  ]
+}

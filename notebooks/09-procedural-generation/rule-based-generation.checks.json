@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "rule-based-generation",
+  "title": "Rule-Based Generation",
+  "domain": "09-procedural-generation",
+  "runnable": true,
+  "generated": "2026-08-27T07:19:58+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "rule-based-generation-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A studio's level generator produces raw maps, and designers want to place torches in dark rooms, put treasure at dead ends, and guarantee every room has a door. They ask for something they can edit themselves without an engineer. What does this approach offer, and what is the honest cost?",
+      "explanation": "The three requests are literally condition-action pairs, which is why this is the natural fit: authorable, explainable, editable, and needing no data. The cost is real and well documented \u2014 a hundred rules develop combinatorial interactions nobody fully predicts, which is why the standard advice is to group rules into phases and keep each one's effect local.",
+      "grade_id": "rule-based-generation-78faf7a9bb547a8e",
+      "options": [
+        "Each of those three requests is a condition paired with an action, so the design intent becomes a small, readable, individually testable unit that a designer can add or tune without touching the generator \u2014 and every output is traceable to the rules that produced it, with no training data and no opaque model. The cost is that rule sets do not scale gracefully: past a few dozen rules the order-dependent interactions between them become hard for anyone to predict",
+        "It offers exactly this with no cost: because each rule is local and independent, adding rules never changes what existing rules do, so a rule set of any size stays predictable",
+        "It offers only the third request; conditional placement of decorations requires a statistical model trained on examples of hand-decorated maps",
+        "It offers none of these \u2014 the approach applies only to text generation, and map decoration requires a constraint solver over the tile set"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "rule-based-generation-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Describe the engine's loop and what it operates on, then explain why this is called the umbrella that a rewriting grammar and a neighbour-rule automaton are both special cases of, naming what each of those two fixes about the general scheme.",
+      "explanation": "One loop, two free choices \u2014 the shape of the working state and the application policy \u2014 and the familiar specialisations are just particular settings of those. Which is why the sequential-versus-simultaneous distinction is not a detail but the thing that separates them.",
+      "grade_id": "rule-based-generation-b3372b24da8e51ba",
+      "expected": "A correct answer must describe the cycle and the generalisation. The engine holds a working state \u2014 a grid, a string, a scene, a bag of facts \u2014 and a list of rules, each a condition paired with an action. It repeats a recognise-and-act cycle: find the rules whose conditions currently hold, choose one according to some conflict-resolution policy such as explicit priority, apply its action to change the state, and start again. It stops when no rule's condition holds, which is a fixpoint, or when a step budget runs out. Why it is the umbrella: both of the specialisations are this loop with particular choices already made. A rewriting grammar fixes the state to be a string and the conditions to be the presence of a particular symbol, with the action replacing that symbol by a sequence \u2014 and it typically rewrites one occurrence at a time. A neighbour-rule automaton fixes the state to be a grid, the condition to be a predicate over a cell and its neighbourhood, and \u2014 crucially \u2014 the application policy to be all matches applied simultaneously against a snapshot of the previous state rather than one at a time. So the two things a specialisation pins down are what the working state is and what the conflict-resolution and application policy is. That last point is the one that matters most in practice: applying rules one at a time to a mutating state and applying them all at once against a snapshot give genuinely different results, and a specialisation that expects the parallel semantics is broken by an in-place implementation. Noting that the general scheme's freedom is exactly what makes large rule sets hard to reason about, since nothing constrains how rules interact, is a plus."
+    },
+    {
+      "id": "rule-based-generation-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A rule set behaves differently after a refactor that only reordered the list. A second rule never seems to have any effect, and a third makes the engine loop until its budget runs out. Which set of diagnoses and remedies is right?",
+      "explanation": "Three distinct failure modes with three distinct remedies. Relying on list order for conflict resolution is fragile and invisible until someone reorders. A rule that never fires produces no error at all, which is why firing counts are the standard instrumentation. And non-termination comes from an action that does not disturb its own condition \u2014 the fix is to make rules consume what they match, with a step cap as the backstop.",
+      "grade_id": "rule-based-generation-6b17a53209874b33",
+      "options": [
+        "The reorder mattered because conflict resolution was falling back on incidental list position \u2014 make priority explicit with a declared salience and test the firing order. The ineffective rule is a silent no-match, usually a typo or an unreachable condition, and is caught by logging how many times each rule fired. The looping rule leaves its own condition true after acting, so it must be written to consume what it matched, or the cycle must be capped",
+        "All three are the same problem: without an explicit priority the engine may fire rules repeatedly and skip others, so declaring salience resolves the ineffective rule and the loop as well",
+        "The reorder is harmless and the difference must come from randomness in the engine; the ineffective rule and the loop both indicate the state is being mutated in place rather than snapshotted",
+        "The reorder indicates a bug in the engine, since a correct engine is order-independent by construction; the other two are consequences of the same bug"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "rule-based-generation-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement the engine. Write `run(state, rules, max_steps=1000, parallel=False)`. Each rule is a dict with `name`, `salience`, `condition(state) -> bool` and `action(state) -> dict of updates`. Order the rules by descending salience, breaking ties by name. Working on a copy of `state`, repeat: when `parallel` is false, fire the first rule in that order whose condition holds \u2014 counting one step, recording the firing, and merging its updates into the state \u2014 and stop when no rule's condition holds; when `parallel` is true, collect all rules whose conditions hold, count one step, record each firing, evaluate every action against the SAME snapshot of the state taken before any of them ran, merge all the updates, and stop when no conditions hold. In both modes stop after `max_steps` steps. Return `{\"state\": ..., \"fired\": {name: count}, \"steps\": ..., \"quiescent\": whether it stopped because nothing matched}`, leaving the caller's `state` unmodified and reporting a count of zero for a rule that never fired. Raise `ValueError` for a rule missing any of the four keys. Standard library only.",
+      "explanation": "Three assertions carry the design lessons. Reversing the rule list changes nothing, because priority is declared rather than implied by position \u2014 which is the whole argument for salience. A rule that never matched is reported with a count of zero rather than vanishing, which is how a typo in a condition is caught, since nothing else about it produces a symptom. And the runaway rule's budget is hit and reported honestly as not quiescent, rather than the engine either hanging or pretending it finished. The last comparison is the semantics point: the same rules, one at a time against a mutating state versus all at once against a snapshot, take a different number of steps and can reach different states.",
+      "grade_id": "rule-based-generation-f1aa9306cae4c8a4",
+      "starter": "def run(state, rules, max_steps=1000, parallel=False):\n    \"\"\"The recognise-act cycle: match, choose, apply, repeat until quiescent.\"\"\"\n    ...",
+      "solution": "def run(state, rules, max_steps=1000, parallel=False):\n    for rule in rules:\n        for key in (\"name\", \"salience\", \"condition\", \"action\"):\n            if key not in rule:\n                raise ValueError(f\"rule is missing {key!r}\")\n    ordered = sorted(rules, key=lambda r: (-r[\"salience\"], r[\"name\"]))\n    fired = {rule[\"name\"]: 0 for rule in rules}\n    current = dict(state)\n    steps = 0\n    while steps < max_steps:\n        if parallel:\n            matches = [r for r in ordered if r[\"condition\"](current)]\n            if not matches:\n                break\n            steps += 1\n            snapshot = dict(current)\n            updates = {}\n            for rule in matches:\n                fired[rule[\"name\"]] += 1\n                updates.update(rule[\"action\"](snapshot))\n            if updates == {k: current[k] for k in updates if k in current} and \\\n                    all(k in current for k in updates):\n                current.update(updates)\n                break\n            current.update(updates)\n        else:\n            for rule in ordered:\n                if rule[\"condition\"](current):\n                    steps += 1\n                    fired[rule[\"name\"]] += 1\n                    current.update(rule[\"action\"](dict(current)))\n                    break\n            else:\n                break\n    return {\"state\": current, \"fired\": fired, \"steps\": steps,\n            \"quiescent\": steps < max_steps}",
+      "test": "def rule(name, salience, condition, action):\n    return {\"name\": name, \"salience\": salience, \"condition\": condition,\n            \"action\": action}\n\n\n# A rule set that consumes what it matches, so it provably reaches a fixpoint.\nDECORATE = [\n    rule(\"light\", 10, lambda s: s[\"dark\"] > 0,\n         lambda s: {\"dark\": s[\"dark\"] - 1, \"torches\": s[\"torches\"] + 1}),\n    rule(\"loot\", 5, lambda s: s[\"deadends\"] > 0,\n         lambda s: {\"deadends\": s[\"deadends\"] - 1, \"chests\": s[\"chests\"] + 1}),\n]\nSTART = {\"dark\": 3, \"deadends\": 2, \"torches\": 0, \"chests\": 0}\n\nout = run(START, DECORATE)\nassert out[\"state\"][\"torches\"] == 3 and out[\"state\"][\"chests\"] == 2, out[\"state\"]\nassert out[\"state\"][\"dark\"] == 0 and out[\"state\"][\"deadends\"] == 0\nassert out[\"quiescent\"], out\nassert out[\"fired\"] == {\"light\": 3, \"loot\": 2}, out[\"fired\"]\n\n# The input state is never modified.\nassert START == {\"dark\": 3, \"deadends\": 2, \"torches\": 0, \"chests\": 0}\n\n# Salience decides which of several matching rules fires, and it is explicit rather\n# than incidental list order: the higher-priority rule drains first.\ntrace = []\nWATCHED = [\n    rule(\"low\", 1, lambda s: s[\"dark\"] > 0,\n         lambda s: (trace.append(\"low\"), {\"dark\": s[\"dark\"] - 1})[1]),\n    rule(\"high\", 9, lambda s: s[\"deadends\"] > 0,\n         lambda s: (trace.append(\"high\"), {\"deadends\": s[\"deadends\"] - 1})[1]),\n]\nrun({\"dark\": 2, \"deadends\": 2}, WATCHED)\nassert trace == [\"high\", \"high\", \"low\", \"low\"], trace\n\n# Reversing the list changes nothing, because priority is declared.\ntrace.clear()\nrun({\"dark\": 2, \"deadends\": 2}, list(reversed(WATCHED)))\nassert trace == [\"high\", \"high\", \"low\", \"low\"], trace\n\n# A rule that never matches is reported as having fired zero times rather than\n# failing silently -- which is how a typo'd condition is caught.\nDEAD = DECORATE + [rule(\"never\", 1, lambda s: s.get(\"impossible\", False),\n                        lambda s: {})]\nassert run(START, DEAD)[\"fired\"][\"never\"] == 0\n\n# A rule whose action keeps its own condition true never quiesces, and the budget\n# stops it and says so instead of looping for ever.\nFOREVER = [rule(\"grow\", 1, lambda s: True, lambda s: {\"n\": s[\"n\"] + 1})]\nrunaway = run({\"n\": 0}, FOREVER, max_steps=25)\nassert not runaway[\"quiescent\"] and runaway[\"steps\"] == 25, runaway\nassert runaway[\"state\"][\"n\"] == 25\n\n# One at a time and all at once give different results from the same rules: applied\n# together against a snapshot, both counters move on the same pass.\nBOTH = [\n    rule(\"a\", 5, lambda s: s[\"x\"] > 0, lambda s: {\"x\": s[\"x\"] - 1, \"seen_x\": s[\"x\"]}),\n    rule(\"b\", 5, lambda s: s[\"y\"] > 0, lambda s: {\"y\": s[\"y\"] - 1, \"seen_y\": s[\"y\"]}),\n]\none_at_a_time = run({\"x\": 2, \"y\": 2, \"seen_x\": 0, \"seen_y\": 0}, BOTH)\ntogether = run({\"x\": 2, \"y\": 2, \"seen_x\": 0, \"seen_y\": 0}, BOTH, parallel=True)\nassert one_at_a_time[\"steps\"] == 4 and together[\"steps\"] == 2, (one_at_a_time[\"steps\"],\n                                                                together[\"steps\"])\nassert one_at_a_time[\"state\"][\"x\"] == 0 and together[\"state\"][\"x\"] == 0\n\nfor bad in ({\"salience\": 1, \"condition\": lambda s: False, \"action\": lambda s: {}},\n            {\"name\": \"x\", \"condition\": lambda s: False, \"action\": lambda s: {}}):\n    try:\n        run({}, [bad])\n    except ValueError:\n        continue\n    raise AssertionError(\"a malformed rule must be rejected\")"
+    },
+    {
+      "id": "rule-based-generation-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A decoration pass places a torch in any dark cell whose neighbour already has one, sweeping the grid in place. The result is a streak of torches running from the top-left corner, which nobody intended. What happened, and what is the fix?",
+      "explanation": "This is the sequential-versus-simultaneous distinction biting. Mutating in place means a rule's condition can observe a change made earlier in the same pass, so the result depends on the scan order and effects cascade along it. Evaluating everything against a snapshot and writing to a fresh state makes the pass order-independent, which is what the rule's author assumed.",
+      "grade_id": "rule-based-generation-fb1ae4b9867fa022",
+      "options": [
+        "Conditions are reading state that this same pass has already changed: a cell examined later in the sweep sees a torch placed moments earlier by its neighbour, so the effect propagates along the scan order and produces a directional artefact. Take a snapshot of the state at the start of the pass, evaluate every condition against that snapshot, and write the results into a fresh state \u2014 read old, write new",
+        "The rule's condition is too weak and should also require a minimum distance from other torches; the streak is the intended behaviour of the rule as written",
+        "The engine fired the rules in the wrong salience order, so the sweep started from a corner; declaring a lower salience for this rule removes the streak",
+        "The grid is being indexed with its axes transposed, which turns a scattered placement into a diagonal streak"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "rule-based-generation-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four jobs. (a) A pass that decorates an already-generated map according to design intent a team wants to keep editing. (b) Dialogue in the voice of two hundred hand-written lines, where nobody can articulate the pattern. (c) A tilemap where every neighbouring pair must be compatible, solved globally. (d) A guarantee that a decorated level is fully connected. Assign each and give the deciding property.",
+      "explanation": "The first two are separated by whether rules can be written at all, and the last two by whether the requirement is local or global. The fourth is the honest boundary: a rule engine can detect and repair a global violation, but it cannot promise one will not occur.",
+      "grade_id": "rule-based-generation-d9b1bbdeca02265e",
+      "expected": "A correct answer must place all four. (a) This approach: the intent is already expressed as conditions and actions, it needs no data, and the point is that designers can read and tune it \u2014 the deciding property is that the logic is authorable and must stay editable and explainable. (b) A model learned from the examples \u2014 a transition model over the text, or a language model: the specification is a corpus and the pattern cannot be articulated, which is precisely when rules cannot be written \u2014 the deciding property is that examples exist but rules do not. (c) A constraint solver over tile adjacency: compatibility everywhere is a global satisfaction problem that propagates consequences and can detect that no assignment exists, which a local fire-and-forget rule engine does not do \u2014 the deciding property is that the constraints must hold globally rather than being applied opportunistically. (d) Not a generation choice but an explicit check: local rules cannot guarantee a whole-map property such as connectivity, so the honest options are a constraint rule that detects the violation and repairs it, or a validation pass after generation that flood-fills and either fixes or rejects the result \u2014 the deciding property is that the requirement is global while the rules are local. Noting that this last point is the general limitation of the approach, and that it is why it is so often used as a post-processing pass over another generator rather than as the generator itself, is a plus."
+    }
+  ]
+}

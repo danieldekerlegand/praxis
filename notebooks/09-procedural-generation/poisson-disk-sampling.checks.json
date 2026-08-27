@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "poisson-disk-sampling",
+  "title": "Poisson-Disk Sampling",
+  "domain": "09-procedural-generation",
+  "runnable": true,
+  "generated": "2026-08-27T07:20:01+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "poisson-disk-sampling-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A world generator scatters 2,000 trees with uniform random coordinates and the result has bald patches beside dense thickets. A colleague proposes snapping the trees to a regular grid with a small random offset per cell. What does each approach get wrong, and what property is actually wanted?",
+      "explanation": "The two failures are opposite and both instructive: independence produces clumps and holes, regularity produces a visible lattice and aliasing. The target sits between them \u2014 a hard minimum distance between any two points, with no other structure imposed \u2014 which is what makes the arrangement read as natural.",
+      "grade_id": "poisson-disk-sampling-7d96f260757bc985",
+      "options": [
+        "Uniform draws are independent, so clumps and gaps are not a bug but the expected behaviour of independence. A jittered lattice fixes the coverage but the eye reads the underlying rows, and in sampling contexts the regularity causes aliasing. What is wanted is even coverage with no detectable pattern \u2014 a minimum separation between every pair of points, with the arrangement otherwise random",
+        "Uniform draws are wrong because the generator was not seeded, and the jittered lattice is the correct fix once the offsets are large enough",
+        "Both are fine and the real problem is the tree count: 2,000 over that area is simply too few, and the patches disappear at higher density",
+        "Uniform draws give too even a spread and the jittered lattice too clumped a one; the wanted property is somewhere between, obtained by drawing from a bell-shaped distribution instead"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "poisson-disk-sampling-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "The simplest implementation repeatedly proposes a random point in the whole domain and keeps it if it is far enough from everything placed so far. Explain why that degrades so badly as the domain fills, then describe the two devices the standard algorithm adds and what each one fixes.",
+      "explanation": "The active list changes where candidates come from and supplies a termination condition; the background grid changes what the validity test costs. Both are needed \u2014 either alone leaves the algorithm impractical at real densities.",
+      "grade_id": "poisson-disk-sampling-c4468865e2922a5d",
+      "expected": "A correct answer must diagnose rejection sampling and name both devices. The naive method proposes points uniformly over the whole area, so as the area fills the fraction of the domain still available shrinks toward zero and almost every proposal is rejected; the expected number of attempts per accepted point grows without bound, and there is no reliable way to know when the domain is actually full rather than merely hard to hit. The first device is to propose locally rather than globally: keep a list of recently placed points that might still have room around them, pick one, and generate candidates only in the ring between one and two radii from it \u2014 a region that is guaranteed to be far enough away from that point while being close enough to be plausibly empty, so proposals succeed at a useful rate. When a chosen point yields no valid candidate after a fixed number of tries, it is removed from that list, and the algorithm terminates when the list empties, which is a genuine stopping condition rather than a guess. The second device is a background grid used to answer 'is anything too close?' in constant time: cells are sized so that at most one point can occupy each, so a candidate only has to be compared against the points in a small fixed neighbourhood of cells instead of against everything placed so far. Together these turn a method that degrades badly into one that costs roughly a constant amount of work per point. Noting that the cell side must be the radius divided by the square root of two so that the cell's diagonal is exactly the radius, and that the neighbourhood searched must extend two cells rather than one because a conflicting point can be almost two radii away, is a plus."
+    },
+    {
+      "id": "poisson-disk-sampling-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "An implementation sizes its background cells at exactly the radius and checks the immediate ring of cells around a candidate. It occasionally produces pairs of points closer than the radius. What are the two errors?",
+      "explanation": "Two off-by-a-factor mistakes that both produce rare, hard-to-spot violations. The cell side is chosen so the diagonal equals the radius, which is what makes 'at most one point per cell' true. And because a valid candidate is generated as far as two radii away, a conflict can be two cells distant, so a single ring of neighbours is not enough.",
+      "grade_id": "poisson-disk-sampling-a9ebc4d8fa5a2b27",
+      "options": [
+        "A cell whose side is the full radius has a diagonal longer than the radius, so two points can sit in one cell and still be too close \u2014 the side must be the radius divided by the square root of two, which makes the diagonal exactly the radius and guarantees one point per cell. And a conflicting point can be up to nearly two radii away, which spans two cells, so the search must extend two cells in each direction rather than one",
+        "The cell size is correct and the only error is the ring: extending the search to the whole grid is the only safe option, which is why the background grid saves nothing",
+        "The ring is correct and the only error is the cell size, which should be twice the radius so that any conflicting point falls in an adjacent cell",
+        "Neither is an error: the occasional close pair comes from candidates generated outside the ring between one and two radii, and constraining the candidate generator fixes it"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "poisson-disk-sampling-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement the algorithm. Write `poisson_disk(width, height, radius, candidates, rand, k=30, start=None)`. `candidates(origin, radius)` returns one candidate point near `origin`, and `rand(n)` returns an index below `n` \u2014 both are passed in so the result is deterministic. Use a background grid whose cell side is `radius / sqrt(2)`, storing at most one point per cell. A candidate is valid when it lies inside the domain and is at least `radius` from every point within two cells in each direction. Begin from `start`, or the centre of the domain if none is given, seeding the point list, the grid and an active list. Then repeatedly pick an active point by index from `rand`, try up to `k` candidates around it, and on the first valid one add it to all three structures; if none of the `k` is valid, remove that point from the active list. Stop when the active list is empty and return the points in the order they were placed. Raise `ValueError` for a non-positive radius, a non-positive domain extent, or a starting point outside the domain. Standard library only.",
+      "explanation": "Three assertions state the algorithm's contract. Every pair is at least a radius apart, which is the specification itself and is checked exhaustively here because it is the thing an off-by-a-factor in the cell size silently violates. The domain is genuinely covered rather than merely sparsely populated, which is what the active list buys \u2014 a naive method would stall long before this density. And no two points share a background cell, which is the invariant that makes the neighbour test constant-time: if it ever failed, the cell size would be wrong. Notice also what is missing: nothing in the signature lets you ask for a particular number of points. The count falls out of the radius and the geometry.",
+      "grade_id": "poisson-disk-sampling-62e22b967a10b11e",
+      "starter": "def poisson_disk(width, height, radius, candidates, rand, k=30, start=None):\n    \"\"\"Points at least `radius` apart, evenly covering the domain, with no lattice.\"\"\"\n    ...",
+      "solution": "import math\n\n\ndef poisson_disk(width, height, radius, candidates, rand, k=30, start=None):\n    if radius <= 0:\n        raise ValueError(\"radius must be positive\")\n    if width <= 0 or height <= 0:\n        raise ValueError(\"the domain must have positive extent\")\n    cell = radius / math.sqrt(2)\n    cols = int(math.ceil(width / cell))\n    rows = int(math.ceil(height / cell))\n    grid = {}\n\n    def cell_of(point):\n        return int(point[0] / cell), int(point[1] / cell)\n\n    def fits(point):\n        if not (0 <= point[0] < width and 0 <= point[1] < height):\n            return False\n        gx, gy = cell_of(point)\n        for dy in range(-2, 3):\n            for dx in range(-2, 3):\n                other = grid.get((gx + dx, gy + dy))\n                if other is None:\n                    continue\n                if math.hypot(other[0] - point[0], other[1] - point[1]) < radius:\n                    return False\n        return True\n\n    first = start if start is not None else (width / 2, height / 2)\n    if not fits(first):\n        raise ValueError(\"the starting point is outside the domain\")\n    points = [first]\n    grid[cell_of(first)] = first\n    active = [first]\n    while active:\n        index = rand(len(active))\n        origin = active[index]\n        placed = False\n        for _ in range(k):\n            candidate = candidates(origin, radius)\n            if fits(candidate):\n                points.append(candidate)\n                grid[cell_of(candidate)] = candidate\n                active.append(candidate)\n                placed = True\n                break\n        if not placed:\n            active.pop(index)\n    return points",
+      "test": "import math\n\nW = H = 10.0\nR = 1.0\n\n\ndef spiral(seed=0):\n    \"\"\"A deterministic candidate generator: walk the annulus at fixed steps.\"\"\"\n    state = {\"n\": seed}\n\n    def candidates(origin, radius):\n        state[\"n\"] += 1\n        angle = state[\"n\"] * 0.7\n        distance = radius * (1.0 + (state[\"n\"] % 7) / 7.0)\n        return (origin[0] + distance * math.cos(angle),\n                origin[1] + distance * math.sin(angle))\n\n    return candidates\n\n\npts = poisson_disk(W, H, R, spiral(), lambda n: 0)\n\n# The constraint holds for every pair, which is the entire specification.\nfor i, a in enumerate(pts):\n    for b in pts[i + 1:]:\n        assert math.hypot(a[0] - b[0], a[1] - b[1]) >= R - 1e-12, (a, b)\n\n# Every point is inside the domain.\nassert all(0 <= x < W and 0 <= y < H for x, y in pts), pts\n\n# It is not merely sparse: a domain of this size at this radius holds many points,\n# so the result covers the area rather than stopping after a handful.\nassert len(pts) > 30, len(pts)\n\n# At most one point per background cell -- the invariant that makes the neighbour\n# test constant-time.\ncell = R / math.sqrt(2)\noccupied = [(int(x / cell), int(y / cell)) for x, y in pts]\nassert len(occupied) == len(set(occupied)), \"two points shared a cell\"\n\n# A larger radius yields strictly fewer points over the same domain.\nsparse = poisson_disk(W, H, 2.0, spiral(), lambda n: 0)\nassert 0 < len(sparse) < len(pts), (len(sparse), len(pts))\n\n# The count is an outcome, not an input: nothing here lets you ask for exactly N.\nassert len(poisson_disk(W, H, R, spiral(1), lambda n: 0)) != 0\n\n# A domain too small for a second point yields exactly the seed.\ntiny = poisson_disk(0.5, 0.5, 1.0, spiral(), lambda n: 0)\nassert tiny == [(0.25, 0.25)], tiny\n\n# An explicit starting point is honoured.\nassert poisson_disk(W, H, R, spiral(), lambda n: 0, start=(1.0, 1.0))[0] == (1.0, 1.0)\n\nfor bad in (lambda: poisson_disk(W, H, 0.0, spiral(), lambda n: 0),\n            lambda: poisson_disk(0.0, H, R, spiral(), lambda n: 0),\n            lambda: poisson_disk(W, H, R, spiral(), lambda n: 0, start=(-1.0, 0.0))):\n    try:\n        bad()\n    except ValueError:\n        continue\n    raise AssertionError(\"must be rejected\")"
+    },
+    {
+      "id": "poisson-disk-sampling-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "Two requirements arrive. A designer wants exactly 500 rocks per region. An artist wants the scatter to tile seamlessly, so a region's edge matches its neighbour's. How does this algorithm handle each?",
+      "explanation": "Both are real limitations with standard workarounds. Count is an output rather than an input, so you either over-generate and trim or solve for the radius. And the constraint is enforced against points that exist inside the domain, so making edges agree means changing what distance means \u2014 wrapping it \u2014 rather than adding a post-processing pass.",
+      "grade_id": "poisson-disk-sampling-867a00c9b0bbdfeb",
+      "options": [
+        "Neither is directly supported. Density is controlled by the radius and the count is whatever the geometry yields, so an exact count means generating more than enough and truncating, or searching for the radius that produces the right number. And the separation constraint is enforced only within the domain, so points near opposite edges know nothing about each other \u2014 seamless tiling requires measuring distance with wrapped coordinates, that is, treating the domain as a torus",
+        "Both are supported directly: the count is an argument to the algorithm, and tiling is automatic because the background grid already wraps",
+        "The exact count is supported by increasing the number of candidate attempts until the target is reached; tiling is impossible with this method and requires a lattice",
+        "The exact count is impossible in principle; tiling is automatic because the minimum-distance constraint is scale-invariant"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "poisson-disk-sampling-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four placement jobs. (a) Trees across a forest floor, natural-looking with no overlap. (b) A deliberately clustered swarm of insects. (c) A tilemap of buildings that must sit on a street grid. (d) Sample positions for a renderer's anti-aliasing, where the sampling is repeated identically for every pixel and should converge quickly. Assign each, and say which of the four this technique's characteristic frequency behaviour explains.",
+      "explanation": "The same property serves two different purposes \u2014 appearance in one case and sampling error in the other \u2014 and the two cases where it is wrong are the ones where clustering or regularity is actually wanted.",
+      "grade_id": "poisson-disk-sampling-292c2f351963ec88",
+      "expected": "A correct answer must place all four and connect the last to the spectral property. (a) This technique: even coverage with no visible pattern and a guaranteed minimum separation is exactly the requirement \u2014 the deciding property is that the arrangement must look natural rather than either clumped or regular. (b) Plain independent random draws: clustering is the natural behaviour of independence, so the thing that makes it wrong for trees is what makes it right here \u2014 the deciding property is that clumping is wanted, and it is also simpler and faster. (c) A regular lattice: buildings on a street grid are supposed to read as laid out, so the visible pattern is the point \u2014 the deciding property is that regularity is a design requirement rather than an artefact. (d) This technique again, or a low-discrepancy sequence: sample sets of this kind converge with markedly less visible noise than independent draws \u2014 the deciding property is sampling quality rather than appearance, though for deterministic integration a quasi-random sequence is the more usual choice. What the spectral property explains is exactly this fourth case: the point set's energy is concentrated at high frequencies with very little at low ones, which is why the residual error appears as fine grain the eye tolerates rather than as large blotches, and it is the same property that makes the scatter in the first case read as evenly spread."
+    }
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "gan-diffusion-pcg",
+  "title": "GAN/Diffusion for PCG",
+  "domain": "09-procedural-generation",
+  "runnable": true,
+  "generated": "2026-08-27T07:20:15+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "gan-diffusion-pcg-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A team has 180 hand-designed levels whose 'feel' nobody can articulate as rules, and wants endless levels in that style. A second team has no examples at all and needs a nine-by-nine dungeon generator by Friday. Which approach suits each, and what must the first team add regardless?",
+      "explanation": "The dividing line is whether the rules can be articulated and whether a corpus exists. And the caveat is the one people most often skip: approximating the distribution of good content is not the same as satisfying a hard constraint, so a generated level can be entirely plausible and unbeatable. Validity has to be checked separately.",
+      "grade_id": "gan-diffusion-pcg-d2313314b32d1762",
+      "options": [
+        "The first team's case is what learned generation is for: the style exists in the corpus and cannot be written down, so a model that approximates the distribution the examples came from and samples new artifacts from it is the right shape. The second team should use classic algorithmic generation, which needs no data and, for something that small, is a few lines. Regardless, the first team must add a validity pass \u2014 a learned sampler produces plausible output, not correct output, so solvability and connectivity have to be checked and the failures rejected or repaired",
+        "Both teams should use a learned model; the second can generate its own training corpus with a rule-based generator first, which is strictly better than using that generator directly",
+        "Both teams should use classic algorithmic generation; a corpus of 180 examples is far too small for any learned approach to be considered",
+        "The first team's case is right but no validity pass is needed: a model trained only on solvable levels produces solvable levels, since solvability is part of the distribution it learned"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "gan-diffusion-pcg-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Describe the two dominant families in terms of what is trained and how a sample is produced, then explain the practical trade-off between them at sampling time and at training time, and name the failure mode that afflicts one and not the other.",
+      "explanation": "One family is cheap to sample and hard to train, the other the reverse. Collapse onto a few outputs is the characteristic adversarial failure and the reason it is so often worth paying the sampling cost of the alternative.",
+      "grade_id": "gan-diffusion-pcg-6d483ed77d58480a",
+      "expected": "A correct answer must describe both and give the trade-offs. In the adversarial family, one network maps random noise to content and a second learns to distinguish real examples from produced ones; they are trained against each other, so the first improves at fooling the second while the second improves at catching it, and at equilibrium the produced content is indistinguishable from the corpus. A sample is one forward pass through the first network, which is very fast. In the denoising family, a fixed process is defined that gradually adds noise to real data until nothing remains, and a network is trained to reverse one small step of that process; sampling begins from pure noise and applies the learned reverse step repeatedly until content emerges. The trade-off: sampling is fast in the first family and expensive in the second, because the second requires many network evaluations per sample, which matters enormously for anything generated interactively. Training runs the other way: the adversarial setup is notoriously unstable \u2014 the losses oscillate rather than descending, so the numbers are not a reliable progress signal and samples have to be judged directly \u2014 while the denoising setup trains far more stably and generally gives better quality and diversity. The failure mode specific to the adversarial family is collapse onto a small set of outputs: the generator finds a few artifacts that reliably fool the discriminator and stops exploring, so diversity dies while the loss looks acceptable. The denoising family does not have this failure mode, which is one of the main reasons to prefer it. Noting the standard mitigations \u2014 alternative losses, minibatch discrimination \u2014 and the standard remedy for slow sampling, namely deterministic samplers with far fewer steps, distillation, or denoising in a compressed space, is a plus."
+    },
+    {
+      "id": "gan-diffusion-pcg-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A level is a grid of tile identifiers \u2014 wall, floor, spike, door. An engineer has the network emit one continuous number per position and rounds it to the nearest identifier. Outputs are full of spikes where doors should be. What is wrong and what is the standard representation?",
+      "explanation": "A network's output is continuous and tile identity is categorical, so the two have to be bridged deliberately. One channel per category with the highest score winning represents uncertainty as a distribution over categories, whereas a single regressed number represents it as a position on a line that has no meaning \u2014 and lands between two neighbouring identifiers, producing whatever tile happens to sit there.",
+      "grade_id": "gan-diffusion-pcg-3a4db43094232b36",
+      "options": [
+        "Tile identifiers are categories with no ordering, so rounding imposes a meaningless metric: a value halfway between the numbers assigned to wall and spike is not 'half a spike', and being uncertain between two tiles produces a confident third. Emit one channel per tile type and take the highest-scoring channel at each position, so uncertainty is spread across categories rather than averaged into a wrong one",
+        "The problem is the rounding direction; rounding down consistently rather than to nearest removes the artefact and the single-channel representation is fine",
+        "The problem is that the identifiers are not normalised to the zero-to-one range the network outputs; rescaling them fixes it",
+        "The representation is correct and the artefact indicates the model has collapsed onto a few outputs; changing the training loss resolves it"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "gan-diffusion-pcg-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement the decoding and the evaluation proxies. `decode(logits, channels)` reads a flat list holding `channels` scores per position, in order, and returns the index of the highest-scoring channel at each position, taking the first on a tie. `regressed(values, channels)` is the naive alternative: round each value to the nearest integer and clamp it into `[0, channels - 1]`. `diversity(samples)` takes a list of equal-length samples and returns `{\"unique\": distinct samples, \"total\": how many, \"varying_positions\": how many positions take more than one value across the samples, \"collapsed\": whether the distinct count is at most a tenth of the total, with a floor of 1}`. `memorised(samples, corpus, distance)` returns `{\"copies\": how many samples have distance 0 to some corpus item, \"nearest\": the nearest-corpus distance per sample, \"mean_nearest\": their mean}`. Raise `ValueError` for a channel count below 1, a logits length that is not a multiple of the channel count, an empty sample list, samples of differing length, and an empty corpus. Standard library only.",
+      "explanation": "Three contrasts are worth reading twice. Uncertainty between two tiles decodes to one of them under the per-category representation and to a confidently wrong third under the regressed one \u2014 the categorical bridge is not a style choice. A generator that varies only one position of the artifact scores a perfect distinct-output count while almost nothing moves, which is the same numerical-versus-perceptual gap that afflicts hand-written generators. And the parroting sample set has a low distinct count but, more damningly, a nearest-training-example distance of exactly zero: a diversity count alone would call a memorising model merely unlucky, whereas distance to the corpus names what it is doing.",
+      "grade_id": "gan-diffusion-pcg-1f378738656585ec",
+      "starter": "def decode(logits, channels):\n    ...\n\n\ndef regressed(values, channels):\n    ...\n\n\ndef diversity(samples):\n    ...\n\n\ndef memorised(samples, corpus, distance):\n    ...",
+      "solution": "def decode(logits, channels):\n    if channels < 1:\n        raise ValueError(\"need at least one channel\")\n    if len(logits) % channels:\n        raise ValueError(\"logits length is not a multiple of the channel count\")\n    out = []\n    for start in range(0, len(logits), channels):\n        block = logits[start:start + channels]\n        best = 0\n        for index in range(1, channels):\n            if block[index] > block[best]:\n                best = index\n        out.append(best)\n    return out\n\n\ndef regressed(values, channels):\n    if channels < 1:\n        raise ValueError(\"need at least one channel\")\n    return [min(channels - 1, max(0, int(round(v)))) for v in values]\n\n\ndef diversity(samples):\n    if not samples:\n        raise ValueError(\"no samples\")\n    unique = {tuple(s) for s in samples}\n    positions = len(samples[0])\n    if any(len(s) != positions for s in samples):\n        raise ValueError(\"samples differ in length\")\n    varying = 0\n    for i in range(positions):\n        if len({s[i] for s in samples}) > 1:\n            varying += 1\n    return {\"unique\": len(unique), \"total\": len(samples),\n            \"varying_positions\": varying,\n            \"collapsed\": len(unique) <= max(1, len(samples) // 10)}\n\n\ndef memorised(samples, corpus, distance):\n    if not corpus:\n        raise ValueError(\"empty corpus\")\n    copies = 0\n    nearest = []\n    for sample in samples:\n        d = min(distance(sample, item) for item in corpus)\n        nearest.append(d)\n        if d == 0:\n            copies += 1\n    return {\"copies\": copies, \"nearest\": nearest,\n            \"mean_nearest\": sum(nearest) / len(nearest)}",
+      "test": "# Tile identities are categories, so a network emits one score per tile per position\n# and the tile is whichever score is highest.\nassert decode([0.1, 0.9, 0.2, 5.0, 1.0, 0.0], channels=3) == [1, 0]\nassert decode([], channels=3) == []\nassert decode([1.0, 1.0, 1.0], channels=3) == [0], \"ties take the first channel\"\n\n# Regressing a single continuous value per position is the mistake: the rounding\n# imposes an ordering on identities that have none, so a value between two tiles\n# becomes one of them rather than being meaningless as it should be.\nassert regressed([0.0, 1.4, 1.6, 2.9], channels=4) == [0, 1, 2, 3]\nassert regressed([-5.0, 99.0], channels=4) == [0, 3], \"out-of-range values are clamped\"\n# The two decodings of the same underlying uncertainty disagree: a position the\n# network is genuinely unsure about lands on a confident middle tile.\nassert decode([0.5, 0.0, 0.5], channels=3) == [0]\nassert regressed([1.0], channels=3) == [1]\n\n# Diversity: a generator emitting a handful of outputs over and over is collapsed,\n# and the position-wise view shows how little of the artifact actually varies.\ncollapsed = [[1, 2, 3]] * 40 + [[4, 5, 6]] * 10\nreport = diversity(collapsed)\nassert report[\"unique\"] == 2 and report[\"total\"] == 50, report\nassert report[\"collapsed\"], report\nassert report[\"varying_positions\"] == 3, report\n\nvaried = [[i % 7, (i // 7) % 7, (i * 5) % 11] for i in range(50)]\ngood = diversity(varied)\nassert good[\"unique\"] > 20 and not good[\"collapsed\"], good\n\n# A generator that varies only one position is numerically diverse and perceptually\n# not: the count of distinct outputs is high and almost nothing moves.\nnarrow = [[0, 0, i] for i in range(50)]\nassert diversity(narrow)[\"unique\"] == 50\nassert diversity(narrow)[\"varying_positions\"] == 1\n\n# Memorisation: distance to the nearest training example catches regurgitation that\n# a diversity count alone would call healthy.\nCORPUS = [[0, 0, 0], [1, 1, 1], [2, 2, 2]]\nhamming = lambda a, b: sum(1 for x, y in zip(a, b) if x != y)\n\nparrot = memorised([[0, 0, 0], [1, 1, 1], [0, 0, 0]], CORPUS, hamming)\nassert parrot[\"copies\"] == 3 and parrot[\"mean_nearest\"] == 0.0, parrot\nassert diversity([[0, 0, 0], [1, 1, 1], [0, 0, 0]])[\"unique\"] == 2\n\nnovel = memorised([[0, 1, 2], [2, 1, 0]], CORPUS, hamming)\nassert novel[\"copies\"] == 0 and novel[\"mean_nearest\"] > 0, novel\n\nfor bad in (lambda: decode([1.0, 2.0], channels=3),\n            lambda: decode([1.0], channels=0),\n            lambda: diversity([]),\n            lambda: diversity([[1, 2], [1]]),\n            lambda: memorised([[0]], [], hamming)):\n    try:\n        bad()\n    except ValueError:\n        continue\n    raise AssertionError(\"must be rejected\")"
+    },
+    {
+      "id": "gan-diffusion-pcg-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "An adversarial model trained on 200 levels reports steadily improving losses. Its samples are all near-copies of four training levels, and inference is fast enough for interactive use. A colleague proposes training longer, since the losses are still falling. Assess, and say what the two underlying problems are.",
+      "explanation": "Two failure modes at once, and neither is diagnosed by the loss curve \u2014 which in this setup is a game between two networks and is not expected to descend monotonically. Small corpora make memorisation easy, and the adversarial objective makes collapse onto a few reliable outputs attractive; the standard measures are augmentation, smaller models, a different loss, or the family that does not have this failure mode.",
+      "grade_id": "gan-diffusion-pcg-d0935d38cbf90c18",
+      "options": [
+        "The losses are not a progress signal in this setup \u2014 they oscillate and a good number can mean nothing, so samples must be judged directly and training longer is not indicated. The two problems are collapse onto a handful of outputs and overfitting to a very small corpus, which reinforce each other: with a few hundred examples the model can memorise rather than generalise. The usual responses are heavy augmentation and a smaller model, a loss less prone to collapse, or switching to the denoising family, which does not collapse this way",
+        "The losses are a reliable signal, so training longer is correct; the near-copies indicate the corpus is too homogeneous and more examples would be the only other remedy",
+        "The near-copies are the expected and desired outcome of learning the distribution well; the only real issue is that inference speed suggests the model is too small",
+        "The problem is the sampling procedure rather than training: using more denoising steps at sample time would diversify the outputs of this model"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "gan-diffusion-pcg-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four jobs. (a) Texture variations in the style of an artist's 500 hand-painted tiles. (b) A dungeon of nine by nine cells for a jam game due tomorrow. (c) Levels generated during play, on a phone, in the style of a curated corpus. (d) A tilemap where every neighbouring pair must be legal, in a learned style. Assign each and give the deciding property, then say what (c) and (d) each need on top of the model.",
+      "explanation": "Two of the four are decided by whether a corpus exists and whether rules can be written; the other two are about what must be bolted on. Sampling cost decides the family for interactive use, and a hard constraint always needs something other than the model to enforce it.",
+      "grade_id": "gan-diffusion-pcg-a81f72a08b6b74c1",
+      "expected": "A correct answer must place all four. (a) A learned model: a hand-painted style is exactly the sort of thing that cannot be written down as rules, a corpus of 500 exists, and the deliverable is variations in that style \u2014 the deciding property is that the specification is a corpus and the style is implicit. (b) Classic algorithmic generation: at that size a few lines of recursive subdivision or a constraint solver does the job with no data, no training and no accelerator, and reaching for a learned model would be enormously more effort for a worse result \u2014 the deciding property is that the content is tiny and the rules are easy to state. (c) A learned model, but the sampling cost decides which family: many network evaluations per sample is fatal on a phone during play, so either the fast single-pass family or the denoising family with a deterministic sampler taking far fewer steps, step distillation, or denoising in a compressed space. What it needs on top: validity by construction or a check cheap enough to run inline, because a plausible-but-unplayable level cannot be caught by an offline curation pass that does not exist here. (d) A learned model paired with a constraint solver, or a repair pass: the model supplies the style and the solver supplies the guarantee, because a neural sampler produces plausible adjacencies rather than legal ones. What it needs on top is exactly that hard-constraint layer \u2014 post-validating the adjacency rules and rejecting or repairing, or letting the solver make the placements with the model biasing its choices."
+    }
+  ]
+}

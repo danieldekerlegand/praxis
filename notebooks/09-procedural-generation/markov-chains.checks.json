@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "markov-chains",
+  "title": "Markov Chains",
+  "domain": "09-procedural-generation",
+  "runnable": true,
+  "generated": "2026-08-27T07:19:44+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "markov-chains-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A team needs two things: fantasy place names that sound like they came from the same language as fifty hand-written examples, and quest descriptions whose stated objective, reward and location must be mutually consistent. A programmer proposes learning a chain from examples for both. Assess.",
+      "explanation": "Local statistical resemblance is what the model gives you, cheaply and from very little data. The other requirement is a relationship between parts that may be far apart, which the memoryless assumption rules out by construction \u2014 and raising the order to cover the whole description does not fix it, because at that point every context has one observed continuation and the model simply reproduces its input.",
+      "grade_id": "markov-chains-b8dc03ec99744494",
+      "options": [
+        "It fits the first and not the second. The model captures which tokens tend to follow which, which is exactly the 'sounds like the examples' requirement and needs no rules written by hand. Consistency between distant parts of a description is a long-range constraint, and the model's defining assumption is that the next token depends only on the recent context \u2014 it has no way to remember what reward it committed to earlier",
+        "It fits both: the order can be raised until the context spans the whole description, which makes the parts consistent",
+        "It fits the second and not the first: transition statistics enforce structure, while imitating a small set of examples requires a hand-authored grammar",
+        "It fits neither: transition models require thousands of examples, so fifty is far too few for either task, and both need a neural model"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "markov-chains-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A colleague raises the order of a name generator from two to six 'to make the names better', and reports that the output is now excellent \u2014 every name is convincing \u2014 but a reviewer notices most of them appear in the training list. Explain what the order controls, why raising it produced this result, and what the underlying trade-off is.",
+      "explanation": "The order is a dial between generality and fidelity, and the amount of data decides where on that dial the model stops generating and starts quoting. It is the single most common misdiagnosis with this technique \u2014 the output looks better precisely because it is no longer new.",
+      "grade_id": "markov-chains-bd804052265894f5",
+      "expected": "A correct answer must explain the order as the amount of context and the data trade-off. The model is a table from a context to a distribution over the next token, and the order is how many recent tokens make up that context: at order one the next token depends on the previous one, at order six on the previous six. A longer context is more specific, so the continuations it permits are more faithful to the source \u2014 which is why the names sound better. The problem is that the number of possible contexts grows exponentially with the order while the training data does not, so at high order most contexts were observed only once and their distribution has a single outcome with probability one. At that point sampling is not choosing, it is replaying: the chain follows the exact path it saw during training and reproduces training examples verbatim. So the trade-off is between local realism and novelty, mediated by how much data there is: raising the order improves realism only while there is enough data for contexts to have several plausible continuations, and beyond that it degrades into memorisation. The practical rule is to use the smallest order that already sounds right, and to add more examples rather than more order. Noting that at high order the model also hits contexts it never saw at all, which needs a fallback to a shorter context or the walk simply stops, is a plus."
+    },
+    {
+      "id": "markov-chains-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Three implementation details are described as 'housekeeping': storing counts rather than proportions in each row, choosing the first token uniformly among all observed tokens, and doing nothing special at the end of a sequence. What does each actually do to the output?",
+      "explanation": "Where a sequence starts and where it ends are part of the model, not conveniences around it: padding the beginning and marking the end let both be learned from the data rather than imposed. The counts issue is the one that could be argued either way \u2014 sampling in proportion to counts within a single row is fine \u2014 but the notebook's point stands for any code that treats a row as a distribution or mixes rows, which is where the off-by-one normalisation bugs live.",
+      "grade_id": "markov-chains-4200d611a9e79d2f",
+      "options": [
+        "Each changes what the model generates. Sampling from raw counts without dividing by the row total gives the wrong probabilities and skews the output; picking a uniform first token ignores how sequences really begin, so the openings look nothing like the source; and with no explicit end marker the model has no way to represent 'this sequence is finished', so length becomes an arbitrary external cutoff rather than something learned",
+        "The first two are genuine bugs but the third is harmless, since a chain always reaches a state with no continuations and terminates naturally",
+        "All three are genuinely cosmetic: counts and proportions rank the same, a uniform start is corrected within a few steps, and sequence length is always a caller's decision",
+        "The first is harmless because sampling proportional to counts is equivalent to sampling proportional to probabilities; the other two are the real errors"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "markov-chains-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Build the model and the sampler. Implement `train(sequences, order)` and `walk(table, order, pick, max_length=100)`, with `START = \"\\x02\"` and `STOP = \"\\x03\"`. `train` pads each sequence with `order` copies of `START` at the front and one `STOP` at the end, counts every (context of `order` tokens, next token) pair, and returns a dict mapping each context tuple to a dict of next token to its probability within that context \u2014 each row summing to 1. `walk` begins with a context of `order` copies of `START` and repeatedly asks `pick(row)` for the next token, where `row` is the current context's distribution; a token equal to `STOP` ends the walk, any other token is appended and the context slides forward. If a context has no row, fall back to a shorter one by dropping its oldest token and re-padding with `START` until a row is found. Return the emitted tokens joined into a string, stopping also when `max_length` tokens have been emitted. Raise `ValueError` for an order below 1, for no sequences, and for a `pick` that returns a token absent from the row; raise `KeyError` if no fallback context has a row. Standard library only.",
+      "explanation": "The two orders side by side are the point. At order one the context after the letter that begins every word admits three continuations, so the model can produce something that was not in the training set. Raise the order past the length of the words themselves and every row has exactly one entry \u2014 the assertion checks this directly \u2014 so the walk has no choices left to make and reproduces an input verbatim. Notice also that the start padding and the end marker are ordinary table entries: the model learns how sequences begin and when they finish, rather than having those imposed from outside, which is why the cap is a safety net rather than the mechanism.",
+      "grade_id": "markov-chains-5adc369320efc6ad",
+      "starter": "START = \"\\x02\"\nSTOP = \"\\x03\"\n\n\ndef train(sequences, order):\n    ...\n\n\ndef walk(table, order, pick, max_length=100):\n    ...",
+      "solution": "START = \"\\x02\"\nSTOP = \"\\x03\"\n\n\ndef train(sequences, order):\n    if order < 1:\n        raise ValueError(\"order must be at least 1\")\n    if not sequences:\n        raise ValueError(\"no training sequences\")\n    counts = {}\n    for sequence in sequences:\n        padded = [START] * order + list(sequence) + [STOP]\n        for i in range(len(padded) - order):\n            context = tuple(padded[i:i + order])\n            nxt = padded[i + order]\n            counts.setdefault(context, {})\n            counts[context][nxt] = counts[context].get(nxt, 0) + 1\n    table = {}\n    for context, row in counts.items():\n        total = sum(row.values())\n        table[context] = {token: n / total for token, n in sorted(row.items())}\n    return table\n\n\ndef walk(table, order, pick, max_length=100):\n    context = (START,) * order\n    out = []\n    while len(out) < max_length:\n        row = table.get(context)\n        while row is None and len(context) > 1:\n            context = context[1:]\n            padded = (START,) * (order - len(context)) + context\n            row = table.get(padded)\n            if row is not None:\n                context = padded\n        if row is None:\n            raise KeyError(f\"no row for context {context!r}\")\n        token = pick(row)\n        if token not in row:\n            raise ValueError(f\"{token!r} is not a possible next token\")\n        if token == STOP:\n            break\n        out.append(token)\n        context = tuple((list(context) + [token])[-order:])\n    return \"\".join(out)",
+      "test": "WORDS = [\"cat\", \"car\", \"cab\"]\n\n# An order-1 table over three words: after 'c' the only continuation seen is 'a'.\nt1 = train(WORDS, 1)\nassert t1[(\"c\",)] == {\"a\": 1.0}, t1[(\"c\",)]\nassert t1[(\"a\",)] == {\"b\": 1 / 3, \"r\": 1 / 3, \"t\": 1 / 3}, t1[(\"a\",)]\n\n# Every row is a probability distribution, not raw counts.\nfor context, row in t1.items():\n    assert abs(sum(row.values()) - 1.0) < 1e-12, (context, row)\n\n# The start context is part of the model: it records how sequences actually begin.\nassert t1[(\"\\x02\",)] == {\"c\": 1.0}, t1[(\"\\x02\",)]\n# ...and the end is a real token, so the walk knows when to stop.\nassert set(t1[(\"t\",)]) == {\"\\x03\"}, t1[(\"t\",)]\n\n# Deterministic walks: always take the most probable token, breaking ties alphabetically.\nbest = lambda row: max(sorted(row), key=lambda k: row[k])\nassert walk(t1, 1, best) == \"cab\", walk(t1, 1, best)\n\n# Order 2 keeps two tokens of context, which is what distinguishes the three words.\nt2 = train(WORDS, 2)\nassert t2[(\"c\", \"a\")] == {\"b\": 1 / 3, \"r\": 1 / 3, \"t\": 1 / 3}, t2[(\"c\", \"a\")]\nassert t2[(\"a\", \"t\")] == {\"\\x03\": 1.0}\nassert t2[(\"\\x02\", \"\\x02\")] == {\"c\": 1.0}\n\n# More context means more distinct contexts over the same corpus, so each one is\n# observed fewer times and offers fewer alternatives: the model shifts from choosing\n# to replaying. That is the whole cost of raising the order.\nCORPUS = [\"banana\", \"bandana\", \"cabana\", \"savanna\", \"havana\"]\n\n\ndef average_choices(order):\n    table = train(CORPUS, order)\n    return sum(len(row) for row in table.values()) / len(table)\n\n\nassert len(train(CORPUS, 4)) > len(train(CORPUS, 1)), \"more contexts at higher order\"\nassert average_choices(1) > average_choices(4), (average_choices(1), average_choices(4))\nassert average_choices(4) < 1.5, average_choices(4)\n\n# An unseen context falls back to a shorter one rather than failing outright.\nmixed = train([\"ab\", \"ba\"], 2)\nshortened = walk(mixed, 2, best, max_length=6)\nassert isinstance(shortened, str) and shortened, shortened\n\n# The length cap stops a chain that would otherwise run on.\nloop = train([\"aaaaaaaaaaaa\"], 1)\nassert len(walk(loop, 1, lambda row: \"a\", max_length=7)) == 7\n\n# A picker that returns something the row does not contain is refused rather than\n# silently emitted.\ntry:\n    walk(t1, 1, lambda row: \"z\")\nexcept ValueError:\n    pass\nelse:\n    raise AssertionError(\"an impossible token must be rejected\")\n\nfor bad in (lambda: train(WORDS, 0), lambda: train([], 1)):\n    try:\n        bad()\n    except ValueError:\n        continue\n    raise AssertionError(\"must be rejected\")"
+    },
+    {
+      "id": "markov-chains-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A generator trained on a few dozen examples produces the same handful of outputs over and over, and occasionally raises a lookup error mid-generation. What are the two diagnoses and their standard remedies?",
+      "explanation": "Two problems that are both about data rather than code. Sparse training data makes the table degenerate, so the chain can only walk the paths it memorised. And any context absent from the table is a real gap that has to be handled deliberately \u2014 falling back to less context, smoothing, or stopping \u2014 because otherwise generation either crashes or truncates silently.",
+      "grade_id": "markov-chains-606c67d291b3d63f",
+      "options": [
+        "The repetition is data starvation: with few examples most contexts have a single observed continuation, so the table is mostly zeros and the chain collapses onto a few memorised paths \u2014 more examples, or a lower order, is the remedy. The lookup error is an unseen context reached during generation, and the standard responses are to fall back to a shorter context, to smooth the distribution so unseen continuations have small non-zero probability, or to stop cleanly",
+        "Both are symptoms of an unnormalised table: dividing each row by its total removes the repetition and eliminates the lookup errors",
+        "The repetition means the sampler is not being reseeded between runs, and the lookup error means the end marker was omitted; adding it fixes both",
+        "Both indicate the order is too low: a low order makes the chain revisit the same states and reach contexts that do not exist in the table"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "markov-chains-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four generation jobs. (a) Names for a species, in the style of forty hand-written examples. (b) Quest text that must always name a valid objective, a valid reward and a valid location, in that order. (c) A tile map where neighbouring tiles must be compatible. (d) A paragraph of in-world lore that stays on topic and is fluent. Assign each and give the deciding property, then say how two of them combine.",
+      "explanation": "Each of the four is decided by a different kind of requirement \u2014 resemblance, structure, hard local constraint, and meaning \u2014 and the composition at the end is why these are rarely an either-or choice in a real generator.",
+      "grade_id": "markov-chains-e3dcf60e8e7e8e39",
+      "expected": "A correct answer must place all four. (a) A transition model learned from the examples: the requirement is local resemblance to a small corpus with no rules written by hand, which is precisely this technique's case \u2014 the deciding property is that the specification is a set of examples and only local plausibility matters. (b) A grammar: the requirement is a structure that must always hold \u2014 the right parts, in the right order, each drawn from a valid set \u2014 and a grammar enforces exactly that by construction, whereas a transition model has no way to guarantee it \u2014 the deciding property is that structure is a constraint rather than a tendency. (c) A constraint solver over tile adjacency: the compatibility requirement is a hard local constraint in two dimensions, which is what that technique enforces by propagating consequences, and it can detect when no assignment exists \u2014 the deciding property is that neighbours must be compatible rather than merely likely. (d) A neural language model: staying on topic across a paragraph and being fluent are long-range and semantic requirements that none of the others address \u2014 the deciding property is that meaning matters, at the cost of data, training and much slower generation. How two combine: the grammar and the transition model compose naturally \u2014 write the grammar so that its structure is guaranteed and let a transition model fill the leaf slots, so the names inside a correctly structured quest description are generated in the corpus's style. The summary is that transition models give you the feel, grammars give you the structure, and neural models give you the meaning."
+    }
+  ]
+}
