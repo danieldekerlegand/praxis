@@ -2,10 +2,11 @@
 
 The gating machinery — `praxis/backfill.py`, `praxis/coverage.py`, `praxis/gateaudit.py`,
 `praxis/regate.py` — shipped weeks before any batch was run with it. This document is the
-first measurement of actually running it, end to end, over one seed domain, so that the
-remaining scope is a decision rather than a guess.
+measurement of actually running it, end to end, so that the remaining scope is a decision
+rather than a guess: first over one domain, then over the five others that had no gate at
+all, and then the recorded decision about what is left.
 
-## The run
+## The first run
 
 `notebooks/01-symbolic-ai-logic`, 15 notebooks, taken from 0 gated to 15 gated. It was
 chosen over the smaller domains because it exercises both halves of the `runnable` rule:
@@ -35,9 +36,9 @@ runnable notebook, and the whole domain finishes inside a minute.
 **Authoring is the cost**, and it is dominated by reading. Writing a check that a learner
 cannot pass by pattern-matching the page requires knowing what the page says: ~15 kB of
 prose per notebook in, ~10 kB of questions, marking keys, reference solutions and hidden
-tests out. Scaled at face value, the remaining 206 ungated notebooks are roughly 3.2 MB of
-prose to read and 2.2 MB of gate to write — which is why **§ Scope** below is a decision
-and not a formality.
+tests out. Scaled at face value, the 206 notebooks still ungated after that first domain
+were roughly 3.2 MB of prose to read and 2.2 MB of gate to write — which is why the scope
+sections below are a decision and not a formality.
 
 **Review is cheap because the grader is strict.** 2 of 15 drafts were rejected on their
 first pass and both were caught by the machine, not by a reader:
@@ -87,8 +88,75 @@ first seed domain is ungated"). They failed *because coverage rose*, which is th
 working. They now assert a floor plus the property the count stood in for — nothing flagged,
 every gate holds — and select by state rather than by position.
 
-## Scope
+A fourth moved for the same reason once every domain had a gate: `test_launcher_api`'s
+"a module carrying no gate locks nothing" had been reading it off the shipped library,
+and after the backfill there is no fully ungated seed module left to point at. The claim
+is a property of `progress.module_gates()`, so it is now asserted there. The rule is the
+thing under test; the library is not.
 
-Per-notebook cost is now known and it is authoring, not compute. `praxis.coverage` reports
-the position after this run; what the remaining domains are worth, and which of them are
-worth gating at all, is decided against these figures rather than against an assumption.
+## The rest of the zero-coverage domains
+
+The first domain's figures held across the other five, which is the useful result: the
+cost is stable and scales with notebook count, so the remaining scope really is arithmetic
+rather than a guess.
+
+| Domain | Notebooks | Checks | Machine time | Per notebook | `gateaudit` |
+|---|---|---|---|---|---|
+| `01-symbolic-ai-logic` | 15 | 90 | 47.1 s | 3.1 s | 0 flagged |
+| `07-proprietary-coding-ai` | 9 | 54 | — | — | 0 flagged |
+| `10-data-analysis-research` | 15 | 90 | — | — | 0 flagged |
+| `09-procedural-generation` | 16 | 96 | — | — | 0 flagged |
+| `04-agentic-ai` | 16 | 96 | 45.3 s | 2.8 s | 0 flagged |
+| `05-speech-audio` | 22 | 132 | 64.5 s | 2.9 s | 0 flagged |
+| **Total** | **93** | **558** | — | **~2.9 s** | **0 flagged** |
+
+Every one of the six domains the band was opened over — the ones reporting 0% — is now at
+100%. `python3 -m praxis.coverage` reports **117 of 245 (48%), in 14 of 14 domains**, up
+from 24 of 245 in 8 of 14. Across the whole library `python3 -m praxis.gateaudit` flags 0
+of 702 checks, `python3 -m praxis.regate` reports 117 of 117 holding the write path's own
+bar, and `scripts/validate_nbgrader.py notebooks` reports 0 failures over 117 notebooks.
+
+Two things stayed true at six times the scale. Machine time per notebook did not move
+(2.8–3.1 s), because it is four subprocess launches and not a model call. And the write
+path kept catching what a reader would not: drafts were rejected for a reference solution
+that disagreed with its own test, for an expected frame count that was off by one, for a
+tolerance too tight for the arithmetic underneath it, and for an assertion about a mel
+filterbank that was false at the resolution actually used. In every case the failure came
+back as a sentence naming the check and the line.
+
+The code checks were written as **stdlib re-implementations of each notebook's own
+mechanism** — the handshake that gates a tool call, the durable task resumed by id, the
+state reducer that clobbers without a merge rule, the observation the model is not allowed
+to write for itself, the blank that lets a double letter survive, the byte-not-character
+request limit, the soft alignment that has a gradient where a repeat has none. That is the
+property `gateaudit` cannot check for you and the reason the domain choice matters: a check
+a learner can pass by recognising prose is not a gate.
+
+## Scope: what is left, and why it is deferred rather than cut
+
+128 notebooks remain, all of them in four **partially** gated domains. None of them is
+unsuitable for gating — every one is ✅, and nothing about them makes a real check
+impossible — so this is a scheduling decision, not an exclusion:
+
+| Domain | Ungated | Position |
+|---|---|---|
+| `02-ai-ml-tooling` | 14 | first — smallest, and the tooling most learners meet first |
+| `08-architectures` | 22 | second — the strongest remaining code-check material |
+| `03-llm-inference-training-optimization` | 28 | third — 5 already gate |
+| `11-devops-mlops-infra` | 64 | last — more than the other three combined, and the hardest to make non-trivial |
+
+At ~15 kB of prose read and ~10 kB of gate written per notebook, that is roughly **2.0 MB
+to read and 1.3 MB to write**. The constraint is authoring attention, not compute and not
+review: at 2.9 s per notebook the machine time for all 128 is about six minutes.
+
+That decision is **on disk, not just in this document**. `notebooks/ungated.json` is the
+tracked register and `praxis/ungated.py` grades it against the live library, so an entry
+naming a domain that no longer has an ungated notebook in it is reported as stale rather
+than believed. `python3 -m praxis.coverage` now splits the complement of `gated` in two —
+*ungated by recorded decision* and *unaccounted for* — and the second number is the one to
+watch. It is currently **0**: every notebook without a gate has a dated reason behind it.
+
+The register deliberately changes nothing about what the batch selects. A deferred notebook
+is still in `backfill_targets()`, because a register that quietly shrank the queue would
+turn "we decided to wait" back into "we forgot" — which is the confusion it exists to
+remove.

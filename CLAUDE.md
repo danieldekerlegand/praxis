@@ -146,9 +146,22 @@ is `backfill.is_gated()` restated on the view model, so the batch that writes ga
 report that counts them agree by construction. The **per-domain fraction is the primary
 figure** for the same reason breadth is the batch's default; the overall one is their sum,
 never a separate count. `python3 -m praxis.coverage` prints it: the seed library shipped at
-24/245 in 8 of 14 domains, and `01-symbolic-ai-logic` was the first domain taken to 100% by
-a run of the shipped batch (39/245 in 9 of 14) — see
-`docs/explanation/gating-backfill-cost.md` for what that domain cost.
+24/245 in 8 of 14 domains, and the six domains that had none at all were taken to 100% by
+runs of the shipped batch — 117/245 in 14 of 14 — see
+`docs/explanation/gating-backfill-cost.md` for what they cost.
+
+The **complement** of `gated` is split rather than left as one number, because "no gate"
+was hiding two situations. `praxis/ungated.py` is the tracked register of decisions to
+leave a notebook for later (`notebooks/ungated.json`, an entry per domain or per notebook
+carrying a `reason` and a `decided` date); coverage folds it in, so every row it covers is
+**deferred** and what remains is **omitted** — ungated with nothing on record. Omitted is
+the number to watch, and it is 0. Two rules keep the register honest. It is **graded
+against the live rows**, never against itself (`register_failures`), so an entry naming a
+domain that no longer has an ungated notebook, or a `rel` overtaken by a gate, is reported
+as stale rather than believed — and a corrupt register degrades toward *omitted*, never
+toward deferred. And it is a **record, not a rule**: nothing in it is excluded from
+`backfill_targets()`, because a register that quietly shrank the queue would turn "we
+decided to wait" back into "we forgot", which is the confusion it exists to remove.
 
 In the app it is a field, not an endpoint: `build_model()` folds the report onto
 `/api/library` as `coverage` and each domain's own fraction onto its row as `covered`, so

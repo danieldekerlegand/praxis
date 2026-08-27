@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "dir": "02-ai-ml-tooling",
+      "decided": "2026-08-27",
+      "reason": "Deferred, not exempt. Band 87 gated the six domains that had no gate at all (0/16 agentic-ai, 0/22 speech-audio, 0/9 proprietary-coding-ai, 0/16 procedural-generation, 0/15 data-analysis-research, 0/15 symbolic-ai-logic), which was the failure the band was opened for: coverage everywhere beats depth in three domains. The four partially-gated domains are the next batch, in this order: 02-ai-ml-tooling (14), 08-architectures (22), 03-llm-inference-training-optimization (28), 11-devops-mlops-infra (64). The cost is measured, not guessed - see docs/explanation/gating-backfill-cost.md - and the remaining 128 notebooks are roughly 2.0 MB of prose to read at ~15 kB each. Nothing here is unsuitable for gating; the constraint is authoring time."
+    },
+    {
+      "dir": "08-architectures",
+      "decided": "2026-08-27",
+      "reason": "Deferred; second in the queue after 02-ai-ml-tooling. These 22 are the strongest remaining candidates for code checks - a mechanism per notebook (attention, convolution, a recurrence, a flow) that a learner can be made to re-implement - so they are worth doing before the tool-operation domains rather than after."
+    },
+    {
+      "dir": "03-llm-inference-training-optimization",
+      "decided": "2026-08-27",
+      "reason": "Deferred; third in the queue. 5 of 33 already gate. The retrieval and decoding topics carry real mechanisms (a key-value cache, speculative acceptance, a reranker's ordering) and gate well; the vendor-database topics are thinner and may end up carrying choice and short checks only, which the write path already permits for a non-runnable topic."
+    },
+    {
+      "dir": "11-devops-mlops-infra",
+      "decided": "2026-08-27",
+      "reason": "Deferred; last in the queue, and the largest at 64 notebooks - more than the other three combined. Much of it is tool operation and cluster configuration rather than an algorithm, so the code checks here will be the hardest to make non-trivial and the gateaudit triviality rules the most likely to bite. Scheduling it last is deliberate: if authoring time runs out, this is the domain where a rushed gate would do the most harm."
+    }
+  ]
+}

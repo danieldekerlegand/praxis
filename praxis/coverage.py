@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """How much of the library actually gates — overall, and domain by domain.
 
-This is the honest headline of the gating program, and the number it starts from is not
-flattering: **24 of 245** seed notebooks carry a gate today, so praxis's differentiating
-feature is largely unshipped until `praxis/backfill.py` has run. A tracker exists so that
+This is the honest headline of the gating program, and the number it started from was not
+flattering: **24 of 245** seed notebooks carried a gate, so praxis's differentiating
+feature was largely unshipped until `praxis/backfill.py` had run. A tracker exists so that
 sentence stays a measurement rather than a claim.
 
 Nothing here scans the library. The report is a **fold over the topic rows the launcher
@@ -29,6 +29,14 @@ three full ones. `render()` therefore prints the domains first and the overall l
 No number here is ever stored. Every fraction is recomputed from what is on disk at the
 moment it is asked for, so the report cannot claim a gate the library does not have.
 
+The complement of `gated` is split rather than left as one number, because "no gate" was
+hiding two different situations. `praxis/ungated.py` is the tracked register of decisions
+to leave a notebook for later; every row it covers counts as **deferred**, and what is
+left is **omitted** — ungated with nothing on record. Deferred is a choice somebody wrote
+down and dated; omitted is an oversight, and it is the number to watch. The register is
+read here, so no caller has to thread it through and there is still exactly one pass over
+the notebooks.
+
 In the app it is one more field on the view model, not a second source of truth:
 `build_model()` folds this report onto `/api/library` as `coverage` (and each domain's
 own fraction onto its row as `covered`), so a resumed backfill's new gates show up on
@@ -44,7 +52,7 @@ from __future__ import annotations
 
 import json
 import sys
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -64,10 +72,19 @@ def is_gated(row: dict) -> bool:
     return bool(row.get("gated")) and bool(row.get("graded"))
 
 
-def domain_coverage(domain: dict) -> dict:
-    """One domain's fraction: how many of its notebooks a learner meets a gate in."""
+def domain_coverage(domain: dict, deferred: Collection[str] = ()) -> dict:
+    """One domain's fraction: how many of its notebooks a learner meets a gate in.
+
+    `deferred` is the set of rels a decision covers (`praxis/ungated.py`), so the
+    complement of `gated` splits in two: notebooks nobody has got to yet, and notebooks
+    somebody decided to leave for later and wrote down why. `omitted` is the first, and
+    it is the number worth watching — an ungated notebook with no decision behind it is
+    an oversight, and that was invisible while both were just "not gated".
+    """
     topics = domain.get("topics") or []
     gated = sum(1 for row in topics if is_gated(row))
+    waiting = sum(1 for row in topics
+                  if not is_gated(row) and row.get("rel") in deferred)
     total = len(topics)
     return {
         "dir": domain.get("dir", ""),
@@ -76,19 +93,35 @@ def domain_coverage(domain: dict) -> dict:
         "gated": gated,
         "total": total,
         "complete": sum(1 for row in topics if row.get("status") == "complete"),
+        "deferred": waiting,
+        "omitted": total - gated - waiting,
         "pct": _pct(gated, total),
     }
 
 
-def coverage_report(domains: Sequence[dict]) -> dict:
+def coverage_report(domains: Sequence[dict],
+                    deferred: Collection[str] | None = None) -> dict:
     """Gated coverage per domain (the primary figure) and overall, off library rows.
 
     `domains` is `build_model()["domains"]` — or anything shaped like it, which is what
     lets the arithmetic be tested without a filesystem. The overall fraction is the sum
     of the per-domain ones and never a separately counted number, so the headline and
     the breakdown cannot disagree.
+
+    `deferred` defaults to the register on disk, read here rather than passed down from
+    the launcher so that folding a decision onto the report costs no caller a change and
+    no second pass over the notebooks. A corrupt register degrades to "no decisions",
+    which reports every ungated notebook as an omission — loud, and in the right
+    direction.
     """
-    per_domain = [domain_coverage(d) for d in domains]
+    if deferred is None:
+        from praxis.ungated import deferred_rels, load_register  # noqa: PLC0415
+
+        try:
+            deferred = deferred_rels(load_register(), domains)
+        except ValueError:
+            deferred = {}
+    per_domain = [domain_coverage(d, deferred) for d in domains]
     gated = sum(d["gated"] for d in per_domain)
     total = sum(d["total"] for d in per_domain)
     return {
@@ -96,6 +129,8 @@ def coverage_report(domains: Sequence[dict]) -> dict:
         "gated": gated,
         "total": total,
         "complete": sum(d["complete"] for d in per_domain),
+        "deferred": sum(d["deferred"] for d in per_domain),
+        "omitted": sum(d["omitted"] for d in per_domain),
         "pct": _pct(gated, total),
         # Breadth, the thing a round-robin backfill is actually moving.
         "domainsGated": sum(1 for d in per_domain if d["gated"]),
@@ -130,6 +165,11 @@ def render(report: dict) -> str:
     lines.append(f"{report['gated']}/{report['total']} notebooks gated "
                  f"({report['pct']}%), in {report['domainsGated']} of "
                  f"{report['domainsTotal']} domains")
+    # The complement, split: a decision on record versus nobody having got to it.
+    if "omitted" in report:
+        lines.append(f"{report.get('deferred', 0)} ungated by recorded decision, "
+                     f"{report['omitted']} unaccounted for "
+                     f"(python3 -m praxis.ungated)")
     return "\n".join(lines)
 
 

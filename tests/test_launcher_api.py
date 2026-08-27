@@ -1125,13 +1125,17 @@ def test_an_ungated_seed_notebook_is_open_and_says_so(client: TestClient) -> Non
     # Locking belongs to the module, not to the notebook: an ungated topic sitting
     # after an unfinished gate in the same module is locked BY that gate, which is
     # module_gates()'s ordering rule and is what a backfilled domain now looks like.
-    # A module carrying no gate at all still locks nothing, and that is the claim here.
-    open_domain = next(
-        (d for d in seeds if not any(t["gated"] for t in d["topics"])), None)
-    assert open_domain is not None, "no fully ungated seed module left"
-    assert not any(t["locked"] for t in open_domain["topics"])
-    first = client.get(f"/api/study/{open_domain['topics'][0]['rel']}").json()
-    assert first["gated"] is False and first["locked"] is False
+    # The complementary claim — a module carrying NO gate locks nothing — is asserted
+    # against module_gates() rather than against the shipped library, because after the
+    # backfill every seed domain carries at least one gate and there is no such module
+    # left to point at. The rule is the thing under test; the library is not.
+    from praxis.progress import module_gates
+
+    rels = [t["rel"] for t in seeds[0]["topics"]][:3]
+    open_module = module_gates(rels, {rel: None for rel in rels}, {})
+    assert not any(state["locked"] for state in open_module.values())
+    assert not any(state["gated"] for state in open_module.values())
+    assert all(state["blockedBy"] == "" for state in open_module.values())
 
 
 # --- the gate's authority, at the API ----------------------------------------
