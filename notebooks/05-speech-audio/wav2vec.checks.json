@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "wav2vec",
+  "title": "Wav2Vec 2.0",
+  "domain": "05-speech-audio",
+  "runnable": true,
+  "generated": "2026-08-27T08:49:15+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "wav2vec-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A hospital has 900 hours of recorded consultations but only about 20 hours transcribed, and needs a recogniser that handles their clinical vocabulary. A second team wants a readable transcript of assorted podcasts \u2014 punctuation, casing, several languages \u2014 with no training at all. Which team should reach for this model, and what specifically decides it?",
+      "explanation": "The shift this model made was to bring the pretrain-once, fine-tune-cheaply pattern to speech: it learns from thousands of hours of unlabelled audio and then needs remarkably little labelled data \u2014 as little as minutes to hours \u2014 to produce a strong recogniser. A clinical domain with plenty of audio and few transcripts is the ideal case. The other team's requirements are exactly what its plain output does not give: the character-level output has no casing and no punctuation, and is English unless you picked a cross-lingual checkpoint.",
+      "grade_id": "wav2vec-ae17d5fef3acd1f4",
+      "options": [
+        "The first. Its whole reason for existing is that raw audio is nearly free while labels are expensive: it pretrains on unlabelled speech and then fine-tunes with a thin head on a small labelled set, so a domain with lots of in-domain audio and few labels is exactly its case. The second team should not: this model's plain output is uppercase, unpunctuated and English-only unless a multilingual checkpoint was chosen, so a turnkey transcription model is far less work",
+        "The second. Its strength is producing readable multilingual transcripts with no training, while a specialised clinical vocabulary needs a purpose-built recogniser rather than fine-tuning",
+        "Both. Fine-tuning is optional, and the pretrained checkpoint transcribes readable text in any language out of the box",
+        "Neither. It produces only feature vectors and cannot transcribe at all; both teams need a separate recognition model on top"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "wav2vec-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Describe this model as a two-stage pipeline, naming the components in order and what each produces. Explain the two mantras the notebook gives \u2014 the analogy to masked-language pretraining, and the claim about what sets the clock \u2014 and say why the pretraining target has to be a discrete code rather than the raw representation. Then state what changes between pretraining and fine-tuning.",
+      "explanation": "",
+      "grade_id": "wav2vec-fa9a60909e110012",
+      "expected": "A correct answer must lay out the stages. A convolutional feature encoder turns the raw waveform into local latent vectors, one per short frame; a transformer context network then adds bidirectional context, producing contextual representations; and a task head sits on top. The masked-pretraining analogy must be explained: spans of the latent timestep sequence are masked and the transformer must identify the content at the masked positions, exactly as a masked language model does for text \u2014 but the prediction target is a LEARNED DISCRETE CODE produced by a quantiser over learnable codebooks, because audio has no natural tokens. The reason must be given: a continuous vector cannot be predicted contrastively as cleanly, so the model is asked to pick the true quantised code for each masked step out of a set of distractors, with an additional term encouraging all codebook entries to stay in use. The clock mantra must be quantified: the convolutional stack's total stride is 320 samples, so sixteen thousand samples a second become about fifty frames a second, one frame every twenty milliseconds \u2014 and everything downstream, including the alignment and the length of the output, lives on that grid. What changes between the stages must be stated: pretraining uses the contrastive objective against the quantiser and needs no labels; fine-tuning discards that and adds a thin head \u2014 a linear projection to a character vocabulary trained with an alignment-free sequence loss for recognition, or a pooled classifier for audio classification tasks \u2014 with the convolutional encoder normally frozen."
+    },
+    {
+      "id": "wav2vec-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Someone loads the checkpoint whose name has no hours suffix into the recognition class, runs it on clean speech, and gets meaningless output. They also notice that when they do get sensible output from a properly fine-tuned checkpoint, words like 'BALLOON' come out as 'BALON'. What are the two causes?",
+      "explanation": "Two separate traps. A checkpoint without the fine-tuning suffix is the pretrained model only: it has no recognition head, so loading it into the recognition class silently gives you a randomly initialised head and therefore garbage. And the collapsing rule in alignment-free decoding merges consecutive identical predictions; the blank symbol exists to sit between two genuine repeats so they survive. A decoder that strips blanks before collapsing, or treats the blank as just another character, destroys every double letter.",
+      "grade_id": "wav2vec-4b0c889e18ca98c6",
+      "options": [
+        "The suffix-free checkpoint is pretrained only and carries no recognition head, so loading it into the recognition class attaches a randomly initialised head that outputs noise \u2014 a fine-tuned checkpoint is needed, or you fine-tune it yourself. And the lost double letters mean the blank symbol is being treated as an ordinary character somewhere in the decoding: the blank is precisely what allows two identical characters in a row to survive the collapsing step",
+        "The suffix-free checkpoint uses a different sample rate, which produces noise; and double letters are lost because the frame rate is too low to resolve them, which a larger checkpoint fixes",
+        "Both are vocabulary problems: the suffix-free checkpoint has a different character set, and double letters require an explicit repeat token that only the large checkpoints include",
+        "The suffix-free checkpoint needs its feature encoder unfrozen before inference; and double letters are a known limitation of alignment-free training that only a language model can repair"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "wav2vec-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement the frame arithmetic and the decoder. Define `CONV = [(10, 5), (3, 2), (3, 2), (3, 2), (3, 2), (2, 2), (2, 2)]` as the (kernel, stride) pairs of the convolutional encoder, `TOTAL_STRIDE` as the product of the strides, and `BLANK = \"_\"`. Write `out_len(n, kernel, stride)` returning `(n - kernel) // stride + 1`, and `frames_for(num_samples)` applying that through every layer in order and returning 0 as soon as a layer's output would be zero or negative. Write `frame_rate(sample_rate=16000)` returning frames per second, and `frame_time(index, sample_rate=16000)` returning the start time in seconds of the frame at that index. Write `ctc_greedy_decode(tokens, blank=BLANK)` which walks the per-frame winning tokens, appending a token only when it differs from the immediately preceding one AND is not the blank, updating the previous token every step INCLUDING when it is the blank, and returning the joined string. Write `ctc_segments(tokens, sample_rate=16000, blank=BLANK)` returning a list of `{\"token\", \"start\", \"end\"}` dicts, one per emitted token, where a run of the same non-blank token over consecutive frames is one segment spanning from the start of its first frame to the end of its last, with a blank ending any run. Standard library only.",
+      "explanation": "The arithmetic at the top is the single most useful number to carry around: a stride of 320 turns sixteen thousand samples a second into fifty frames a second, and every downstream length follows from it \u2014 five seconds is 249 frames, not approximately, exactly. It also shows why feeding audio at the wrong rate is so insidious: nothing errors, the frame count is unchanged, and what silently changes is how much time a frame COVERS. The decoding block is where the blank earns its place. Compare the two spellings of the same word: with a blank between the identical characters both survive, and without it they collapse into one \u2014 so a decoder that removes blanks before collapsing quietly destroys every double letter in the transcript. Note too that the blank resets the run, which is what makes two separated identical characters distinct. And the segments make the last point: because a frame is a fixed slice of time, frame indices ARE timestamps, so word timing falls out of the same forward pass rather than needing a separate alignment step.",
+      "grade_id": "wav2vec-66a820075d1998a2",
+      "starter": "CONV = [(10, 5), (3, 2), (3, 2), (3, 2), (3, 2), (2, 2), (2, 2)]\nBLANK = \"_\"\n\n\ndef frames_for(num_samples):\n    ...\n\n\ndef ctc_greedy_decode(tokens, blank=BLANK):\n    ...",
+      "solution": "CONV = [(10, 5), (3, 2), (3, 2), (3, 2), (3, 2), (2, 2), (2, 2)]\n\nTOTAL_STRIDE = 1\nfor _kernel, _stride in CONV:\n    TOTAL_STRIDE *= _stride\n\nBLANK = \"_\"\n\n\ndef out_len(n, kernel, stride):\n    return (n - kernel) // stride + 1\n\n\ndef frames_for(num_samples):\n    n = num_samples\n    for kernel, stride in CONV:\n        n = out_len(n, kernel, stride)\n        if n <= 0:\n            return 0\n    return n\n\n\ndef frame_rate(sample_rate=16_000):\n    return sample_rate / TOTAL_STRIDE\n\n\ndef frame_time(index, sample_rate=16_000):\n    return index * TOTAL_STRIDE / sample_rate\n\n\ndef ctc_greedy_decode(tokens, blank=BLANK):\n    out = []\n    previous = None\n    for token in tokens:\n        if token != previous and token != blank:\n            out.append(token)\n        previous = token\n    return \"\".join(out)\n\n\ndef ctc_segments(tokens, sample_rate=16_000, blank=BLANK):\n    step = TOTAL_STRIDE / sample_rate\n    segments = []\n    previous = None\n    for index, token in enumerate(tokens):\n        if token == blank:\n            previous = token\n            continue\n        if token != previous:\n            segments.append({\"token\": token, \"start\": index * step,\n                             \"end\": (index + 1) * step})\n        else:\n            segments[-1][\"end\"] = (index + 1) * step\n        previous = token\n    return segments",
+      "test": "# The convolutional stack sets the clock: sixteen thousand samples a second become\n# fifty frames a second, one every twenty milliseconds.\nassert TOTAL_STRIDE == 320\nassert frame_rate() == 50.0\nassert frame_rate(8_000) == 25.0\nassert abs(frame_time(1) - 0.02) < 1e-12\nassert abs(frame_time(100) - 2.0) < 1e-12\n\n# Everything downstream lives on that grid, so the number of output frames is fixed\n# by the length of the audio and nothing else.\nassert frames_for(16_000) == 49\nassert frames_for(2 * 16_000) == 99\nassert frames_for(5 * 16_000) == 249\nassert frames_for(10 * 16_000) == 499\nassert frames_for(8_000) == 24\n# A clip shorter than the receptive field produces no frames at all.\nassert frames_for(400) == 1\nassert frames_for(320) == 0\nassert frames_for(0) == 0\n# Frame count grows linearly with duration, at about fifty a second.\nfor seconds in (1, 2, 5, 10, 30):\n    frames = frames_for(seconds * 16_000)\n    assert abs(frames / seconds - 50) < 1.5, (seconds, frames)\nassert frames_for(3 * 16_000) > frames_for(2 * 16_000)\n\n# Feeding audio at the wrong rate does not error -- it silently changes what a\n# frame MEANS, which is why resampling first is not optional.\nassert frames_for(5 * 44_100) == frames_for(5 * 44_100)\nassert frame_time(249, 44_100) < frame_time(249, 16_000)\n\n# Greedy decoding: take the per-frame winner, collapse runs, drop blanks.\nVOCAB = [\"_\", \"H\", \"E\", \"L\", \"O\", \" \"]\nframes = [VOCAB[i] for i in [0, 1, 1, 0, 2, 2, 2, 0, 3, 3, 0, 3, 0, 4, 4, 4, 0, 0]]\nassert ctc_greedy_decode(frames) == \"HELLO\", ctc_greedy_decode(frames)\n\n# THE point of the blank: it is what lets a real double letter survive. Remove the\n# blank between the two identical characters and they collapse into one.\nassert ctc_greedy_decode([\"H\", \"E\", \"L\", \"_\", \"L\", \"O\"]) == \"HELLO\"\nassert ctc_greedy_decode([\"H\", \"E\", \"L\", \"L\", \"O\"]) == \"HELO\"\nassert ctc_greedy_decode([\"H\", \"H\", \"H\"]) == \"H\"\nassert ctc_greedy_decode([\"H\", \"_\", \"H\"]) == \"HH\"\nassert ctc_greedy_decode([\"_\", \"_\", \"_\"]) == \"\"\nassert ctc_greedy_decode([]) == \"\"\nassert ctc_greedy_decode([\"_\", \"A\", \"_\", \"A\", \"_\", \"A\"]) == \"AAA\"\n\n# A different blank symbol is honoured, which matters because a wrong blank index\n# is exactly what produces empty transcripts.\nassert ctc_greedy_decode([\"|\", \"A\", \"|\", \"A\"], blank=\"|\") == \"AA\"\nassert ctc_greedy_decode([\"|\", \"A\", \"|\", \"A\"]) == \"|A|A\"\n\n# Because every frame is twenty milliseconds, the frame indices ARE timestamps --\n# which is where word-level timing comes from without any separate alignment.\nsegments = ctc_segments(frames)\nassert [s[\"token\"] for s in segments] == [\"H\", \"E\", \"L\", \"L\", \"O\"], segments\nassert abs(segments[0][\"start\"] - 0.02) < 1e-12, segments[0]\nassert abs(segments[0][\"end\"] - 0.06) < 1e-12, segments[0]\nassert abs(segments[1][\"start\"] - 0.08) < 1e-12, segments[1]\nassert abs(segments[-1][\"end\"] - 0.32) < 1e-12, segments[-1]\nfor segment in segments:\n    assert segment[\"end\"] > segment[\"start\"]\n    assert abs(round((segment[\"end\"] - segment[\"start\"]) / 0.02) * 0.02\n               - (segment[\"end\"] - segment[\"start\"])) < 1e-12\n\n# The two views agree: joining the segments gives the decoded string.\nassert \"\".join(s[\"token\"] for s in segments) == ctc_greedy_decode(frames)\nassert ctc_segments([\"_\", \"_\"]) == []\nassert ctc_segments([]) == []\n\n# Halve the sample rate and every timestamp doubles, because the frame count is\n# unchanged but each frame now covers twice as much time.\nslow = ctc_segments(frames, sample_rate=8_000)\nassert abs(slow[0][\"start\"] - 2 * segments[0][\"start\"]) < 1e-12"
+    },
+    {
+      "id": "wav2vec-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A fine-tuning run on a small in-domain dataset is unstable and the resulting model emits empty transcripts. The team also finds that inference on hour-long recordings exhausts memory. Which set of diagnoses and fixes is right?",
+      "explanation": "Three standard pieces of practice. Freezing the convolutional front end during fine-tuning is the recipe, because training it on a small dataset is unstable and buys little. Empty transcripts are the signature of a blank index that does not match the vocabulary \u2014 the alignment-free loss then has nothing to emit \u2014 so the padding and blank identifiers must be checked, with a warm-up schedule to stabilise the rest. And memory is a length problem: attention grows with the square of the frame count, and at fifty frames a second an hour of audio is enormous, so windowing with a small overlap is the answer.",
+      "grade_id": "wav2vec-839209dc5b76386b",
+      "options": [
+        "For small data the standard recipe freezes the convolutional feature encoder, because training it is unstable and rarely helps; empty transcripts are the classic symptom of a mis-set blank index, so the padding and blank identifiers must line up with the vocabulary, alongside a warm-up schedule. And memory blows up because attention costs grow with the square of the number of frames on a fifty-per-second grid, so long recordings must be processed in windows of tens of seconds with a small overlap",
+        "Instability means the learning rate is too low and the empty transcripts mean the model has not converged yet; longer training fixes both, and memory is resolved by lowering the sample rate",
+        "The empty transcripts mean the audio was normalised when it should not have been; unfreezing the convolutional encoder fixes the instability; and memory is a function of vocabulary size rather than audio length",
+        "All three are caused by the audio being stereo: the second channel doubles the frame count, destabilises training and empties the transcripts"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "wav2vec-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Compare this model against a turnkey multilingual transcription model, against its architectural siblings in the same family, and against a cross-lingual variant of itself. Say what each is best at. Then advise a team that needs three things from one audio pipeline: a recogniser for a low-resource language with a few hours of labels, speaker diarisation on noisy overlapping meeting audio, and readable transcripts of English marketing videos with punctuation. Say what you would use for each and why.",
+      "explanation": "",
+      "grade_id": "wav2vec-ccf2a070ea28c9b9",
+      "expected": "A correct answer must characterise the options. This model is best where you have in-domain audio and few labels, or where you want open self-hostable weights or a strong frozen feature extractor for classification tasks; its plain recognition output is uppercase, unpunctuated and English unless a cross-lingual checkpoint was used, and greedy decoding leaves accuracy on the table compared with a beam search guided by a language model. The turnkey multilingual transcription model is best when you want the strongest transcript for the least effort \u2014 punctuation, casing, language identification and robustness to noise and accents \u2014 at the cost of being heavier, harder to fine-tune cheaply, and prone to inventing text over silence. The architectural siblings share the family and the same constraints, with one of them notably stronger for speaker-centric and noisy-overlapping-speech tasks such as diarisation and paralinguistics. The cross-lingual variant is the same architecture pretrained across many languages, and is the starting point for non-English and low-resource work, though per-language fine-tuning is still needed for the best recognition. The advice must map each requirement: the low-resource recogniser should start from the cross-lingual pretrained checkpoint and be fine-tuned on the few hours of labels, which is precisely the case this family was designed for; the diarisation on noisy overlapping meeting audio should use the sibling model that is stronger for speaker and overlap tasks, as a feature extractor for a diarisation pipeline; and the English marketing videos should use the turnkey transcription model, because punctuation and casing are exactly what this family's plain output lacks and there is no training budget to justify anything else. Noting that all of these expect single-channel sixteen-kilohertz audio, so the pipeline's front end is shared regardless, is a plus."
+    }
+  ]
+}

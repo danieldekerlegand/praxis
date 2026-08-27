@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "tacotron",
+  "title": "Tacotron 2",
+  "domain": "05-speech-audio",
+  "runnable": true,
+  "generated": "2026-08-27T08:49:21+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "tacotron-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A team wants a single-speaker voice for a narration product, prioritising naturalness, and expects to modify the model to study how it works. A second team needs synthesis inside a live voice agent with a tight latency budget and arbitrary user-supplied text. Which team should use this architecture, and what specifically rules it out for the other?",
+      "explanation": "This architecture's appeal is that it is well understood, hackable and close to human naturalness for a single voice. The two things that rule it out for a latency-sensitive product are structural rather than incidental: frames are generated one at a time, so synthesis cost grows with output length and cannot be parallelised, and the attention mechanism can lose its place on long or out-of-domain text, which is heard as repeated words, skipped words or babbling. Later non-autoregressive designs predict durations explicitly and have no attention to derail.",
+      "grade_id": "tacotron-01d4e5ff5a7a3fe8",
+      "options": [
+        "The first. It is a clear, hackable autoregressive baseline whose quality is close to recorded speech, and it is the decomposition almost every modern system still echoes. The second team is ruled out on two counts: decoding produces one frame at a time with no parallelism, so cost grows with the length of the audio and real-time budgets are hard; and its attention can derail on long or unusual text, producing repeated or skipped words \u2014 non-autoregressive successors are faster and more robust by construction",
+        "The second. Its recurrent decoder is designed for streaming, emitting audio as it goes, while a narration product is better served by a concatenative system",
+        "Both. Autoregressive decoding is fast enough for real time on modern hardware, and attention failures affect only training",
+        "Neither. It produces no audio at all, so both teams need a completely different model"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "tacotron-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Describe this system as a two-stage relay, saying what each stage produces and what the intermediate representation is. Explain why the first stage on its own produces no audio. Then explain what the attention alignment is, what a healthy one looks like, and why it is described as the single most important diagnostic \u2014 connecting each way it can go wrong to what a listener actually hears.",
+      "explanation": "",
+      "grade_id": "tacotron-6dfa49ce55a92c69",
+      "expected": "A correct answer must set up the relay: the first stage reads the text and produces a mel spectrogram \u2014 a time-by-frequency picture of the intended sound, conventionally eighty perceptually spaced bands with a frame every few milliseconds \u2014 and a SEPARATE model, a vocoder, converts that picture into actual waveform samples. The first stage produces no audio because a spectrogram is magnitude information about the sound rather than the sound itself; something must turn it into air-pressure samples, which is the vocoder's whole job. The alignment must be described as a matrix of attention weights over decoder steps against input symbols \u2014 how much of each text symbol the model was looking at when it produced each output frame. A healthy alignment is a clean monotonic diagonal: the model sweeps left to right through the text, reading it in order, exactly as a person reading aloud does. Its diagnostic value must be connected to audible symptoms: an alignment that jumps backwards or loops is heard as repeated or babbled words; one that skips ahead leaves symbols never attended to, heard as dropped words; a smeared one is heard as mush; and an alignment that never reaches the end of the text, or a stop decision that fires early, is heard as speech that cuts off. So plotting the alignment tells you which failure you have without listening. A strong answer notes that the attention includes a feature derived from the cumulative weights already used, which biases it to move forward and discourages skipping or repeating, and that the training-time practice of feeding ground-truth previous frames while inference feeds the model's own predictions is where these errors accumulate."
+    },
+    {
+      "id": "tacotron-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Two engineers combine a first-stage model from one project with a vocoder from another. Both load without error and both report running successfully, but the output is noise. Separately, some utterances end mid-word while others produce minutes of babble. What are the two causes?",
+      "explanation": "Two independent traps. The intermediate representation is a shared contract with several parameters, and both models will happily load and run against incompatible settings \u2014 the mismatch shows up as noise, not as an error, which makes it a nasty debugging session. And the stop-prediction head is what decides when to halt: miscalibrated in one direction it truncates the utterance, in the other it never fires and generation runs away, which is precisely why a hard maximum number of decoder steps is kept as a safety net.",
+      "grade_id": "tacotron-9f15d131a6130ba8",
+      "options": [
+        "The two stages share one definition of the intermediate representation \u2014 sample rate, number of bands, hop, window and frequency limits \u2014 and it must match EXACTLY between them; mismatched settings still load and run, which is why the failure is noise rather than an error. The truncation and the runaway are both the stop-prediction head being miscalibrated: fire too early and the utterance is cut off, never fire and decoding continues until something stops it, which is why a hard cap on decoder steps is kept as a backstop",
+        "The noise means the vocoder expects raw waveform input rather than a spectrogram, so an inverse transform is missing; and the truncation is caused by input text that was not normalised",
+        "The noise indicates the models are on different devices; and both length problems come from attention derailing, which the stop head cannot influence",
+        "The noise means the spectrogram was not log-compressed; and the length problems are a sample-rate mismatch, which shortens some utterances and lengthens others"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "tacotron-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement the geometry and the diagnostics. Define `SR = 22050`, `N_MELS = 80`, `HOP = 256`, `WIN = 1024` and `MEL_KEYS = (\"sample_rate\", \"n_mels\", \"hop\", \"win\", \"fmin\", \"fmax\")`. Write `frame_seconds(sample_rate=SR, hop=HOP)`, `frames_for_seconds(seconds, \u2026)` rounding to the nearest whole frame, and `mel_shape(seconds, \u2026)` returning the `(bands, frames)` pair. Write `alignment(t_in, t_out, sigma=0.7)` returning a list of `t_out` rows of `t_in` weights, where row `step` is a Gaussian centred at `step * (t_in - 1) / (t_out - 1)` \u2014 or at 0 when there is a single row \u2014 evaluated at each input index and then normalised so the row sums to 1. Write `peaks(align)` returning each row's arg-max index, `is_monotonic(align)` returning whether those never decrease, and `coverage(align)` returning the number of DISTINCT peak indices divided by the number of input symbols (0.0 for an empty alignment). Write `context_vectors(align, encoder_states)` returning, for each row, the attention-weighted sum of the encoder state vectors. Write `decode_length(stop_logits, threshold=0.5, max_steps=None)` returning the index of the first step whose logistic value strictly exceeds the threshold, considering at most `max_steps` steps when given, and otherwise returning that limit. Write `assert_compatible(acoustic, vocoder)` returning True when both dicts agree on every key in `MEL_KEYS`, and raising `ValueError` naming the first key that differs. Standard library only.",
+      "explanation": "The point of the alignment functions is that the audible failures are measurable before anything is played. A healthy run is a normalised diagonal whose peak never moves backwards and which visits every symbol; splice a stretch of it back in and the monotonic check fails \u2014 that is the repeated word. Drop rows and the coverage falls below one \u2014 that is the skipped word. Neither requires listening, which is why plotting the alignment is the standard health check. The stop-token assertions cover the other pair of symptoms in the same way: a head that fires immediately emits nothing at all, and one that never fires runs until the hard cap stops it, which is why that cap exists rather than being a tuning parameter. And the configuration check is the sharpest practical lesson here \u2014 two models can load, run and report success while disagreeing about what a frame means, and the only symptom is noise.",
+      "grade_id": "tacotron-e4dffb62ba8b8298",
+      "starter": "SR, N_MELS, HOP, WIN = 22_050, 80, 256, 1024\n\n\ndef alignment(t_in, t_out, sigma=0.7):\n    ...\n\n\ndef decode_length(stop_logits, threshold=0.5, max_steps=None):\n    ...",
+      "solution": "import math\n\nSR = 22_050\nN_MELS = 80\nHOP = 256\nWIN = 1024\n\nMEL_KEYS = (\"sample_rate\", \"n_mels\", \"hop\", \"win\", \"fmin\", \"fmax\")\n\n\ndef frame_seconds(sample_rate=SR, hop=HOP):\n    return hop / sample_rate\n\n\ndef frames_for_seconds(seconds, sample_rate=SR, hop=HOP):\n    return int(round(seconds / frame_seconds(sample_rate, hop)))\n\n\ndef mel_shape(seconds, n_mels=N_MELS, sample_rate=SR, hop=HOP):\n    return (n_mels, frames_for_seconds(seconds, sample_rate, hop))\n\n\ndef alignment(t_in, t_out, sigma=0.7):\n    rows = []\n    for step in range(t_out):\n        centre = 0.0 if t_out == 1 else step * (t_in - 1) / (t_out - 1)\n        row = [math.exp(-0.5 * ((index - centre) / sigma) ** 2)\n               for index in range(t_in)]\n        total = sum(row)\n        rows.append([value / total for value in row])\n    return rows\n\n\ndef peaks(align):\n    return [max(range(len(row)), key=lambda index: row[index]) for row in align]\n\n\ndef is_monotonic(align):\n    found = peaks(align)\n    return all(b >= a for a, b in zip(found, found[1:]))\n\n\ndef coverage(align):\n    if not align:\n        return 0.0\n    return len(set(peaks(align))) / len(align[0])\n\n\ndef context_vectors(align, encoder_states):\n    width = len(encoder_states[0])\n    out = []\n    for row in align:\n        vector = [0.0] * width\n        for weight, state in zip(row, encoder_states):\n            for index in range(width):\n                vector[index] += weight * state[index]\n        out.append(vector)\n    return out\n\n\ndef decode_length(stop_logits, threshold=0.5, max_steps=None):\n    limit = len(stop_logits) if max_steps is None else min(max_steps,\n                                                           len(stop_logits))\n    for step in range(limit):\n        if 1 / (1 + math.exp(-stop_logits[step])) > threshold:\n            return step\n    return limit\n\n\ndef assert_compatible(acoustic, vocoder):\n    for key in MEL_KEYS:\n        if acoustic.get(key) != vocoder.get(key):\n            raise ValueError(\n                f\"mel configuration differs on {key!r}: \"\n                f\"{acoustic.get(key)!r} vs {vocoder.get(key)!r}\")\n    return True",
+      "test": "import math\n\n# The frame grid: a hop of 256 samples at 22.05 kHz is a frame every ~11.6 ms.\nassert abs(frame_seconds() - 256 / 22050) < 1e-12\nassert abs(frame_seconds() * 1000 - 11.61) < 0.01\nassert abs(1 / frame_seconds() - 86.13) < 0.01\nassert frames_for_seconds(1.0) == 86\nassert mel_shape(1.5) == (80, 129), mel_shape(1.5)\nassert mel_shape(1.5)[0] == 80\n# Doubling the audio doubles the frames and leaves the band count alone.\nassert abs(mel_shape(3.0)[1] - 2 * mel_shape(1.5)[1]) <= 1\n\n# A healthy alignment is a normalised, monotonic diagonal: every decoder step\n# attends somewhere, and the place it attends never moves backwards.\nhealthy = alignment(8, 20)\nassert len(healthy) == 20 and len(healthy[0]) == 8\nfor row in healthy:\n    assert abs(sum(row) - 1.0) < 1e-9, row\n    assert all(weight >= 0 for weight in row)\nassert is_monotonic(healthy)\nassert peaks(healthy)[0] == 0 and peaks(healthy)[-1] == 7\nassert coverage(healthy) == 1.0\n\n# The failure you HEAR is the alignment going backwards -- that is a repeated or\n# babbled word, and it is detectable without listening to anything.\nlooping = healthy[:12] + healthy[4:12] + healthy[12:]\nassert not is_monotonic(looping), peaks(looping)\nassert is_monotonic(healthy[:5] + healthy[5:])\n\n# Skipping shows up as symbols that were never attended to at all.\nskipping = [row for row in healthy if peaks([row])[0] not in (3, 4)]\nassert coverage(skipping) < 1.0, coverage(skipping)\nassert coverage(alignment(8, 3)) < 1.0\n\n# The context vector is the attention-weighted sum of the encoder states, which is\n# the only thing the decoder ever sees of the text.\nstates = [[1.0, 0.0], [0.0, 1.0], [2.0, 2.0]]\none_hot = [[0.0, 1.0, 0.0]]\nassert context_vectors(one_hot, states) == [[0.0, 1.0]]\nuniform = [[1 / 3, 1 / 3, 1 / 3]]\nmixed = context_vectors(uniform, states)[0]\nassert abs(mixed[0] - 1.0) < 1e-12 and abs(mixed[1] - 1.0) < 1e-12, mixed\ncontexts = context_vectors(healthy, [[float(i), float(-i)] for i in range(8)])\nassert len(contexts) == 20 and len(contexts[0]) == 2\n# A monotonic alignment drags the context steadily across the text.\nfirst, last = contexts[0][0], contexts[-1][0]\nassert last > first, (first, last)\n\n# The stop head decides when to halt. Calibrated, it fires as the utterance ends.\nrising = [-6 + 10 * step / 19 for step in range(20)]\nassert decode_length(rising) == 12, decode_length(rising)\nassert 1 / (1 + math.exp(-rising[12])) > 0.5\n\n# Fire too early and the audio is truncated -- in the limit, nothing is emitted.\nassert decode_length([5.0] + rising) == 0\n\n# Never fire and decoding runs away, which is why a hard cap is not optional.\nnever = [-8.0] * 1000\nassert decode_length(never) == 1000\nassert decode_length(never, max_steps=300) == 300\nassert decode_length(rising, max_steps=5) == 5\nassert decode_length([]) == 0\n\n# The two stages share one mel definition, and it has to agree EXACTLY -- both\n# models can load and run happily while producing noise.\nCFG = {\"sample_rate\": 22050, \"n_mels\": 80, \"hop\": 256, \"win\": 1024,\n       \"fmin\": 0, \"fmax\": 8000}\nassert assert_compatible(CFG, dict(CFG)) is True\nfor key, value in [(\"sample_rate\", 16000), (\"n_mels\", 128), (\"hop\", 300),\n                   (\"win\", 2048), (\"fmin\", 50), (\"fmax\", 11025)]:\n    other = dict(CFG)\n    other[key] = value\n    try:\n        assert_compatible(CFG, other)\n    except ValueError as exc:\n        assert key in str(exc), exc\n    else:\n        raise AssertionError(f\"a mismatch on {key} must be refused\")"
+    },
+    {
+      "id": "tacotron-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A demo pipeline sounds robotic and buzzy, and the team concludes the acoustic model is bad. They are checking their spectrograms by reconstructing audio with a classical phase-estimation method. Separately, their synthesis of a product description reads a price as 'dollar five' and an abbreviation letter by letter. What is the right diagnosis?",
+      "explanation": "Two things being confused for model quality. Reconstructing audio from magnitude alone by iteratively estimating phase is a useful way to hear quickly whether a spectrogram is sane, but it is inherently robotic and buzzy \u2014 it is never the production answer, and judging the acoustic model through it is judging the wrong thing. And there is no learned text front end here: the model expects cleaned text or phonemes, so expanding prices, abbreviations, dates and numbers is a separate step you supply upstream.",
+      "grade_id": "tacotron-de724711aafddb57",
+      "options": [
+        "The buzzy reconstruction is the classical phase-estimation method itself: it is a debugging convenience for hearing whether a spectrogram is sane, not a production vocoder, and it always sounds robotic \u2014 judge the acoustic model with a real neural vocoder. And text normalisation is the caller's responsibility: this architecture expects cleaned text or phonemes, so prices, abbreviations, dates and numbers must be expanded by a front end before synthesis",
+        "The buzzy sound means the spectrogram is genuinely bad and a larger acoustic model is required; the price problem indicates the wrong character vocabulary was used",
+        "Both are vocoder problems: a neural vocoder performs text normalisation as part of converting the spectrogram, so switching vocoders fixes the pronunciation too",
+        "The buzzy sound is a sample-rate mismatch between the two stages; and the price problem means the attention derailed on the numeric characters"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "tacotron-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Compare this architecture with a non-autoregressive successor that predicts durations explicitly, with a fully end-to-end model that needs no separate vocoder, and with a hosted cloud service. Say what each changes about the trade-offs. Then advise a team building an interactive kiosk that must speak arbitrary user-entered text within a fixed latency budget, and explain which specific property of this architecture disqualifies it and which property they should demand instead.",
+      "explanation": "",
+      "grade_id": "tacotron-7594c303db9ed4c0",
+      "expected": "A correct answer must contrast the options meaningfully. The non-autoregressive successor removes the attention mechanism in favour of an explicit duration predictor, which makes it both faster \u2014 frames are produced in parallel rather than one at a time \u2014 and far more robust, since there is no alignment to derail; the costs are that it needs duration supervision from an alignment step and that its prosody tends to be flatter by default. The fully end-to-end model folds acoustic modelling and waveform generation into one network, so there is no separate vocoder to match configurations with, with excellent quality and faster inference, at the cost of a more complex training procedure. A hosted cloud service removes the operational burden entirely and scales, at the cost of per-use billing, a network dependency and no control over the weights. The advice must identify the disqualifying property precisely: decoding is autoregressive, so synthesis time grows with the length of the audio and cannot be parallelised, which makes a fixed latency budget hard to guarantee \u2014 and the second, equally important problem for a kiosk is that arbitrary user-entered text is exactly the out-of-domain input on which attention derails, producing repeated or skipped words. What they should demand instead is a non-autoregressive or end-to-end model whose output length is predicted rather than discovered, so latency is predictable and there is no alignment to fail. Noting that a framework packaging these models with matched vocoders and pretrained weights is the practical way to run any of them, or that a cloud service is a legitimate answer if the kiosk has reliable connectivity, is a plus."
+    }
+  ]
+}

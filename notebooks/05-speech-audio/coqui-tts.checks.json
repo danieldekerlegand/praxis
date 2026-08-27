@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "coqui-tts",
+  "title": "Coqui TTS",
+  "domain": "05-speech-audio",
+  "runnable": true,
+  "generated": "2026-08-27T08:48:54+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "coqui-tts-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A team needs synthetic speech for a product. Their constraints: audio must not leave their own machines, they need a specific person's voice reproduced from a short recording with that person's consent, they need four languages, and they are prepared to run a GPU. Which properties of this toolkit meet the requirements, and which of their constraints would push them elsewhere if it changed?",
+      "explanation": "The three things being bought are that everything runs on your own hardware with no per-character bill, that the headline model clones a voice zero-shot from a few seconds of reference audio, and that one interface covers a zoo of architectures and languages. The two honest exits are also worth knowing: a leaner engine wins when footprint and latency dominate, and a paid cloud service wins when top naturalness with minimal operations matters more than keeping audio on the box.",
+      "grade_id": "coqui-tts-12815c05d43c7736",
+      "options": [
+        "Self-hosted operation, a multilingual zero-shot cloning model conditioned on a few seconds of reference audio, and a unified interface over a model zoo \u2014 all of which fit. If the constraint changed to running on a small device with tight latency, a leaner on-device engine would be the better answer; and if the highest naturalness with no operational burden mattered more than keeping audio local, a paid cloud service would win",
+        "The toolkit's value is its hosted inference and per-character pricing, which fits a team wanting no operations; if they later needed to keep audio local they would have to move to a self-hosted engine",
+        "It fits because cloning requires fine-tuning a checkpoint per voice, which is what makes the voice private; if they later needed several languages they would need one toolkit per language",
+        "It fits only for the language requirement; cloning from a short recording is not something open models can do, so that part would need a cloud vendor regardless"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "coqui-tts-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Describe the synthesis pipeline as an assembly line, naming each station and what it consumes and produces. Explain what it means that the classic models are two decoupled stages and why that shows up in how checkpoints are named and paired. Then explain the two ideas that follow: what end-to-end models change, and why cloning a voice needs no training step.",
+      "explanation": "",
+      "grade_id": "coqui-tts-b6a93cf5adc75acc",
+      "expected": "A correct answer must lay out the line. First a front end turns text into token ids: normalisation \u2014 expanding numbers, currency and abbreviations \u2014 followed by tokenisation into characters or phonemes. Then an acoustic model turns those tokens into a mel-spectrogram, a magnitude-only picture of the sound. Then a vocoder turns that spectrogram into an actual waveform. The decoupling must be explained: the classic architectures emit a spectrogram and hand it to a SEPARATE neural vocoder, so the two can be mixed and matched, which is why zoo entries often come as a matched pair and why the checkpoint identifier \u2014 a path-like string naming language, dataset and model \u2014 effectively selects the architecture, the training data, the sample rate and the paired vocoder together. The end-to-end point must be made: some models fold both stages into a single network trained jointly and output a waveform directly, so there is no separate vocoder to choose. And the cloning point must be stated precisely: the large multilingual model does not fine-tune to a new voice, it CONDITIONS on a speaker embedding extracted from a few seconds of reference audio at inference time \u2014 so there is no training step and no per-voice checkpoint, which is what makes it zero-shot. A strong answer notes the corollary that cloning quality is therefore a property of the reference clip: a clean, single-speaker sample of several seconds clones the voice, while a noisy or multi-speaker one clones the noise."
+    },
+    {
+      "id": "coqui-tts-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Two failures on one project. Long paragraphs synthesised with an older autoregressive model sometimes skip words or babble, while the same text through a newer model is fine. And a hand-assembled pipeline produces audio that plays back noticeably too fast and high-pitched. What are the two mechanisms?",
+      "explanation": "Two independent mechanisms. Autoregressive attention-based acoustic models genuinely can fail to attend properly on long or unusual text, producing skips, loops or babble \u2014 shorter inputs help, and non-autoregressive or end-to-end architectures are more robust because durations are predicted rather than discovered through attention. The pitch-and-speed shift is the classic sample-rate mismatch: checkpoints here are mostly 22.05 kHz while the large cloning model outputs 24 kHz, and interpreting samples at the wrong rate changes speed and pitch together.",
+      "grade_id": "coqui-tts-ba84d18637d3f34a",
+      "options": [
+        "The older model is attention-based and autoregressive, so it can mis-attend on long or unusual input and skip, repeat or babble; splitting into sentences helps, and a non-autoregressive flow-based or end-to-end model is more robust by construction. The pitch problem is a sample-rate mismatch: most checkpoints here are 22.05 kHz while the large cloning model outputs 24 kHz, so playing or resampling at the wrong rate shifts pitch and speed together",
+        "The skipping means the vocoder was mismatched to the acoustic model, which the newer model avoids by bundling one; the fast playback is the vocoder's hop length being too small, fixed by increasing it",
+        "Both are symptoms of missing text normalisation: un-normalised input lengthens the token sequence past the attention window and also inflates the predicted durations",
+        "The skipping is caused by phoneme tokenisation without the system phonemiser installed, which silently drops symbols; the fast playback is the same dropped symbols shortening the audio"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "coqui-tts-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement the text front end \u2014 the stage before any model runs. Define `PAD`, `BLANK` and `EOS` as `\"<pad>\"`, `\"<blk>\"` and `\"<eos>\"`, `PUNCTUATION` as `list(\" ,.!?'-\")` and `LETTERS` as the lowercase alphabet. Write `say_digits(number)` reading a digit string one digit at a time, space separated (`\"42\"` \u2192 `\"four two\"`). Write `normalize(text)`: lowercase and strip; expand each of the abbreviations `dr.`, `mr.`, `mrs.`, `st.` and `no.` to `doctor`, `mister`, `missus`, `saint` and `number` but ONLY where the abbreviation starts at a word boundary; replace `$` followed by digits with those digits read out followed by `\" dollars\"`; read any remaining run of digits out the same way; then collapse runs of whitespace to single spaces and strip. Write `build_vocab()` returning the pair `(symbols, stoi)` where `symbols` is `[PAD, BLANK, EOS]` followed by `PUNCTUATION` then `LETTERS`, and `stoi` maps each symbol to its index. Write `encode(text, stoi)` returning the ids of the normalised text's characters \u2014 silently skipping any character absent from the mapping \u2014 with the end-of-sequence id appended. Write `decode(ids, symbols)` joining the symbols at those indices. Standard library only.",
+      "explanation": "Two lessons are buried in these assertions. The first is that the vocabulary is an ordered list whose index IS the token id, so its order is part of a checkpoint's contract rather than a detail \u2014 insert a symbol in the middle and every trained weight downstream is now reading the wrong table. The second is the pair of cases in the middle, which is the single most common cause of a model saying the wrong thing. Encoding the raw text without normalising it does not raise: the currency symbol and the digit are simply not in the vocabulary, so they are dropped, and the model is never told the price at all. Normalising first turns them into words the vocabulary can carry. Note also the word-boundary rule on abbreviations \u2014 a blind substring replacement turns an ordinary word ending in one of them into nonsense, and nothing downstream can tell that happened. Punctuation is kept deliberately, because it carries prosody rather than being noise.",
+      "grade_id": "coqui-tts-60eeb2f917efbba8",
+      "starter": "PAD, BLANK, EOS = \"<pad>\", \"<blk>\", \"<eos>\"\n\n\ndef normalize(text):\n    ...\n\n\ndef build_vocab():\n    ...",
+      "solution": "import re\n\nPAD, BLANK, EOS = \"<pad>\", \"<blk>\", \"<eos>\"\nPUNCTUATION = list(\" ,.!?'-\")\nLETTERS = list(\"abcdefghijklmnopqrstuvwxyz\")\n\nABBREVIATIONS = {\"dr.\": \"doctor\", \"mr.\": \"mister\", \"mrs.\": \"missus\",\n                 \"st.\": \"saint\", \"no.\": \"number\"}\nDIGITS = {\"0\": \"zero\", \"1\": \"one\", \"2\": \"two\", \"3\": \"three\", \"4\": \"four\",\n          \"5\": \"five\", \"6\": \"six\", \"7\": \"seven\", \"8\": \"eight\", \"9\": \"nine\"}\n\n\ndef say_digits(number):\n    return \" \".join(DIGITS[digit] for digit in number)\n\n\ndef normalize(text):\n    text = text.lower().strip()\n    for short, long in ABBREVIATIONS.items():\n        text = re.sub(r\"\\b\" + re.escape(short), long, text)\n    text = re.sub(r\"\\$(\\d+)\", lambda m: say_digits(m.group(1)) + \" dollars\", text)\n    text = re.sub(r\"\\d+\", lambda m: say_digits(m.group(0)), text)\n    return re.sub(r\"\\s+\", \" \", text).strip()\n\n\ndef build_vocab():\n    symbols = [PAD, BLANK, EOS] + PUNCTUATION + LETTERS\n    return symbols, {symbol: index for index, symbol in enumerate(symbols)}\n\n\ndef encode(text, stoi):\n    ids = [stoi[character] for character in normalize(text) if character in stoi]\n    return ids + [stoi[EOS]]\n\n\ndef decode(ids, symbols):\n    return \"\".join(symbols[index] for index in ids)",
+      "test": "symbols, stoi = build_vocab()\n\n# The vocabulary is an ordered list and the id IS the index, so its order is part of\n# the model's contract -- reordering it invalidates every checkpoint.\nassert len(symbols) == 36, symbols\nassert symbols[:3] == [\"<pad>\", \"<blk>\", \"<eos>\"]\nassert stoi[\"<pad>\"] == 0 and stoi[\"<blk>\"] == 1 and stoi[\"<eos>\"] == 2\nassert stoi[\"a\"] == stoi[\"<eos>\"] + len(\" ,.!?'-\") + 1\nassert stoi[\"z\"] - stoi[\"a\"] == 25\n\n# Normalisation is what turns written text into something sayable.\nassert normalize(\"Dr. Smith paid $5, OK?\") == \"doctor smith paid five dollars, ok?\"\nassert normalize(\"  MR.  Jones   \") == \"mister jones\"\nassert normalize(\"room 42\") == \"room four two\"\nassert normalize(\"$20 and 7 more\") == \"two zero dollars and seven more\"\n\n# Abbreviations expand only at a word boundary, so a word that merely ENDS in one\n# is left alone -- a blind substring replacement mangles it.\nassert normalize(\"in the midst. St. Paul\") == \"in the midst. saint paul\"\nassert \"midsaint\" not in normalize(\"in the midst.\")\nassert normalize(\"no. 3\") == \"number three\"\n\n# Encoding is normalisation followed by table lookup, with a terminator appended.\nids = encode(\"Dr. Smith paid $5, OK?\", stoi)\nassert ids[-1] == stoi[\"<eos>\"], ids\nassert decode(ids[:-1], symbols) == \"doctor smith paid five dollars, ok?\"\nassert encode(\"\", stoi) == [stoi[\"<eos>\"]]\nassert encode(\"   \", stoi) == [stoi[\"<eos>\"]]\n\n# Anything outside the vocabulary is simply dropped -- silently.\nassert decode(encode(\"caf\u00e9 100% ready\", stoi)[:-1], symbols) == \\\n    \"caf one zero zero ready\"\n\n# ...which is exactly why skipping normalisation is the classic mistake: the\n# currency symbol and the digit are not in the vocabulary, so the model is never\n# told about the price at all, and nothing errors.\nraw = [stoi[c] for c in \"dr. smith paid $5, ok?\" if c in stoi]\nassert decode(raw, symbols) == \"dr. smith paid , ok?\", decode(raw, symbols)\nassert \"five dollars\" in decode(encode(\"Dr. Smith paid $5, OK?\", stoi)[:-1], symbols)\n\n# Punctuation survives, because it carries prosody rather than being noise.\nfor mark in \",.!?'-\":\n    assert mark in symbols\nassert decode(encode(\"wait -- what?!\", stoi)[:-1], symbols) == \"wait -- what?!\"\n\n# Round trip: encoding then decoding reproduces the normalised text exactly.\nfor sentence in [\"hello there.\", \"Dr. No, I presume?\", \"it's 9 o'clock\",\n                 \"$3 for 2\", \"MRS. ST. JOHN\"]:\n    assert decode(encode(sentence, stoi)[:-1], symbols) == normalize(sentence), sentence\n\n# Every id a caller may see is a valid index into the symbol list.\nfor sentence in [\"hello\", \"$5\", \"no. 1 -- dr. who!\"]:\n    assert all(0 <= i < len(symbols) for i in encode(sentence, stoi))"
+    },
+    {
+      "id": "coqui-tts-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A deployment fails three ways. Installing the package by its obvious name gets an unmaintained version. Loading the large cloning model in a non-interactive job hangs forever with no output. And a phoneme-based checkpoint raises at runtime on a freshly built container. What are the three causes?",
+      "explanation": "Three traps that each cost an afternoon. The obvious package name on the index points at the original, unmaintained project while the maintained community fork is published under a different name \u2014 and because both import under the same module name, the only way to tell is the version. The large cloning model is licence-gated and prompts on standard input, which in an unattended job looks exactly like a hang; an environment variable pre-agrees. And phoneme-based checkpoints depend on a system phonemiser binary, which is an operating-system package rather than a Python one, so a lean container is missing it.",
+      "grade_id": "coqui-tts-41a34ccbabea8579",
+      "options": [
+        "The original package name on the index is unmaintained and the community fork is published under a different name, though both import under the same module name \u2014 so check the version rather than the import. The hang is the model's licence gate prompting for acceptance on standard input, which never arrives in a non-interactive job; an environment variable pre-agrees to it, and the licence is worth actually reading. And phoneme-based checkpoints need a system phonemiser binary installed through the operating system's package manager rather than through the Python index",
+        "The obvious name is correct and the fork is a mirror; the hang is the model download having no progress indicator; and the phoneme failure means the checkpoint was truncated and needs re-downloading",
+        "All three are the same cause \u2014 a missing accelerator \u2014 since the toolkit falls back to an interactive prompt, refuses phoneme models and installs a reduced package on machines without one",
+        "The package name is irrelevant because both resolve to the same distribution; the hang is a deadlock in the audio backend; and the phoneme failure is a missing optional Python dependency installable from the index"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "coqui-tts-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Three deployments need synthesis. (a) A voice assistant running on a small single-board computer in a home, where responses must be near-instant and there is no accelerator. (b) An audiobook studio that needs a narrator's voice reproduced in four languages, on their own hardware, with a GPU available. (c) A consumer app whose main differentiator is how natural the voice sounds, with a small team and no interest in running infrastructure. Recommend for each with reasons. Then say what non-technical factor should be weighed before committing this toolkit to a long-lived production system.",
+      "explanation": "",
+      "grade_id": "coqui-tts-cf51eccbdbc6e81f",
+      "expected": "A correct answer must place all three. (a) A lean on-device engine: footprint and latency dominate, there is no accelerator, and the large cloning model is far too heavy for near-instant responses on such hardware; the trade to acknowledge is lower naturalness and no zero-shot cloning. (b) This toolkit: self-hosted, a GPU is available, and multilingual zero-shot cloning from a reference clip is exactly its headline capability \u2014 the answer should note that reference-clip quality drives cloning quality and that a clean, single-speaker sample of several seconds is what is needed, and that the licence terms of the cloning model must be checked against a commercial audiobook use. (c) A managed cloud service: top-tier naturalness with zero setup, at the cost of per-use charges, audio leaving their machines and vendor lock-in \u2014 which their stated priorities accept. The non-technical factor must be named: the company behind the project wound down and it is now community-maintained, so there is no vendor, no support contract and no guaranteed roadmap; versions should be pinned and the maintenance risk weighed against a supported alternative for a long-lived commitment. A strong answer notes that a licence gate on the cloning model is a related commercial consideration, not merely an installation annoyance."
+    }
+  ]
+}
