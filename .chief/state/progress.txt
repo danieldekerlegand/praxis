@@ -73,3 +73,70 @@ Domain choice: 15 notebooks with 14 runnable + 1 conceptual, so both branches of
 - Watch for *unsound* reference algorithms. The write path caught one (a "hidden single"
   rule that is valid for a permutation constraint but not for a general all-different) —
   it failed on a one-variable input. Prefer the argument the real system uses.
+
+---
+
+## Resumed: Thu Aug 27 02:35:31 CDT 2026
+
+The runner truncated this file to its header on restart; the content above was restored
+from the last commit. Do not replace this file — append.
+
+## US-2 — The remaining domains are run, or the scope is deliberately cut (2026-08-27)
+
+**Done.** Every domain that had no gate at all now has one. An earlier, interrupted pass
+of this story had already gated three of them (`07-proprietary-coding-ai` 9/9,
+`10-data-analysis-research` 15/15, `09-procedural-generation` 16/16 — commits 1c4914c,
+c08cb47, 97885e8). This pass added the last two:
+
+- `notebooks/04-agentic-ai` 0/16 -> 16/16, 96 checks, 45.3 s (2.8 s/notebook)
+- `notebooks/05-speech-audio` 0/22 -> 22/22, 132 checks, 64.5 s (2.9 s/notebook)
+
+Library: **117/245 (48%), 14 of 14 domains**, up from 24/245 in 8 of 14 when the band
+opened. `gateaudit` over the whole library: 117 gates, 702 checks, **0 flagged**.
+`regate`: 117/117 hold. `validate_nbgrader notebooks`: 117 notebooks, 0 failures.
+
+**The scope decision, and where it lives.** The 128 notebooks still ungated are all in
+four *partially* gated domains and none of them is unsuitable for gating — the constraint
+is authoring attention. So they are **deferred, with the decision on disk**:
+
+- `notebooks/ungated.json` — the tracked register: one entry per domain, each with a
+  `reason` and a `decided` date, and the queue order (02 -> 08 -> 03 -> 11).
+- `praxis/ungated.py` (new) — loads and **grades** it against the live library rows, so a
+  stale entry (a domain that now gates everything, a `rel` overtaken by a gate) is a
+  failure rather than a belief. It is a *record, not a rule*: nothing is excluded from
+  `backfill_targets()`, because a register that shrank the queue would turn "we decided to
+  wait" back into "we forgot".
+- `praxis/coverage.py` folds it in: the complement of `gated` now splits into **deferred**
+  and **omitted**. Omitted is the number to watch and it is **0**.
+
+**Files changed**
+- 38 x `notebooks/{04-agentic-ai,05-speech-audio}/*.checks.json` (new) + the 38 notebooks
+  (graded cells published).
+- `praxis/ungated.py`, `notebooks/ungated.json`, `tests/test_ungated.py` (new, 24 tests).
+- `praxis/coverage.py` (+`deferred`/`omitted`), `tests/test_coverage.py` (shape),
+  `tests/test_launcher_api.py` (one claim moved off the library), `CLAUDE.md`,
+  `docs/explanation/gating-backfill-cost.md`.
+
+**Learnings for future iterations**
+- **Author code checks as stdlib re-implementations of the notebook's own mechanism.**
+  Every one of the 38 does this (the lifecycle handshake, the durable task resumed by id,
+  the state reducer that clobbers without a merge rule, the blank that saves a double
+  letter, the soft alignment that has a gradient where a repeat has none). It is the only
+  reliable way to clear `gateaudit` *and* be worth grading, and it makes the `short`
+  checks write themselves because you already know what the mechanism is FOR.
+- **Expect 1-2 rejected drafts per 10 and budget one repair round each.** In this pass the
+  write path caught: a reference solution that disagreed with its own test, an expected
+  frame count off by one, a float tolerance too tight for the `eps` in the formula
+  underneath it, and a mel-filterbank claim that is false at a 400-point transform (the
+  lowest filters collapse to zero width). None would have been caught by reading.
+- **Two cheap authoring rules that avoid most rejections.** (1) Never assert an exact
+  count you have not computed — run the reference solution first and paste the number.
+  (2) `gateaudit` needs the test to fail an empty submission *and* the starter stub, so
+  make the first assertion compare against a concrete value rather than a shape.
+- **A test that fails because coverage rose is the tool working.** Four have now moved
+  (`test_gateaudit`, `test_regate`, and two in `test_launcher_api`). The newest:
+  "a module carrying no gate locks nothing" could no longer find such a module in the
+  seed library, so it now asserts the rule against `progress.module_gates()` directly.
+  When you hit one, move the claim to where the rule lives; do not freeze the corpus.
+- **The `notebooks/ungated.json` register must be kept current by the next batch.** Gating
+  a domain to 100% makes its entry stale, and `tests/test_ungated.py` will say so.
