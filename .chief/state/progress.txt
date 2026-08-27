@@ -140,3 +140,55 @@ is authoring attention. So they are **deferred, with the decision on disk**:
   When you hit one, move the claim to where the rule lives; do not freeze the corpus.
 - **The `notebooks/ungated.json` register must be kept current by the next batch.** Gating
   a domain to 100% makes its entry stale, and `tests/test_ungated.py` will say so.
+
+---
+
+## US-3 — Coverage stops being discoverable only by audit (2026-08-27)
+
+**Done.** The coverage figure now lives where a reader meets it and where the merge gate
+enforces it, instead of only behind a command nobody had run.
+
+**Files changed**
+- `praxis/gatefloor.py` (new) — the ratchet. `measure()` (a fold over
+  `backfill.coverage()`), `load_floor()`, `regressions()`, `claim()` / `claim_failures()`
+  / `write_claim()`, `record()`, `report()` / `render()`, CLI `[--json|--record]`.
+- `notebooks/coverage-floor.json` (new) — the recorded floor: 117/245, 14 of 14 domains,
+  per domain, dated. Beside `ungated.json` and for the same reason.
+- `tests/test_gatefloor.py` (new, 20 tests).
+- `README.md` — the claim sentence in the intro; the ratchet in **The gate**; the Roadmap
+  paragraph re-marked (the backfill shipped *and ran*).
+- `ROADMAP.md` — Current State bullet, the gating-backfill section ⬜ proposed → ✅ shipped
+  and run, all three rows, the "still open" note, a `chief/87` entry in Tasklist Status.
+- `CLAUDE.md` — the `gatefloor` paragraph after the coverage/ungated ones, and **Gates**.
+- `.chief/verify.sh` + `.github/workflows/ci.yml` — `python3 -m praxis.gatefloor` beside
+  `validate_nbgrader.py`, in both, with the same comment.
+
+**Measured**
+- `python3 -m praxis.gatefloor` → `coverage HOLDS`, exit 0, 1.8 s.
+- Live drop demonstrated: held back one `13-interpretability` sidecar → exit 1, naming
+  `13-interpretability: 2/3 gated, below the recorded floor of 3` **and** the library
+  line. Tree restored, `git status` clean.
+- `pytest -q tests/` → **1205 passed, 1 skipped, 0 failed** (434 s).
+- `validate_nbgrader.py notebooks` → 117 notebooks, 0 failures.
+- `check-doc-links.mjs --ratchet --base main` → 0 dead vs 0 on main.
+
+**Learnings for future iterations**
+- **The floor is not coverage, and the code says so out loud.** `coverage.py`'s rule is
+  "no number here is ever stored"; the ratchet keeps it by never *reading* the stored
+  number as coverage — coverage is always measured, the floor is always loaded, and the
+  only thing compared is the direction. Keep that split if you extend it.
+- **`measure()` folds `backfill.coverage()`, not a new scan.** That is what keeps
+  `is_gated()` the single definition of a gate *and* makes the check core-only (no
+  fastapi, so it does not `importorskip` itself away in a bare environment).
+  `tests/test_gatefloor.py` pins it against the view-model report as well, so the two
+  altitudes still agree.
+- **A doc claim that a test reads must be strict about its own shape.** `CLAIM` is a
+  precise regex over one README sentence and `claim()` *raises* when it is gone — a loose
+  pattern would keep matching after somebody rewrote the paragraph, which is the failure
+  mode this whole story is about. `record()` rewrites the floor and the sentence together
+  for the same reason; do not hand-edit one.
+- **`write_claim()` substitutes a single line**, so keep the claim sentence on its own
+  line in the README or a `--record` will unwrap the paragraph around it.
+- **Raising coverage from here is two commands**, in this order: gate the notebooks, then
+  `python3 -m praxis.gatefloor --record` (and update `notebooks/ungated.json`, which
+  `tests/test_ungated.py` will otherwise report as stale).
