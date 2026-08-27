@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "drunkards-walk",
+  "title": "Drunkard's Walk",
+  "domain": "09-procedural-generation",
+  "runnable": true,
+  "generated": "2026-08-27T07:20:12+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "drunkards-walk-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "Two cave generators are compared. One repeatedly smooths a random fill by a neighbour rule; the other has a single digger stagger around carving as it goes. Both produce organic shapes. What is the structural difference that matters most in practice?",
+      "explanation": "Connectivity for free is the headline property here, and it follows from how the region grows: every carved cell is adjacent to one already carved, so the whole thing is a single connected blob. The smoothing approach makes no such promise, which is why production uses of it are always paired with a flood-fill and repair step.",
+      "grade_id": "drunkards-walk-fa18c03d06d36992",
+      "options": [
+        "Only the second guarantees that everything carved is reachable. Because each new floor cell is reached by stepping off a cell that is already floor, the carved region is one contiguous blob by construction; the smoothing approach can leave isolated pockets and needs a separate pass to find and join or discard them",
+        "Only the first guarantees reachability, because smoothing merges nearby regions; the wandering digger routinely leaves disconnected fragments behind",
+        "Both guarantee reachability equally; the difference is that the wandering digger is far slower for the same map size",
+        "Neither guarantees reachability; the difference is purely aesthetic, with one producing rounder chambers and the other narrower tunnels"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "drunkards-walk-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Explain why the connectivity guarantee holds, then explain two consequences of the underlying random process: why a plain walker with no momentum tends to produce a dense blob near where it started, and why the last few percent of a high fill target take disproportionately long.",
+      "explanation": "One induction gives the guarantee; two properties of random walks give the failure modes. Low expected displacement explains the central blob, and the rising rate of re-treading explains why high fill targets are expensive.",
+      "grade_id": "drunkards-walk-deebfd8748e13b97",
+      "expected": "A correct answer must give the induction and both consequences. The guarantee: the walker starts by carving the cell it stands on, and every subsequent carve happens at a cell one step from where it currently is, which is itself already carved. So each new floor cell is adjacent to an existing one, and by induction the carved set is a single connected region at every moment \u2014 there is never an opportunity for a detached fragment to appear. First consequence: a walk that chooses each step independently has an expected displacement that grows only with the square root of the number of steps, so after many steps the walker is still typically near its origin and has revisited its surroundings many times. The result is a dense mass around the start rather than sprawling tunnels, and the usual remedies are to give the walker a tendency to continue in its current direction, or to run several walkers from different starting points. Second consequence: the stopping condition is about how much has been carved, but as the cave fills, a growing fraction of steps land on cells that are already floor and therefore carve nothing. So progress per step falls as the target rises, and the final few percent take many more steps than the first few \u2014 which is why a step budget is needed alongside the fill target, and why counting steps instead of carved cells is a classic bug that stops with far less carved than intended. Noting that pushing the fill fraction high also destroys the tunnel character, turning the map into one open room, is a plus."
+    },
+    {
+      "id": "drunkards-walk-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A generator writes floor cells without checking the walker's position against the grid's edges. Two symptoms appear: occasional index errors, and maps whose outer ring is carved so that rendering and collision code that assumes a sealed border misbehaves. What is the correct handling?",
+      "explanation": "Two related invariants: never index outside the array, and never carve the outer ring. Restricting the walk to the interior handles both at once, and the specific recovery \u2014 clamp, bounce, or reroll the direction \u2014 is a matter of taste. Wrapping is a different design that breaks the sealed-border assumption rather than preserving it.",
+      "grade_id": "drunkards-walk-253a5305a0049670",
+      "options": [
+        "Bound the walker before writing, not after, and restrict it to the interior rather than the full grid \u2014 keeping a one-cell wall margin all the way round so the map is sealed. When a step would leave the interior, clamp it, bounce it, or discard the step and pick a new direction; any of those is fine as long as nothing outside the interior is ever written",
+        "Allow the walker to leave and simply skip writes that fall outside; the border is naturally preserved because those writes are discarded",
+        "Wrap the coordinates so the walker reappears on the opposite side, which removes both symptoms and additionally makes the map tile seamlessly",
+        "Grow the grid whenever the walker reaches an edge, so the cave expands to fit the walk"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "drunkards-walk-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement the carver. Write `carve(size, target, direction, start=None, max_steps=1_000_000)`. The grid is `size` by `size`, all wall (1) initially, and only the interior \u2014 indices 1 to `size - 2` in both axes \u2014 may be carved to floor (0). `target` is the fraction of the interior that should end up floor, so the goal count is `int(target * (size - 2) ** 2)`. Begin at `start`, or the centre if none is given, carving that cell. Then repeat until the goal count is carved or `max_steps` steps have been taken: obtain a step from `direction()`, which returns a unit `(dx, dy)`; if the step would leave the interior, take it back and continue; otherwise move there and, if that cell was wall, carve it. Count a step whether or not it carved. Return `{\"grid\": ..., \"carved\": ..., \"steps\": ..., \"reached_target\": ...}`. Raise `ValueError` for a `size` below 3, a `target` not strictly between 0 and 1, and a `start` outside the interior. Standard library only.",
+      "explanation": "The flood-fill assertion is the guarantee made checkable: every floor cell is reachable from every other, and it holds without any repair pass because of how the region grew. Two other assertions are the practical lessons. The step count is at least the carved count, and usually larger, because the walker re-treads ground it has already opened \u2014 which is exactly why the stopping condition counts carved cells rather than steps, a substitution that would silently stop early. And the capped run reports that it did not reach its target rather than pretending it did, which matters because the cost per carved cell rises as the cave fills.",
+      "grade_id": "drunkards-walk-3302e32f6a0bd693",
+      "starter": "def carve(size, target, direction, start=None, max_steps=1_000_000):\n    \"\"\"Carve a connected cave by walking, stopping on a fraction of the interior.\"\"\"\n    ...",
+      "solution": "def carve(size, target, direction, start=None, max_steps=1_000_000):\n    if size < 3:\n        raise ValueError(\"the grid needs an interior\")\n    if not 0 < target < 1:\n        raise ValueError(\"target must be a fraction strictly between 0 and 1\")\n    interior = (size - 2) ** 2\n    wanted = int(target * interior)\n    grid = [[1] * size for _ in range(size)]\n    x, y = start if start is not None else (size // 2, size // 2)\n    if not (1 <= x <= size - 2 and 1 <= y <= size - 2):\n        raise ValueError(\"the start must be inside the interior\")\n    grid[y][x] = 0\n    carved = 1\n    steps = 0\n    while carved < wanted and steps < max_steps:\n        steps += 1\n        dx, dy = direction()\n        nx, ny = x + dx, y + dy\n        if not (1 <= nx <= size - 2 and 1 <= ny <= size - 2):\n            continue\n        x, y = nx, ny\n        if grid[y][x] == 1:\n            grid[y][x] = 0\n            carved += 1\n    return {\"grid\": grid, \"carved\": carved, \"steps\": steps,\n            \"reached_target\": carved >= wanted}",
+      "test": "DIRS = [(1, 0), (0, 1), (-1, 0), (0, -1)]\n\n\ndef wander(seed=1):\n    \"\"\"A deterministic stand-in for a random direction.\"\"\"\n    state = {\"s\": seed}\n\n    def direction():\n        state[\"s\"] = (state[\"s\"] * 1103515245 + 12345) % 2147483648\n        return DIRS[(state[\"s\"] >> 16) % 4]\n\n    return direction\n\n\ndef flood(grid):\n    \"\"\"How many floor cells are reachable from the first one found.\"\"\"\n    floors = {(x, y) for y, row in enumerate(grid) for x, v in enumerate(row) if v == 0}\n    if not floors:\n        return 0\n    stack = [next(iter(floors))]\n    seen = set()\n    while stack:\n        cell = stack.pop()\n        if cell in seen or cell not in floors:\n            continue\n        seen.add(cell)\n        x, y = cell\n        stack.extend([(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)])\n    return len(seen)\n\n\nresult = carve(21, 0.4, wander())\ngrid = result[\"grid\"]\n\n# The headline property: every carved cell is reachable from every other, because\n# each one was carved by stepping off an existing carved cell.\nfloor_count = sum(row.count(0) for row in grid)\nassert flood(grid) == floor_count, (flood(grid), floor_count)\nassert floor_count > 1\n\n# The border is never carved, so the map stays sealed.\nlast = len(grid) - 1\nassert all(grid[0][x] == 1 and grid[last][x] == 1 for x in range(len(grid)))\nassert all(grid[y][0] == 1 and grid[y][last] == 1 for y in range(len(grid)))\n\n# The stopping condition counts CARVED cells, not steps: the walker doubles back over\n# ground it has already opened, so it takes many more steps than it carves.\nassert result[\"reached_target\"], result\nassert result[\"steps\"] > result[\"carved\"], result\n\n# The target is a fraction of the interior, so a higher target carves more.\nsparse = carve(21, 0.2, wander())[\"carved\"]\ndense = carve(21, 0.6, wander())[\"carved\"]\nassert sparse < dense, (sparse, dense)\nassert sparse == int(0.2 * 19 * 19), sparse\n\n# Cost per carved cell rises as the cave fills: the second half of the work takes\n# disproportionately more steps than the first.\nhalf = carve(21, 0.3, wander())[\"steps\"]\nfull = carve(21, 0.6, wander())[\"steps\"]\nassert full > 2 * half, (half, full)\n\n# A step budget stops a walk that would otherwise grind, and reports that it did.\ncapped = carve(41, 0.9, wander(), max_steps=50)\nassert not capped[\"reached_target\"] and capped[\"steps\"] == 50, capped\n\n# A walker that can only head one way is stopped by the wall rather than escaping.\none_way = carve(9, 0.1, lambda: (1, 0))\nassert one_way[\"reached_target\"], one_way\nassert all(one_way[\"grid\"][0][x] == 1 for x in range(9))\n\n# An explicit start is honoured and is itself floor.\nassert carve(21, 0.1, wander(), start=(3, 4))[\"grid\"][4][3] == 0\n\nfor bad in (lambda: carve(2, 0.5, wander()),\n            lambda: carve(21, 0.0, wander()),\n            lambda: carve(21, 1.0, wander()),\n            lambda: carve(21, 0.5, wander(), start=(0, 0))):\n    try:\n        bad()\n    except ValueError:\n        continue\n    raise AssertionError(\"must be rejected\")"
+    },
+    {
+      "id": "drunkards-walk-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A designer raises the fill fraction from 0.4 to 0.75 hoping for a bigger cave, and reports two disappointments: generation became much slower, and the result is one open room rather than a twisty cave. What is going on and what should they do instead?",
+      "explanation": "One cause, two symptoms: at high fill most steps are wasted on already-open ground, which is slow, and a region that occupies most of the interior simply is a room rather than a tunnel network. Scaling up the map or the number of walkers gets a bigger cave while keeping the character; turning one walker's dial up cannot.",
+      "grade_id": "drunkards-walk-8e44995e405bb648",
+      "options": [
+        "Both follow from the same fact. As the cave fills, more steps land on ground that is already open, so progress per step falls and the last stretch is disproportionately expensive. And beyond roughly six tenths the carved region stops reading as tunnels at all and becomes a single chamber. If a bigger, still-twisty cave is wanted, enlarge the map or run several walkers from different starts rather than pushing one walker's fill fraction up",
+        "The slowdown is unrelated to the fill and comes from the grid size; the open-room appearance is fixed by adding momentum, which keeps the tunnels narrow at any fill fraction",
+        "Both symptoms indicate the stopping condition is counting steps instead of carved cells; correcting it restores speed and tunnel character together",
+        "The fill fraction is fine and both symptoms come from the walker being allowed to revisit cells; forbidding revisits fixes the speed and the shape"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "drunkards-walk-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four levels. (a) A prototype needing any connected cave, written this afternoon in as little code as possible. (b) A keep with rectangular rooms, corridors and designer control over the layout. (c) A large cavernous interior with broad chambers and irregular walls. (d) A world map divided into irregular biome regions with a known adjacency between them. Assign each and give the deciding property.",
+      "explanation": "Each is decided by a different property: how little code, how much control, the shape of the open space, and whether the output is a grid or a graph of regions. Only the first is chosen for cheapness, which is exactly what this technique is for.",
+      "grade_id": "drunkards-walk-3c3c25608d24048b",
+      "expected": "A correct answer must place all four. (a) The random-walk carver: it is the least code of any of these, and connectivity comes free from the way the region grows, so there is no repair pass to write \u2014 the deciding property is minimal effort with a guarantee attached, accepting almost no control over the shape. (b) Recursive spatial subdivision: it produces non-overlapping rectangular rooms spread over the map, joined so everything is reachable, and it is the only one of these with real designer control over the layout \u2014 the deciding property is that the level should read as built rather than dug. (c) Neighbour-rule region growth: repeatedly smoothing a random fill produces broad blobby caverns rather than narrow tunnels, which is the requested character, and its lack of a connectivity guarantee is handled with a flood-fill pass afterwards \u2014 the deciding property is the scale and shape of the open spaces. (d) A cell decomposition around scattered points and its dual triangulation: what is wanted is irregular regions as actual polygons together with a graph of which region borders which, which none of the carving methods produce \u2014 the deciding property is that the deliverable is a partition with adjacency, not a grid of open and solid cells. Noting that the first two can be combined \u2014 subdivide for structure, then smooth the result for organic walls \u2014 is a plus."
+    }
+  ]
+}

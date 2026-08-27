@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "minizinc",
+  "title": "MiniZinc (constraint programming)",
+  "domain": "01-symbolic-ai-logic",
+  "runnable": true,
+  "generated": "2026-08-27T05:50:36+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "minizinc-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "The pitch is that you write the model and hand the search to somebody else's engine. On a rostering problem, what does that separation concretely buy?",
+      "explanation": "Portability across engines and reusable pruning are the two real benefits. Feasibility is exactly what the search is for, search order still matters enormously, and none of this makes an NP-hard problem tractable.",
+      "grade_id": "minizinc-31d1376eafff33f9",
+      "options": [
+        "The identical model can be run on engines with quite different search strategies and compared without being rewritten, and the named high-level constraints bring specialised pruning algorithms with them that you would otherwise have to implement",
+        "The compiler establishes whether a solution exists before any search runs, so infeasible instances are caught up front and cheaply",
+        "The order in which values are tried stops mattering to runtime, because pruning makes every order equivalent",
+        "Runtime becomes polynomial once every constraint in the model is one of the high-level named ones"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "minizinc-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A colleague swaps a named all-different constraint for the equivalent set of pairwise inequalities, checks that both accept exactly the same solutions, and is then baffled when the model becomes dramatically slower. Explain what happened, and state the general principle they should take from it.",
+      "explanation": "This is the one idea that separates writing a correct model from writing a good one. Correctness is about the solution set; performance is about what can be deduced before search, and only the second is affected by how you phrase the same condition.",
+      "grade_id": "minizinc-f41ef84f7f840a60",
+      "expected": "A correct answer must accept that the two are LOGICALLY EQUIVALENT \u2014 the same solution set \u2014 and locate the difference in how much each PRUNES before a guess has to be made, since solving is pruning interleaved with search. Pairwise inequalities can only act once one of the two variables is already fixed, and then only remove that single value from its partner. The global form reasons over the whole group at once: an example must be given, such as k variables that between them can take only k values, which lets those values be struck from every other variable, or a group whose pooled values number fewer than the group itself, which proves the model infeasible outright \u2014 neither of which any pair can see locally. Weaker pruning means more guesses, and cost grows exponentially in guesses rather than linearly. The principle must be stated: logical equivalence says NOTHING about pruning strength, so prefer the strongest available formulation \u2014 two models with identical solution sets can differ by orders of magnitude in runtime."
+    },
+    {
+      "id": "minizinc-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A model refuses to compile, with an error that says little, after someone uses one of the unknowns as an array index. What is the underlying rule being broken?",
+      "explanation": "Fixed structure, unknown values \u2014 that division is what makes compilation to a flat form possible at all. Indexing by an unknown is usually re-expressed with a selection constraint or an equivalent encoding over a fixed array.",
+      "grade_id": "minizinc-e5c56a8c93f569eb",
+      "options": [
+        "The structure that gets compiled \u2014 array sizes, index sets, the shape of the constraints \u2014 has to be settled before any search begins, so only the values being chosen may be unknown; an unknown index must be re-expressed as a constraint over a fixed structure",
+        "Arrays are indexed from one, so an unknown whose range starts at zero is out of bounds and produces the error",
+        "Index expressions have to be literal constants, so arithmetic in an index position is rejected whatever it is made of",
+        "The unknown was declared without a range, and an index has to have a bounded range before it can be checked"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "minizinc-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement `propagate_alldifferent(domains)`, the pruning a global all-different constraint performs. `domains` is a list of sets of integers, one per variable, holding the values that variable may still take. Consider every non-empty group of variables and pool the values they can take between them: if that pool is smaller than the group, no assignment exists and you must return None; if it is exactly the size of the group, those values are spoken for and must be removed from every variable outside the group. Repeat until nothing changes and return the resulting list of sets, or None if any variable is left with nothing. The inputs are small, so examining every group is acceptable. Do not modify the list or the sets you were given. Standard library only.",
+      "explanation": "Counting is the whole argument, and no pairwise inequality can reach it: two variables sharing two values say nothing on their own, but noticing that the pair between them exhausts those two values is what empties them out of everybody else, and noticing that three variables share only two values is what proves the whole thing impossible before a single guess. Note the two cases that must NOT prune: a lone variable with two values is not forced to either, and a value that no variable is obliged to use may simply go unused \u2014 this constraint says the chosen values differ, not that every value is chosen. Real propagators compute the same argument in polynomial time via matching rather than by examining every group.",
+      "grade_id": "minizinc-cfe134f211aa7a15",
+      "starter": "def propagate_alldifferent(domains):\n    \"\"\"Shrink the domains as far as the two rules allow, or None on failure.\"\"\"\n    ...",
+      "solution": "from itertools import combinations\n\n\ndef propagate_alldifferent(domains):\n    domains = [set(d) for d in domains]\n    changed = True\n    while changed:\n        changed = False\n        count = len(domains)\n        for size in range(1, count + 1):\n            for group in combinations(range(count), size):\n                union = set()\n                for i in group:\n                    union |= domains[i]\n                if len(union) < size:\n                    return None\n                if len(union) == size:\n                    for j in range(count):\n                        if j not in group and domains[j] & union:\n                            domains[j] -= union\n                            changed = True\n        if any(not domain for domain in domains):\n            return None\n    return domains",
+      "test": "assert propagate_alldifferent([{1}, {1, 2}, {1, 2, 3}]) == [{1}, {2}, {3}]\nassert propagate_alldifferent([{1}, {1, 2}, {2, 3}, {3, 4}]) == [{1}, {2}, {3}, {4}]\n\nhall = propagate_alldifferent([{1, 2}, {1, 2}, {1, 2, 3}])\nassert hall == [{1, 2}, {1, 2}, {3}], hall\n\nelsewhere = propagate_alldifferent([{1, 2, 3}, {1, 2}, {1, 2}])\nassert elsewhere == [{3}, {1, 2}, {1, 2}], elsewhere\n\nassert propagate_alldifferent([{1, 2}, {1, 2}, {1, 2}]) is None, \"three into two\"\nassert propagate_alldifferent([{1}, {1}]) is None\nassert propagate_alldifferent([set()]) is None\nassert propagate_alldifferent([]) == []\nassert propagate_alldifferent([{1, 2}]) == [{1, 2}], \"one variable is forced to nothing\"\nassert propagate_alldifferent([{1, 2}, {3, 4}]) == [{1, 2}, {3, 4}], \"already disjoint\"\n\noriginal = [{1}, {1, 2}]\nassert propagate_alldifferent(original) == [{1}, {2}]\nassert original == [{1}, {1, 2}], \"the caller's domains must not be mutated\""
+    },
+    {
+      "id": "minizinc-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A model over a team of interchangeable workers proves an optimum on eight of them in seconds and never finishes on twelve. The constraints have been checked and are correct. What is the most likely lever?",
+      "explanation": "Symmetry multiplies the search space by the number of relabellings, which grows factorially \u2014 so it hits exactly like this, fine at one size and hopeless slightly above it. Breaking it is usually a couple of ordering constraints.",
+      "grade_id": "minizinc-4bf9d6c4ccd561b7",
+      "options": [
+        "Interchangeable entities make each genuinely distinct solution appear many times over under relabelling, so equivalent regions are explored again and again \u2014 constraints that impose an arbitrary fixed order among the interchangeable ones remove the duplicates without removing any distinct solution",
+        "The objective has to be given an explicit bound, because proving optimality without one requires exhausting the whole space",
+        "Twelve is past the point where pruning pays for itself, so pruning should be turned off on the larger instances",
+        "The compiled form from the eight-worker run is being reused, so the larger instance is being solved against the wrong flattened model"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "minizinc-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "A prototype model solves your scheduling problem and proves it optimal in seconds. Production now wants it inside a Python service, run thousands of times a day, on instances ten times the size. What would you evaluate before rewriting anything, and what are the two plausible destinations?",
+      "explanation": "The portability that made prototyping cheap is exactly what a rewrite spends, so it is worth being sure the rewrite is what is needed. Most of the time the first two experiments are hours and the rewrite is weeks.",
+      "grade_id": "minizinc-b8c49760ecf36cc7",
+      "expected": "A correct answer must insist on evidence before a rewrite. First, swap BACKENDS: the same model compiles to several engines whose search strategies differ sharply, and a lazy-clause-generation engine in particular often transforms scheduling and optimisation runtimes \u2014 benchmark on realistic large instances, because the model may already be adequate. Second, examine the MODEL: tighter variable ranges, global constraints where pairwise forms have crept in, and symmetry breaking can each outweigh the choice of engine. The two destinations must then be named with their trade: keep the toolchain and drive it from the service, accepting an external system dependency and the overhead of a separate process per solve \u2014 acceptable if the throughput allows it; or rewrite the model against a solver's own in-process API, gaining tighter integration, no external install and lower per-solve overhead, at the cost of portability and of ever comparing backends again. Noting that if the problem turns out to be essentially linear a mathematical-programming solver is the third answer, is a plus."
+    }
+  ]
+}

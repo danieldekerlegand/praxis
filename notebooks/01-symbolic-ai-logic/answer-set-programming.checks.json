@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "answer-set-programming",
+  "title": "Answer Set Programming (ASP / clingo)",
+  "domain": "01-symbolic-ai-logic",
+  "runnable": true,
+  "generated": "2026-08-27T05:50:05+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "answer-set-programming-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "You could hand a graph-colouring instance straight to a SAT solver, and clingo ends up running the same conflict-driven search underneath. So what does writing the problem in ASP actually buy you?",
+      "explanation": "The solver is the same family; the modelling language is the difference. Option 4 is the exact opposite of the truth \u2014 grounding blow-up is ASP's characteristic failure mode, and continuous values are what sends you to SMT or MILP instead.",
+      "grade_id": "answer-set-programming-9abf00d8d41d10eb",
+      "options": [
+        "Rules carrying variables that the grounder instantiates for you, default negation for stating exceptions, and an optimisation objective in the language \u2014 the search is the same technology, but the specification is relational instead of hand-encoded clauses",
+        "A stronger search algorithm, so instances that a CDCL SAT solver cannot finish become tractable",
+        "Continuous quantities alongside the discrete ones, so numeric side conditions can be stated in the same program",
+        "A guarantee that the propositional program stays polynomial in the size of what you wrote, so encoding size never has to be thought about"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "answer-set-programming-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "The one-rule program `p :- not p.` has a perfectly good classical model, yet clingo reports no answer set for it. Work through both candidate sets using the idea that an answer set has to justify itself, and say what the result tells you about reading `not` as ordinary negation.",
+      "explanation": "The self-justification requirement is what separates stable models from classical ones, and it is also what makes defaults and exceptions work. Once you check a candidate by re-deriving it, `p :- not p` collapses in an obvious way.",
+      "grade_id": "answer-set-programming-5d407271e7457432",
+      "expected": "A correct answer must test BOTH candidates and reject each for the right reason. If the candidate contains p: the rule's negative condition is met by the candidate itself, so the rule is dropped when the program is evaluated against that candidate, nothing is left that supports p, and p would be present with no derivation behind it. If the candidate is empty: the rule survives, its condition holds, so p is derived \u2014 and the candidate does not contain what the program forces. Neither candidate reproduces itself, so there is no answer set. The lesson is that `not` is DEFAULT, CLOSED-WORLD negation evaluated against the very model being constructed, not a classical truth value: under classical negation p = true satisfies the formula, and the difference is that stable semantics additionally demands support for every atom present. Adding that zero answer sets is a normal outcome rather than an error is a plus."
+    },
+    {
+      "id": "answer-set-programming-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "clingo accepts both `{ a; b }` and `a ; b.` and beginners reach for whichever they saw first. If the intent is 'the solver may take any combination of these', which form is right, and what is the other one actually asking for?",
+      "explanation": "A choice rule is cheap and says what people usually mean. Disjunction is genuinely harder \u2014 minimality means a model containing both atoms is excluded, and the extra expressive power costs complexity you rarely wanted.",
+      "grade_id": "answer-set-programming-dd07a6a8e860cb10",
+      "options": [
+        "The braces: they permit any subset of the listed atoms. The bare semicolon is a disjunctive head, which demands minimal models containing at least one of them and lifts the program to the second level of the polynomial hierarchy",
+        "The bare semicolon: it is the standard notation, while the braces are only shorthand for writing the atoms as separate facts",
+        "Either one: they mean the same thing, and the grounder rewrites the first into the second before solving",
+        "The bare semicolon: it commits the solver to exactly one of the alternatives, whereas the braces would leave the count unconstrained and so under-specify the problem"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "answer-set-programming-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement `is_stable(rules, model)`, the test a solver's candidate has to survive. `rules` is a list of `(head, positive, negative)` triples over atom names \u2014 the rule concludes `head` when every atom in `positive` is present and no atom in `negative` is. `model` is a set of atom names. Return True when that set reproduces itself: discard every rule whose negative condition is met by the set, derive everything the surviving rules force by repeated application starting from nothing, and compare. Standard library only.",
+      "explanation": "Those two steps are the Gelfond-Lifschitz reduct followed by the least model of what is left \u2014 the definition of an answer set, in nine lines. The comparison has to be equality in both directions: a candidate missing something the rules force is not a model, and one carrying an atom the rules never derive is not stable.",
+      "grade_id": "answer-set-programming-dc2b1577efe221ec",
+      "starter": "def is_stable(rules, model):\n    \"\"\"True when `model` is a stable model (answer set) of `rules`.\"\"\"\n    ...",
+      "solution": "def is_stable(rules, model):\n    model = set(model)\n    reduct = [(head, set(pos)) for head, pos, neg in rules if not set(neg) & model]\n    derived = set()\n    changed = True\n    while changed:\n        changed = False\n        for head, pos in reduct:\n            if head not in derived and pos <= derived:\n                derived.add(head)\n                changed = True\n    return derived == model",
+      "test": "birds = [\n    (\"bird\", set(), set()),\n    (\"penguin\", set(), set()),\n    (\"flies\", {\"bird\"}, {\"ab\"}),\n    (\"ab\", {\"penguin\"}, set()),\n]\nassert is_stable(birds, {\"bird\", \"penguin\", \"ab\"}), \"the exception fires\"\nassert not is_stable(birds, {\"bird\", \"penguin\", \"ab\", \"flies\"}), \"default is retracted\"\n\nno_penguin = [r for r in birds if r[0] != \"penguin\"]\nassert is_stable(no_penguin, {\"bird\", \"flies\"}), \"with no exception, the default holds\"\nassert not is_stable(no_penguin, {\"bird\"}), \"flies is supported, so it must be present\"\n\nparadox = [(\"p\", set(), {\"p\"})]\nassert not is_stable(paradox, set()) and not is_stable(paradox, {\"p\"}), \"no answer set\"\n\neven = [(\"p\", set(), {\"q\"}), (\"q\", set(), {\"p\"})]\nassert is_stable(even, {\"p\"}) and is_stable(even, {\"q\"}), \"two answer sets\"\nassert not is_stable(even, set()) and not is_stable(even, {\"p\", \"q\"})\n\nassert not is_stable([], {\"x\"}), \"nothing is in a stable model for free\"\nassert is_stable([], set())\n\nchain = [(\"a\", set(), set()), (\"b\", {\"a\"}, set()), (\"c\", {\"b\"}, {\"d\"})]\nassert is_stable(chain, {\"a\", \"b\", \"c\"})\nassert not is_stable(chain, {\"a\", \"b\"}), \"c is derivable, so it is not optional\""
+    },
+    {
+      "id": "answer-set-programming-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A program that answers instantly on a small data set eats all available memory on the real one and never prints so much as a first model. Where is the effort going, and what is the fix?",
+      "explanation": "Never reaching a first model, with memory rather than CPU as the symptom, points before the search rather than at it. The other three describe real costs, but all of them happen after a propositional program exists.",
+      "grade_id": "answer-set-programming-ca7d9f0717dded7e",
+      "options": [
+        "Instantiating the rules: every body is expanded over all combinations of constants before any search starts, so a three-variable body over n constants becomes n\u00b3 propositional rules \u2014 restrict each variable with a domain literal in the body and measure the size of the expanded program",
+        "The search itself: conflict-driven search is exponential in the worst case, so the remedies are a better branching heuristic or a time limit",
+        "Enumeration: asking for every model is exponential in the number of models, so requesting a single one removes the problem",
+        "The objective: proving a maximisation optimal requires visiting every candidate, so the objective has to be dropped on larger inputs"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "answer-set-programming-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Three requests arrive in the same week. (a) Roster nurses under hard coverage rules while making weekend duty as even as possible. (b) Decide whether a condition over 64-bit integers and real-valued sensor readings can ever be violated. (c) Report which permissions a role transitively grants. Assign each to ASP, SMT or Datalog and name the property of the formalism that settles it.",
+      "explanation": "The three questions are 'search for a world', 'reason about numbers' and 'derive consequences'. Almost every real choice among these three tools comes down to which of those you are actually doing.",
+      "grade_id": "answer-set-programming-26c1eb55fc904fac",
+      "expected": "A correct answer must map (a) to ASP, (b) to SMT and (c) to Datalog, and give a property for each. (a) is discrete combinatorial search plus an objective: choice rules generate candidate rosters, constraints prune them, and a minimise statement makes the solver return the best one and prove it optimal. (b) lives in THEORIES over numbers \u2014 bitvectors and reals \u2014 which ASP cannot represent at all, because it grounds to propositions over finitely many constants and has no continuous domain; a theory solver decides satisfiability directly. (c) needs NO SEARCH: it is monotone recursive derivation with a unique least fixpoint and a termination guarantee, so a query engine is the right size of tool and model-finding would be overkill. Noting that constraint programming or MILP would also serve (a), with the choice against them turning on qualitative rules and defaults versus heavy arithmetic, is a plus."
+    }
+  ]
+}

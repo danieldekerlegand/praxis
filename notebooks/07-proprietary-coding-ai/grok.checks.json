@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "grok",
+  "title": "Grok",
+  "domain": "07-proprietary-coding-ai",
+  "runnable": true,
+  "generated": "2026-08-27T06:33:44+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "grok-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A brand-safety team needs a service that answers 'is anything blowing up about our product in the last two hours, and who is saying it?' \u2014 with links they can open. They already run an OpenAI-based summarisation pipeline. Which argument for adopting xAI's model here is the one this notebook actually makes?",
+      "explanation": "Two independent claims are doing the work: real-time retrieval that is part of the completion rather than a pipeline you assemble, and an interface deliberately shaped like the one the team already calls. Everything else here is wrong on the facts \u2014 the current models are closed and cloud-only, and no context window substitutes for fresh data.",
+      "grade_id": "grok-b315c75968d95c5f",
+      "options": [
+        "The freshness requirement is served inside the completion \u2014 the model reaches the social firehose and the web at request time and hands back the sources it consulted \u2014 and the switching cost is close to nothing because the existing pipeline changes only where it points and which model string it names",
+        "It is the only frontier model with a large enough context window to hold two hours of social posts, so the freshness problem becomes a context-length problem",
+        "It removes the need to summarise at all, because the chatbot persona is tuned for social content and will produce brand-safety verdicts without a prompt",
+        "Its weights can be downloaded and run against an internal mirror of the firehose, which is what makes the two-hour latency achievable"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "grok-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "An engineer says: 'we already have a retrieval pipeline, so the live-search feature is just RAG we do not have to write \u2014 and if answers are shallow we will turn the reasoning up.' Say what is right and what is wrong in the first half, and explain why the second half is a category error on this API.",
+      "explanation": "Both mistakes come from imagining the API as a box of knobs. Retrieval here is a provider-side capability with its own billing, not a library you configure, and reasoning is selected by model string rather than requested by parameter.",
+      "grade_id": "grok-7c321506349a0688",
+      "expected": "A correct answer must treat the two halves separately. First half \u2014 the comparison to retrieval is fair in outcome but wrong in mechanism and control: here the fetching happens inside the completion, decided and issued by the provider against sources you select by type rather than by an index you own, so you give up the choice of corpus, chunking, embedding and ranking, and you gain freshness and returned citations without operating anything. It also acquires a per-source charge on top of tokens, so unlike a pipeline you own, cost scales with how often it decides to look things up. Second half \u2014 there is no dial that makes an arbitrary model think harder: whether the model reasons is a property of which model you named, so depth is obtained by choosing a reasoning-capable model (and, only on those, an effort setting), and sending an effort parameter to a model that does not reason is at best ignored. Noting that reasoning models may also disregard or reinterpret sampling temperature is a plus."
+    },
+    {
+      "id": "grok-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A support assistant answers a mixture of questions: most are about the company's own documented policies, a few are about whether a third-party service is currently degraded. The team wants citations on the second kind and no extra spend on the first. Which configuration matches that, and why do the alternatives fail it?",
+      "explanation": "The three settings are never / decide-per-request / always, and the middle one exists exactly for a mixed workload: the spend follows how often sources are actually consulted, so a blanket always-on bills the majority of requests that needed nothing. Charges are per source consulted regardless of which type it was, and no context window makes a model aware of an outage that started this morning.",
+      "grade_id": "grok-648ba91d1aff68e8",
+      "options": [
+        "Leave retrieval on the setting that lets the model decide per request, cap how many results it may consult, and ask for the consulted URLs to come back \u2014 always-retrieve would pay a per-source charge on every policy question, and never-retrieve cannot answer the outage ones at all",
+        "Always retrieve, but restrict the sources to news only, since a per-source charge is only levied when the social source is among those selected",
+        "Never retrieve, and instead widen the context window so the model's training data covers the third-party service's status",
+        "Always retrieve, because the per-request decision setting is a hint the model ignores whenever any source is configured"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "grok-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Cost-model the retrieval setting. Implement `search_spend(requests, mode, price_in, price_out, per_source, max_results=5)`. `requests` is a list of dicts with keys `in`, `out`, `needs_search` (whether the answer genuinely requires fresh data) and `sources_available` (how many sources exist for it). `mode` is `\"off\"`, `\"auto\"` or `\"on\"`. Under `\"off\"` nothing is ever consulted; under `\"on\"` every request consults `min(sources_available, max_results)` sources; under `\"auto\"` only the requests whose `needs_search` is true do. Token spend is always billed: `in` and `out` are token counts and the two prices are USD per 1,000,000 tokens. Every consulted source costs `per_source` USD. Return `{\"usd\": float, \"sources_used\": int, \"unanswerable\": int}`, where `unanswerable` counts requests that needed fresh data and did not get it. Standard library only.",
+      "explanation": "The arithmetic shows why the per-request decision is the default worth reaching for and also when it is worthless: it saves exactly the requests that did not need fresh data, so on a 90/10 workload it removes nine tenths of the retrieval charge, and on a workload where everything is a live question it collapses onto always-on. The `unanswerable` column is the other half of the trade \u2014 turning retrieval off does not make those questions cheap, it makes them wrong.",
+      "grade_id": "grok-ca8737486889b646",
+      "starter": "def search_spend(requests, mode, price_in, price_out, per_source, max_results=5):\n    \"\"\"What one retrieval setting costs across a mixed workload.\"\"\"\n    ...",
+      "solution": "def search_spend(requests, mode, price_in, price_out, per_source, max_results=5):\n    tokens = 0.0\n    sources = 0\n    unanswerable = 0\n    for req in requests:\n        tokens += req[\"in\"] * price_in + req[\"out\"] * price_out\n        if mode == \"on\":\n            searched = True\n        elif mode == \"auto\":\n            searched = bool(req[\"needs_search\"])\n        else:\n            searched = False\n        if searched:\n            sources += min(req[\"sources_available\"], max_results)\n        elif req[\"needs_search\"]:\n            unanswerable += 1\n    return {\n        \"usd\": tokens / 1e6 + sources * per_source,\n        \"sources_used\": sources,\n        \"unanswerable\": unanswerable,\n    }",
+      "test": "mixed = ([{\"in\": 500, \"out\": 200, \"needs_search\": False, \"sources_available\": 8}] * 90\n         + [{\"in\": 500, \"out\": 200, \"needs_search\": True, \"sources_available\": 8}] * 10)\n\noff = search_spend(mixed, \"off\", 0.30, 0.50, 0.025)\nauto = search_spend(mixed, \"auto\", 0.30, 0.50, 0.025)\non = search_spend(mixed, \"on\", 0.30, 0.50, 0.025)\n\nassert off[\"sources_used\"] == 0 and off[\"unanswerable\"] == 10, off\nassert auto[\"sources_used\"] == 50 and auto[\"unanswerable\"] == 0, auto\nassert on[\"sources_used\"] == 500 and on[\"unanswerable\"] == 0, on\nassert off[\"usd\"] < auto[\"usd\"] < on[\"usd\"], (off, auto, on)\n\n# The token bill is identical in all three; only the per-source charge moves.\ntoken_only = (100 * 500 * 0.30 + 100 * 200 * 0.50) / 1e6\nassert abs(off[\"usd\"] - token_only) < 1e-12, off\nassert abs(on[\"usd\"] - off[\"usd\"] - 500 * 0.025) < 1e-12, on\n\n# The cap binds: a request with more sources than the cap consults only the cap.\ncapped = search_spend([{\"in\": 0, \"out\": 0, \"needs_search\": True, \"sources_available\": 40}],\n                      \"auto\", 1.0, 1.0, 0.01, max_results=3)\nassert capped[\"sources_used\"] == 3, capped\nassert abs(capped[\"usd\"] - 0.03) < 1e-12, capped\n\n# A workload where every request needs fresh data: deciding per request buys nothing.\nall_fresh = [{\"in\": 10, \"out\": 10, \"needs_search\": True, \"sources_available\": 2}] * 5\nassert (search_spend(all_fresh, \"auto\", 1.0, 1.0, 0.1)\n        == search_spend(all_fresh, \"on\", 1.0, 1.0, 0.1)), all_fresh\nassert search_spend([], \"on\", 1.0, 1.0, 0.1) == {\"usd\": 0.0, \"sources_used\": 0, \"unanswerable\": 0}"
+    },
+    {
+      "id": "grok-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A service A/B tests two providers by holding one client object and swapping the model string per request. Half the traffic works; the other half returns an error saying the model does not exist, and the finance team later notices all the successful calls landed on a single vendor's invoice. What happened?",
+      "explanation": "Compatibility means the request shape is portable, not that the destination is inferred from the model name. Where the bytes go is fixed when the client is built, so an A/B across vendors needs two clients \u2014 and the failure is doubly nasty because one arm still succeeds and quietly bills the wrong account.",
+      "grade_id": "grok-88844d8e976197ff",
+      "options": [
+        "The client was constructed once with the original vendor's endpoint, so both arms were sent there \u2014 the arm naming the other vendor's model was rejected as unknown, and the arm that worked was billed to the original account. The endpoint is per-client state, not something the model string implies",
+        "The two vendors' request schemas diverge, so the second arm's payload was rejected; the fix is to build the second arm's request with the vendor's own native library",
+        "The second vendor's model names must be sent with a vendor prefix; without it any compatible endpoint reports the model as unknown",
+        "A single client cannot be reused across requests at all \u2014 the SDK caches the resolved model on first use, so the second arm inherited the first arm's model"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "grok-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Three products are on your desk. (1) A newsroom tool that must answer 'what are people saying right now' with links, from a codebase already written against one vendor's chat interface. (2) A research assistant whose job is to answer open-web questions with sourced citations, and nothing else. (3) A code-review bot for a defence customer whose source may not leave their network. Recommend one option each and name the property that decides it \u2014 not the benchmark score.",
+      "explanation": "Each is decided by a different property: what the answer has to be fresh about, whether search-answering is the whole product or one feature, and whether the bytes may leave the building. The third is the one that no amount of quality can buy your way out of.",
+      "grade_id": "grok-7ff0e1fd8cacabfd",
+      "expected": "A correct answer must give three distinct recommendations with a decisive property each. (1) xAI's model is the fit: the requirement is freshness from social and web sources returned with citations, which is its named differentiator, and the migration cost is near zero because the existing code targets a compatible request shape \u2014 the deciding property is real-time retrieval inside the completion plus a drop-in interface. (2) A search-native answer engine is the better fit when answering sourced open-web questions is the entire product rather than one capability among many; a general model with an optional retrieval setting is more than the product needs and is priced as a general model \u2014 the deciding property is that the whole workload is search-answering, so the specialised product's shape matches it. (3) No hosted option qualifies, because the constraint is that the code cannot leave the network at all; the current models here are closed and cloud-only, so this needs open weights self-hosted, accepting weaker frontier quality and real operational burden. Noting that the old open-sourced generation is not a substitute for the current closed models, or that a strong coding-focused hosted model would be the answer if only the network constraint were relaxed, is a plus."
+    }
+  ]
+}

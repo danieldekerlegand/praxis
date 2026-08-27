@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "matplotlib",
+  "title": "Matplotlib",
+  "domain": "10-data-analysis-research",
+  "runnable": true,
+  "generated": "2026-08-27T06:55:05+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "matplotlib-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A team uses a higher-level statistical charting library for everything, and hits a figure where one panel's tick labels overlap and a second y-scale is needed on the right. A junior engineer proposes abandoning that library and rewriting all their charts in this one. What does this notebook's framing suggest instead?",
+      "explanation": "The stack is layered rather than parallel: the convenience library, the one-line frame plotting method, and several model-inspection helpers all draw through this engine and hand back its objects. So the escape hatch from any of them is downward into the same figure, not sideways into a rewrite \u2014 which is the notebook's stated reason to learn it even if you mostly use something friendlier.",
+      "grade_id": "matplotlib-be8428c107497516",
+      "options": [
+        "Nothing needs abandoning: the higher-level library renders through this one, so its output is made of this library's objects \u2014 the fix is to take hold of the plotting region it produced and adjust the ticks and add the second scale directly, which is precisely why knowing the lower layer is worth it even when you rarely write it",
+        "The junior engineer is right: the two libraries produce incompatible figure objects, so a chart that needs fine adjustment must be rebuilt from the bottom layer",
+        "Neither: overlapping ticks and secondary scales are unsupported at this layer too, so the figure needs an interactive web-based library",
+        "The team should switch to the interactive web-based libraries for everything, since they resolve label collisions automatically and this class of problem does not arise there"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "matplotlib-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A newcomer writes a script with a grid of four panels, draws each one with the short module-level calls, and finds titles landing on the wrong panels and a legend appearing where they did not expect. Explain the container hierarchy they are missing, what the short calls actually do, and the rule that makes the confusion disappear.",
+      "explanation": "The whole difficulty is one hidden variable. Once you see the convenience call as a lookup followed by a method call, the two styles stop being rival libraries and the explicit style is obviously the one that survives a second panel.",
+      "grade_id": "matplotlib-3ad82e11646fafc2",
+      "expected": "A correct answer must distinguish the containers and explain the hidden state. The outermost container is the whole image \u2014 the page \u2014 and it can hold many plotting regions. Each plotting region is one plot: its data area, its title, its legend, and the two axis objects that carry the ticks, labels and scale. A common trap is confusing the plotting region with the singular axis object inside it; they are different things with confusingly similar names. Everything actually drawn is an object in its own right, and the drawing methods hand those objects back so they can be modified later. The short module-level calls are a convenience layer over a hidden notion of the current image and the current plotting region: each call resolves to a method call on whatever region is current at that moment. With one plot that is invisible and harmless; with four, every call depends on which region happens to be current, which is why the titles land where they do. The rule that removes the confusion is to hold the objects explicitly \u2014 create the image and its regions together, keep the references, and call methods on the specific region you mean \u2014 so the destination of every call is written in the call itself rather than implied by history. Noting that the short form is exactly equivalent to fetching the current region and calling the same method on it, so the two are one API rather than two, is a plus."
+    },
+    {
+      "id": "matplotlib-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A batch job on a server with no display must write large image files. The author sets the renderer to the file-writing one on the line immediately after importing the plotting module, and sets the image dimensions to double what they want in pixels while leaving the resolution setting alone. Two things go wrong. What are they?",
+      "explanation": "One is an ordering rule with a silent failure mode, which is why it bites so often on servers. The other is a units confusion with a real consequence: the figure size governs layout \u2014 how much room the labels and panels get relative to each other \u2014 while the resolution governs how many pixels that layout is rendered into, so they are not interchangeable ways of making a bigger picture.",
+      "grade_id": "matplotlib-c43a804f6edbddb0",
+      "options": [
+        "The renderer selection has to happen before the plotting module is imported \u2014 set afterwards it is quietly ignored, so the job still tries to use whatever renderer was chosen at import time. And the dimension setting is in inches, not pixels: pixels are that figure size multiplied by the resolution, so doubling the size changes the proportions and the amount of space each element gets rather than producing a larger raster \u2014 raising the resolution is what does that",
+        "The renderer selection is fine either way, and the only problem is that the file-writing renderer ignores the resolution setting entirely, so output is always at the default",
+        "Both settings are correct but must be applied per figure rather than globally; passing them at figure creation time resolves both symptoms",
+        "The renderer must be selected after the import to take effect, and the dimension setting is indeed in pixels \u2014 the real fault is that large rasters require an explicit vector format instead"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "matplotlib-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Make the hidden state explicit by implementing it. Write `replay(commands)`, a simulation of the convenience layer's notion of a current image and a current plotting region. `commands` is a list of tuples: `(\"figure\", n)` creates a new image with `n` regions, makes it current, and makes its region 0 current (or leaves no current region when `n` is 0); `(\"select\", f, a)` makes image `f` and its region `a` current; `(\"plot\", label)` records `label` on the current region \u2014 if no image is current it first creates one with a single region, and if an image is current but has no current region it appends a new region and makes that current; `(\"close\",)` closes the current image, after which the current image is the most recently CREATED image that is still open, with its region 0 current (or nothing current if none remain). Return a list, in creation order and including closed images, of each image's regions, each region being the list of labels recorded on it. Raise `ValueError` for selecting an image that was never created or has been closed, for selecting a region that does not exist, for closing when nothing is current, and for an unknown command. Standard library only.",
+      "explanation": "The first two cases are the whole argument for the explicit style. Identical drawing commands land somewhere different depending only on how many images happen to exist and which was created last \u2014 nothing in the drawing call itself says where it goes. Naming the destination makes the same script deterministic. The fallback after closing is the other subtlety worth noticing: the state moves to whichever image is most recently created among those still open, which is a rule you would rather not have to keep in your head while reading someone else's script.",
+      "grade_id": "matplotlib-d8edd69cfdcd91d8",
+      "starter": "def replay(commands):\n    \"\"\"What the convenience layer's hidden 'current figure / current axes' does.\"\"\"\n    ...",
+      "solution": "def replay(commands):\n    figures = []\n    open_order = []\n    current_fig = None\n    current_ax = None\n    for cmd in commands:\n        kind = cmd[0]\n        if kind == \"figure\":\n            n = cmd[1]\n            figures.append([[] for _ in range(n)])\n            index = len(figures) - 1\n            open_order.append(index)\n            current_fig = index\n            current_ax = 0 if n else None\n        elif kind == \"select\":\n            _, fig, ax = cmd\n            if fig not in open_order:\n                raise ValueError(f\"figure {fig} is not open\")\n            if not 0 <= ax < len(figures[fig]):\n                raise ValueError(f\"figure {fig} has no axes {ax}\")\n            current_fig = fig\n            current_ax = ax\n        elif kind == \"plot\":\n            if current_fig is None:\n                figures.append([[]])\n                current_fig = len(figures) - 1\n                open_order.append(current_fig)\n                current_ax = 0\n            elif current_ax is None:\n                figures[current_fig].append([])\n                current_ax = len(figures[current_fig]) - 1\n            figures[current_fig][current_ax].append(cmd[1])\n        elif kind == \"close\":\n            if current_fig is None:\n                raise ValueError(\"no figure to close\")\n            open_order.remove(current_fig)\n            if open_order:\n                current_fig = open_order[-1]\n                current_ax = 0 if figures[current_fig] else None\n            else:\n                current_fig = None\n                current_ax = None\n        else:\n            raise ValueError(f\"unknown command {kind!r}\")\n    return figures",
+      "test": "# The classic surprise: a second figure silently becomes the destination.\nout = replay([(\"figure\", 1), (\"figure\", 1), (\"plot\", \"sales\")])\nassert out == [[[]], [[\"sales\"]]], out\n\n# Naming the destination removes the ambiguity entirely.\nout = replay([(\"figure\", 1), (\"figure\", 1), (\"select\", 0, 0), (\"plot\", \"sales\")])\nassert out == [[[\"sales\"]], [[]]], out\n\n# A grid: only the first panel is current until another is chosen.\nout = replay([(\"figure\", 4), (\"plot\", \"a\"), (\"select\", 0, 2), (\"plot\", \"b\"),\n              (\"plot\", \"c\")])\nassert out == [[[\"a\"], [], [\"b\", \"c\"], []]], out\n\n# Drawing with nothing open creates a figure with a single panel.\nassert replay([(\"plot\", \"x\")]) == [[[\"x\"]]]\nassert replay([]) == []\n\n# A figure created with no panels grows one on first use.\nout = replay([(\"figure\", 0), (\"plot\", \"x\"), (\"plot\", \"y\")])\nassert out == [[[\"x\", \"y\"]]], out\n\n# Closing hands the state to the most recently created figure still open --\n# and what was already drawn on the closed one survives.\nout = replay([(\"figure\", 1), (\"plot\", \"a\"),\n              (\"figure\", 1), (\"plot\", \"b\"),\n              (\"close\",), (\"plot\", \"c\")])\nassert out == [[[\"a\", \"c\"]], [[\"b\"]]], out\n\n# Closing the last one leaves nothing current, so the next draw starts afresh.\nout = replay([(\"figure\", 1), (\"plot\", \"a\"), (\"close\",), (\"plot\", \"b\")])\nassert out == [[[\"a\"]], [[\"b\"]]], out\n\n# Three open, close the middle-most-recent: the fallback is by creation order\n# among those still open, not by index.\nout = replay([(\"figure\", 1), (\"figure\", 1), (\"figure\", 1),\n              (\"select\", 1, 0), (\"close\",), (\"plot\", \"z\")])\nassert out == [[[]], [[]], [[\"z\"]]], out\n\n# A destination that is closed or does not exist is an error, not a new figure.\nfor bad in ([(\"figure\", 1), (\"close\",), (\"select\", 0, 0)],\n            [(\"figure\", 1), (\"select\", 5, 0)],\n            [(\"figure\", 2), (\"select\", 0, 9)],\n            [(\"close\",)]):\n    try:\n        replay(bad)\n    except ValueError:\n        continue\n    raise AssertionError(f\"must be rejected: {bad}\")"
+    },
+    {
+      "id": "matplotlib-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A script loops over 800 groups, builds a figure for each, displays it and then writes it to disk. It gets slower and slower, warns about too many open figures, eventually runs out of memory, and every file it did write is blank. Which pair of causes fits?",
+      "explanation": "Two independent mistakes that always seem to travel together in batch plotting. Figures are held by the convenience layer's registry, so going out of scope does not release them and a long loop must close each one. And ordering matters: write the file first, display afterwards \u2014 the reverse saves an image that has already been handed away.",
+      "grade_id": "matplotlib-a0bc3e03e0c460c5",
+      "options": [
+        "Each figure stays registered by the convenience layer after it is built, so 800 of them accumulate and are never released \u2014 they have to be closed explicitly once written. And displaying before writing is the wrong order: the display call blocks and may clear the figure, so the write that follows it captures nothing",
+        "The slowdown is the file system rather than the figures, and the blank files are a compression setting; writing an uncompressed format resolves both",
+        "The figures are being garbage collected too eagerly, which is why the files are blank, and the memory growth is the accumulated file buffers; keeping a reference to each figure fixes both",
+        "Both symptoms come from the interactive renderer; selecting the file-writing renderer removes the memory growth and fills in the files without any other change"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "matplotlib-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four figure requests in one week. (a) A quick look at how a measurement is distributed across five categories, with confidence bands. (b) A composite for a journal: three panels of different types, a shared colour scale, and exact font sizes, exported at print resolution. (c) A dashboard where readers zoom, hover for values and filter by date. (d) A colleague's heat map that is unreadable when printed in greyscale and to a colourblind reviewer. Recommend and justify each.",
+      "explanation": "Three of the four are decided by the deliverable \u2014 a conventional chart, a bespoke printed page, an interface \u2014 and the fourth is not about libraries at all. The colour-map question travels with the data, not with the tool, which is why it is worth knowing independently of what drew the figure.",
+      "grade_id": "matplotlib-50188c3a20675fa4",
+      "expected": "A correct answer must handle all four with a decisive property. (a) The higher-level statistical library: the chart type is standard and its defaults for exactly this shape of question are good, so writing it at the low level would be slower and worse \u2014 the deciding property is that the chart is conventional and the value is in the defaults. (b) This library directly: a multi-panel composite with a shared colour scale, controlled typography and a print-resolution export is what pixel-level control is for, and it is the only one of the four where fine adjustment across the whole page is the actual work \u2014 the deciding property is that the layout is bespoke and the output is static and precise. (c) An interactive, browser-oriented library: zooming, hovering and filtering are things a static raster cannot do, and this library's interactivity is limited by design \u2014 the deciding property is that the deliverable is an interface rather than an image. (d) Not a library choice at all but a colour-map choice: rainbow-style maps are not perceptually uniform, so equal steps in value do not look like equal steps in colour, and they degrade badly in greyscale and for colourblind readers \u2014 switch to one of the perceptually uniform sequential maps, which is a one-line change in whichever library drew it. Noting that the statistical library's output can be adjusted by reaching down to the underlying plotting region, so choosing it in (a) does not forfeit control if the figure later needs polish, is a plus."
+    }
+  ]
+}

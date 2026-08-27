@@ -9,10 +9,20 @@ understanding rather than by scrolling.
 Praxis started life as `ai-tutor`, a static study-notebook library for refreshing a broad
 span of technologies. That library is not thrown away — it is the machinery Praxis is
 built on, plus 245 real notebooks that ship as the seed library and as worked examples of
-what a finished tutorial looks like. Note that most seeds do not gate yet: 24 of the 245
-carry knowledge checks today, and driving the remaining 221 to gated is a planned backfill
-program (`chief/79`–`81` — see [ROADMAP.md](ROADMAP.md)), so a seed notebook browses
-freely rather than gating progression.
+what a finished tutorial looks like.
+
+**Gate coverage: 117 of the 245 seed tutorials gate progression (48%), across 14 of 14 domains.**
+
+The remaining 128 are ungated by a **recorded decision**, not by omission — each is
+covered by a dated entry in [`notebooks/ungated.json`](notebooks/ungated.json) saying why
+it is waiting, and the number of ungated notebooks with nothing on record is **0**. A seed
+notebook with no checks browses freely rather than gating progression, by design.
+
+That headline is a measurement, and it is enforced in both directions. `python3 -m
+praxis.coverage` prints the per-domain breakdown — the primary figure, because coverage
+everywhere is what the gate is worth to a learner — and `python3 -m praxis.gatefloor`
+fails the merge gate if coverage ever drops below the number stated above, so the claim
+cannot go stale the way it did while the library sat at 24/245.
 
 ## Install
 
@@ -511,24 +521,41 @@ scoped to what the PR touched.
 ## The gate
 
 ```bash
-pytest                 # validates nbformat + enforces the rubric on completed tutorials
+pytest                          # validates nbformat + enforces the rubric on completed tutorials
+python3 -m praxis.gatefloor     # fails if gate coverage dropped below the recorded floor
 ```
 
 A tutorial is "complete" only when `nbstatus.py` reports ✅ **and**
 `tests/test_notebooks.py` passes for it. Never flip a status on an unfilled notebook, and
 never use placeholder URLs in Resources — they must be real links.
 
+Gate coverage is a **ratchet**, held by the same gate: the reached figure is recorded in
+[`notebooks/coverage-floor.json`](notebooks/coverage-floor.json), and
+[`praxis/gatefloor.py`](praxis/gatefloor.py) re-measures the library on every run and
+fails when a domain — or the library — gates fewer notebooks than it already did. It is a
+floor, not a count: raising coverage never fails it. Nothing there is stored *as*
+coverage; the report is always recomputed (`praxis/coverage.py`), and the floor is only
+what has already been reached. Raise it with `python3 -m praxis.gatefloor --record`, which
+rewrites the floor and the README claim above from one measurement so the two cannot
+drift.
+
 ## Roadmap
 
-The shipped product above is the `10`→`60` build program. Four forward programs are
-authored as Chief tasklists but not yet run: **JD-driven tutorial suggestion**
-(`chief/74`–`78` — ingest a job description, gap-analyze it against the library, suggest
-only what's genuinely missing), the **gating backfill** (`chief/79`–`81` — drive the 221
-ungated seed notebooks to gated, holding `verify_code=True` as the anti-fabrication bar),
-**chief-powered construction** (`chief/82` — batch construction/gating as headless Chief
-tasklists on local inference), and **hardening + seed-library upkeep** (`chief/70`–`73`,
-`83` — signed/notarized bundles, an embedded interpreter, storage depth, library
-refresh). The full reality-checked picture is **[ROADMAP.md](ROADMAP.md)**.
+The shipped product above is the `10`→`60` build program. The **gating backfill**
+(`chief/79`–`81`, run by `chief/87`) has since shipped *and run*: the machinery merged,
+six domains that had no gate at all were taken to 100%, and coverage went from 24/245 in
+8 of 14 domains to the 117/245 in 14 of 14 stated at the top of this file — with the
+remaining 128 deferred by a dated decision rather than forgotten. What it cost per
+notebook is measured in
+[`docs/explanation/gating-backfill-cost.md`](docs/explanation/gating-backfill-cost.md).
+
+Three forward programs are authored as Chief tasklists but not yet run: **JD-driven
+tutorial suggestion** (`chief/74`–`78` — ingest a job description, gap-analyze it against
+the library, suggest only what's genuinely missing), **chief-powered construction**
+(`chief/82` — batch construction/gating as headless Chief tasklists on local inference),
+and **hardening + seed-library upkeep** (`chief/70`–`73`, `83` — signed/notarized bundles,
+an embedded interpreter, storage depth, library refresh). The full reality-checked picture
+is **[ROADMAP.md](ROADMAP.md)**.
 
 ## Renaming note
 

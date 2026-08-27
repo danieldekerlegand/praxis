@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "context-free-grammars",
+  "title": "Context-Free Grammars",
+  "domain": "09-procedural-generation",
+  "runnable": true,
+  "generated": "2026-08-27T07:19:47+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "context-free-grammars-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A generator must emit quest text that ALWAYS contains a giver, an objective and a reward, in that order, with each drawn from a valid set. A colleague suggests learning a transition model from two hundred hand-written examples, since that is less authoring work. What is the decisive argument for rules instead?",
+      "explanation": "The difference is guaranteed versus likely. Every derivation from the start symbol is valid by construction because the rules name the parts, whereas a statistical model over local transitions has no representation of a part and can only make malformed output rare. When the requirement is 'always', that gap is decisive.",
+      "grade_id": "context-free-grammars-59c615332e0fdfc5",
+      "options": [
+        "Structure here is a requirement, not a tendency. A rewriting system guarantees it by construction \u2014 every derivation starts from one symbol and expands through productions that name the parts, so a quest with a missing reward is not merely unlikely, it is underivable. A model of which token tends to follow which has no notion of a part at all, so it will produce malformed quests at some rate no amount of training removes",
+        "The transition model would be better if it had more data; with two thousand examples instead of two hundred the structure would be learned reliably and rules would be unnecessary",
+        "Rules are preferable because they generate faster, which matters when many quests are produced; both approaches guarantee structure equally well",
+        "Neither works: guaranteeing an ordering of parts requires a constraint solver, since a rewriting system also has no way to enforce which parts appear"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "context-free-grammars-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A newcomer describes the technique as 'templates with random blanks' and asks what the word context-free is adding, and why the same machinery is used both to generate quest text and to describe the syntax of a programming language. Answer both.",
+      "explanation": "Nesting is what raises it above templates, and the context-free restriction is simultaneously the source of its tractability and of everything it cannot express. That a grammar can be run in either direction is why the same formalism turns up in generators and in compilers.",
+      "grade_id": "context-free-grammars-33cb5339b5508459",
+      "expected": "A correct answer must explain nesting and locality of rules. The template picture is right as far as it goes, with one crucial addition: what fills a blank may itself contain blanks, so expansion is recursive and the output is a tree of choices rather than a flat fill \u2014 the record of which productions were chosen is a derivation tree, and its leaves read left to right are the output. That nesting is what lets a small rule set describe structures of unbounded depth. Context-free means that which productions are available for a symbol depends only on that symbol, never on what surrounds it: a rule fires on the symbol being expanded and cannot consult its siblings, its parent or anything already emitted. That is what makes derivation simple and total \u2014 expansion never has to backtrack over context \u2014 and it is also the technique's main limitation, since agreement between distant parts and counting are exactly the things that require looking outside the symbol. Why the same machinery serves both purposes: a grammar defines a set of strings, and you can either walk it forwards to produce a member of that set or backwards to test whether a given string is a member. Generation and parsing are two directions over the same rules, which is why programming-language syntax is written this way and why a quest generator and a compiler front end share a formalism. Noting that some conveniences differ between the directions \u2014 left recursion is unproblematic when generating and fatal for a naive recursive-descent parser, and ambiguity is harmless for generation but leaves parsing underspecified \u2014 is a plus."
+    },
+    {
+      "id": "context-free-grammars-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Four requirements land on a generator: exactly three items in a list; a pronoun later in the sentence that matches a noun chosen earlier; a closing tag matching whichever tag was opened; and balanced parentheses in an arithmetic expression. Which are within a plain rewriting system's reach?",
+      "explanation": "Balanced brackets are the standard example of what this formalism can do that a purely local statistical model cannot \u2014 one production emits both halves, so nesting is structural. The matching tag looks like the same problem but is not: which tag was opened is information from an earlier choice that a later expansion would have to consult, and consulting earlier choices is precisely what the restriction rules out.",
+      "grade_id": "context-free-grammars-330948cb1e95516a",
+      "options": [
+        "Only the parentheses, and that is because a single production can emit both the opening and the closing symbol around a nested expansion, so they are paired by construction rather than remembered. The other three all require a later choice to depend on an earlier one \u2014 a count, an agreement, a matching name \u2014 which is exactly what the context-free restriction forbids; they need attributes carried through the derivation, or a post-processing pass",
+        "All four: a sufficiently detailed rule set can enumerate the valid combinations for each of them",
+        "None: a rewriting system has no memory at all, so even the parentheses will be unbalanced at some rate",
+        "The parentheses and the matching tag, since both are bracket pairs; only counting and agreement are out of reach"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "context-free-grammars-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement the expander. Write `derive(grammar, symbol, choose, max_depth=20, depth=0)`. `grammar` maps a non-terminal to its list of productions, each production being a list of symbols. A symbol absent from `grammar` is a terminal and derives to itself. Otherwise pick a production with `choose(productions)` \u2014 passed in so the result is deterministic \u2014 and derive each of its symbols in turn, concatenating the results, with `depth` increased by one for the sub-derivations. Once `depth` reaches `max_depth`, restrict the choice to productions that do not contain `symbol` itself, so the recursion is forced to unwind. Return the flat list of terminals. Raise `ValueError` for a non-terminal with an empty production list, and `RecursionError` when the cap is reached and every one of the symbol\u2019s productions refers to it again. Standard library only.",
+      "explanation": "Two properties are visible. Every derivation of the quest grammar has the same parts in the same order regardless of which productions were chosen \u2014 that is the guarantee, and it comes from the rules rather than from the sampling. And the brackets in the recursive expression grammar always balance, because a single production emits both of them around the nested expansion, so nothing has to remember that an opening bracket is outstanding. The final assertion is the other half of the picture: sibling expansions are independent, so nothing prevents a derivation from pairing a subject with a verb that makes no sense together. That is not a bug to be fixed with more rules \u2014 it is what context-free means.",
+      "grade_id": "context-free-grammars-a249dae5d0cb10c0",
+      "starter": "def derive(grammar, symbol, choose, max_depth=20, depth=0):\n    \"\"\"Expand a start symbol into terminals, bounded so recursion must terminate.\"\"\"\n    ...",
+      "solution": "def derive(grammar, symbol, choose, max_depth=20, depth=0):\n    if symbol not in grammar:\n        return [symbol]\n    productions = grammar[symbol]\n    if not productions:\n        raise ValueError(f\"{symbol!r} has no productions\")\n    if depth >= max_depth:\n        escapes = [p for p in productions if symbol not in p]\n        if not escapes:\n            raise RecursionError(\n                f\"{symbol!r} has no production that avoids itself at the depth cap\"\n            )\n        production = choose(escapes)\n    else:\n        production = choose(productions)\n    out = []\n    for part in production:\n        out.extend(derive(grammar, part, choose, max_depth, depth + 1))\n    return out",
+      "test": "QUEST = {\n    \"S\": [[\"giver\", \"wants\", \"objective\"]],\n    \"giver\": [[\"the king\"], [\"a farmer\"]],\n    \"wants\": [[\"needs you to\"]],\n    \"objective\": [[\"slay\", \"beast\"], [\"fetch\", \"item\"]],\n    \"beast\": [[\"a dragon\"], [\"a wolf\"]],\n    \"item\": [[\"a sword\"]],\n}\nFIRST = lambda options: options[0]\nLAST = lambda options: options[-1]\n\n# Every derivation has the same shape by construction: a giver, a connective, an\n# objective -- that is the guarantee a statistical model cannot make.\nassert derive(QUEST, \"S\", FIRST) == [\"the king\", \"needs you to\", \"slay\", \"a dragon\"]\nassert derive(QUEST, \"S\", LAST) == [\"a farmer\", \"needs you to\", \"fetch\", \"a sword\"]\n\n# A symbol with no rule is a terminal and is emitted as itself.\nassert derive(QUEST, \"a wolf\", FIRST) == [\"a wolf\"]\nassert derive({}, \"anything\", FIRST) == [\"anything\"]\n\n# Nesting: a recursive rule builds arbitrarily deep structure, and the brackets it\n# emits are balanced in every derivation because the rule emits them as a pair.\nEXPR = {\n    \"e\": [[\"n\"], [\"(\", \"e\", \"+\", \"e\", \")\"]],\n    \"n\": [[\"1\"], [\"2\"]],\n}\nassert derive(EXPR, \"e\", FIRST) == [\"1\"]\nnested = derive(EXPR, \"e\", lambda o: o[1] if len(o) > 1 else o[0], max_depth=4)\nassert nested.count(\"(\") == nested.count(\")\"), nested\nassert nested.count(\"(\") >= 1, nested\n\n# The depth cap forces a terminating production rather than recursing forever.\ndeep = derive(EXPR, \"e\", lambda o: o[-1], max_depth=6)\nassert deep.count(\"(\") == deep.count(\")\") and len(deep) > 3, deep\n\n# A grammar whose only production refers to itself is refused at the cap.\ntry:\n    derive({\"x\": [[\"x\", \"!\"]]}, \"x\", FIRST, max_depth=5)\nexcept RecursionError:\n    pass\nelse:\n    raise AssertionError(\"a non-terminating grammar must be refused\")\n\ntry:\n    derive({\"x\": []}, \"x\", FIRST)\nexcept ValueError:\n    pass\nelse:\n    raise AssertionError(\"a symbol with no productions must be rejected\")\n\n# What a grammar cannot do: sibling branches are independent, so nothing links the\n# giver to the objective, and nothing counts. Both derivations below are \"valid\".\nAGREE = {\"S\": [[\"subject\", \"verb\"]],\n         \"subject\": [[\"the hero\"], [\"the corpse\"]],\n         \"verb\": [[\"celebrates\"], [\"rots\"]]}\ncalls = {\"n\": 0}\n\n\ndef alternating(options):\n    calls[\"n\"] += 1\n    return options[calls[\"n\"] % len(options)]\n\n\nassert derive(AGREE, \"S\", alternating) == [\"the hero\", \"rots\"], \"nothing links the two\""
+    },
+    {
+      "id": "context-free-grammars-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A generator with a self-referential rule sometimes produces enormous output and sometimes overflows the stack. Its author also reports that most outputs feel absurd, with rare combinations appearing about as often as sensible ones. What are the two problems and their remedies?",
+      "explanation": "They are related but distinct. Weighting does make the recursive branch less likely and so reduces overflows, but a probability is not a bound \u2014 an explicit cap or a depth-dependent bias is what makes termination certain. And the flat-weight problem is about the shape of the output distribution generally, not only about recursion: uniform alternatives over-produce the rare ones, which is what makes generated text feel absurd rather than merely varied.",
+      "grade_id": "context-free-grammars-7b81bacf8ae999a8",
+      "options": [
+        "The recursion is unbounded: a rule that expands into itself will keep doing so unless something makes termination likely \u2014 cap the depth, bias the choice toward terminating productions as depth grows, or design the grammar to shrink. Separately, choosing uniformly among a symbol's productions makes an unusual alternative as common as an ordinary one, so weight the alternatives \u2014 or learn the weights from examples \u2014 to make the common cases dominate",
+        "Both come from the same cause: uniform choice makes the recursive production as likely as the terminating one, so weighting the productions alone fixes the overflow and the absurdity together",
+        "The overflow indicates left recursion, which must be refactored away before the grammar can be used for generation at all; the absurdity indicates missing terminals",
+        "Both indicate the grammar is ambiguous, and encoding precedence with layered non-terminals resolves the recursion and evens out the output"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "context-free-grammars-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four jobs. (a) Item descriptions that must always name a material, a form and an enchantment. (b) Creature names in the style of sixty hand-written examples, with no rules anyone wants to write. (c) A dungeon tile map where adjacent tiles must be compatible. (d) A branching plant whose limbs subdivide recursively. Assign each, and describe a sensible hybrid of two of them.",
+      "explanation": "The four are separated by whether the specification is rules or examples, and by whether the structure is linear, spatial or geometric. The hybrid is the standard production arrangement, because guaranteed structure and learned style are complementary rather than competing.",
+      "grade_id": "context-free-grammars-dd991f1a916756a1",
+      "expected": "A correct answer must place all four. (a) A rewriting system: the requirement is that named parts always appear, which is guaranteed by construction and needs no examples \u2014 the deciding property is that the structure is known and must always hold. (b) A model learned from the examples, such as a transition model over characters: the specification is a corpus rather than a rule set, and local statistical resemblance is exactly what is wanted \u2014 the deciding property is that nobody wants to author rules and the target is a style. (c) A constraint solver over tile adjacency: compatibility between neighbours in two dimensions is a hard local constraint that propagates, which a linear rewriting system does not address \u2014 the deciding property is that the structure is spatial and the constraints are between neighbours rather than between parts of a derivation. (d) A parallel rewriting system of the plant-growth kind: it rewrites every symbol simultaneously each generation, which produces growth at every scale at once, and its output is interpreted as geometry rather than read as text \u2014 the deciding property is recursive geometric growth rather than choice-driven branching. The hybrid: use the rewriting system for the skeleton and the learned model for the leaves \u2014 a description whose structure is guaranteed by the rules, with the material and creature names inside it generated in the corpus's style. That gives validity from one technique and flavour from the other."
+    }
+  ]
+}

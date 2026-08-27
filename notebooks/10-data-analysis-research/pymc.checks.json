@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "pymc",
+  "title": "PyMC (Bayesian)",
+  "domain": "10-data-analysis-research",
+  "runnable": true,
+  "generated": "2026-08-27T06:55:23+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "pymc-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A clinical team has 34 patients across 6 sites, strong published prior information about the effect's plausible magnitude, and a question phrased as 'what is the probability the treatment helps by more than two points?'. An analyst proposes a standard maximum-likelihood regression with robust standard errors because it runs in milliseconds. What is the substantive objection?",
+      "explanation": "Three independent reasons stack up: the shape of the question, the existence of information the frequentist fit cannot use, and a small, grouped dataset where pooling and regularisation matter most. Any one of them alone might not justify the cost; together they are the textbook case, and the cost is sampling time rather than correctness.",
+      "grade_id": "pymc-dddf1b84c29947c2",
+      "options": [
+        "Three features of the brief point the other way: the question asks for a probability about the parameter, which the frequentist output does not provide; the published prior information has no place to go in that fit; and with 34 patients across 6 sites, partial pooling across sites and the regularisation that sensible priors supply are worth a great deal. Speed is real but it is the cheapest of the considerations here",
+        "The objection is only about the sites: any clustered design invalidates maximum likelihood entirely, so a sampling-based fit is required regardless of the other two features",
+        "There is no substantive objection \u2014 with robust standard errors the interval can be read as a probability statement about the parameter, and prior information is a form of bias that should be excluded from an analysis",
+        "The objection is that 34 observations is below the threshold at which any regression may be fitted, so the study should be treated as descriptive"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "pymc-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A newcomer expects the fit to return a coefficient and a standard error, and is confused to get back 'a big array of numbers'. Explain what that array is, why the answer takes that form rather than a formula, and how the quantities they wanted are obtained from it.",
+      "explanation": "The samples are the deliverable, not a step toward one. Once that lands, the whole workflow reads as computing summaries of a cloud, which is why probabilities about parameters and uncertainty in predictions come out with no extra machinery.",
+      "grade_id": "pymc-149e49bc2eb91fcc",
+      "expected": "A correct answer must explain the posterior and why it arrives as samples. Inference here combines what was believed before the data with a statement of how the data would be generated given the parameters, and the product \u2014 up to a constant \u2014 is the distribution of the parameters given the data. For all but the simplest models that distribution has no closed form, so rather than solving for it the software draws from it: the sampler moves through the parameter space in such a way that it spends time in each region in proportion to that region's probability, and the collection of positions it visited is the answer. So the array is not an intermediate to be reduced to a coefficient \u2014 it is the posterior, represented by samples. Everything the newcomer wanted is a summary of that cloud: the point estimate is its average, an interval is the range containing the requested share of the samples, and the probability that the parameter exceeds some value is simply the fraction of samples above it \u2014 which is why questions of that last kind are natural here and awkward in the frequentist setting. Predictions work the same way: simulate an outcome from each sample and the spread of those simulations carries the parameter uncertainty forward automatically. Noting that this representation is what makes arbitrary derived quantities easy \u2014 any function of the parameters is computed per sample and summarised the same way \u2014 is a plus."
+    },
+    {
+      "id": "pymc-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Two simulation steps have similar names. One is run before the data is used at all; the other after fitting. A modeller runs only the second, finds the simulated outcomes look reasonable, and concludes the model is well specified. What have they skipped, and what would it have told them?",
+      "explanation": "The two simulations answer different questions at different times: one asks whether the model's assumptions before seeing data imply sensible observations, the other whether the fitted model can generate data like the observed. A model with wildly vague priors can still reproduce the data after fitting, which is exactly why passing the second check is not evidence that the first would have passed.",
+      "grade_id": "pymc-aae9c9bfd18940d1",
+      "options": [
+        "They skipped simulating data from the priors alone, which reveals what the model considers plausible before seeing anything \u2014 the standard way to catch priors so wide that they imply absurd observations, such as human heights of hundreds of metres. The post-fit simulation checks whether the fitted model can reproduce the observed data, which is a different question and can look fine even when the priors were doing no useful work",
+        "They skipped nothing important: simulating from the priors is a visualisation aid with no diagnostic content, since the data will overwhelm the priors in any case",
+        "They skipped the convergence check, which is the same thing as simulating from the priors under a different name",
+        "They have it backwards \u2014 the pre-data simulation checks the fit and the post-fit simulation checks the priors, so their conclusion is right but their reasoning is inverted"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "pymc-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Compute the gate you must pass before reading any result. Implement `diagnose(chains, prob=0.89)`. `chains` is a list of equal-length lists of draws, one per independent run. With m chains of n draws each: let each chain's mean be its average, and its within-chain variance be its sum of squared deviations divided by n \u2212 1. Let W be the average of those within-chain variances. Let B be n times the variance of the chain means, using a denominator of m \u2212 1. The pooled variance estimate is (n \u2212 1)/n \u00d7 W + B/n, and the convergence statistic is the square root of that estimate divided by W. Also pool every draw from every chain, sort them, and report the mean along with the interval bounds at the quantiles (1 \u2212 prob)/2 and 1 \u2212 (1 \u2212 prob)/2, each taken as the sorted value at index `round(q \u00d7 (total \u2212 1))`, rounded to the nearest integer and clamped. Return `{\"rhat\": ..., \"mean\": ..., \"low\": ..., \"high\": ...}`. Raise `ValueError` for fewer than two chains, fewer than two draws, chains of differing length, a `prob` not strictly between 0 and 1, and a W of zero. Standard library only.",
+      "explanation": "The statistic is a ratio of two estimates of the same variance, and reading it that way explains everything about it. If the independent runs are exploring the same region, the spread between their means adds nothing to the spread within them and the ratio sits at one. If they are stuck in different regions, the between-run term dominates and the ratio climbs \u2014 which is why a value meaningfully above one means the runs disagree about what the answer is. The second case in the test is the one that matters in practice: a perfectly well-formed summary comes back alongside it, with a mean and an interval that look like results and are meaningless. That is the whole argument for checking the diagnostic before reading the table, rather than after.",
+      "grade_id": "pymc-a07ef2d399c097ea",
+      "starter": "def diagnose(chains, prob=0.89):\n    \"\"\"The between-versus-within-chain convergence statistic, and the pooled summary.\"\"\"\n    ...",
+      "solution": "def diagnose(chains, prob=0.89):\n    if len(chains) < 2:\n        raise ValueError(\"need at least two chains to compare\")\n    n = len(chains[0])\n    if n < 2:\n        raise ValueError(\"need at least two draws per chain\")\n    if any(len(c) != n for c in chains):\n        raise ValueError(\"all chains must have the same number of draws\")\n    if not 0 < prob < 1:\n        raise ValueError(\"prob must be strictly between 0 and 1\")\n    m = len(chains)\n    means = [sum(c) / n for c in chains]\n    within = [sum((x - mu) ** 2 for x in c) / (n - 1) for c, mu in zip(chains, means)]\n    W = sum(within) / m\n    if W == 0:\n        raise ValueError(\"every chain is constant, so R-hat is undefined\")\n    grand = sum(means) / m\n    B = n * sum((mu - grand) ** 2 for mu in means) / (m - 1)\n    var_hat = (n - 1) / n * W + B / n\n    rhat = (var_hat / W) ** 0.5\n    pooled = sorted(x for c in chains for x in c)\n    total = len(pooled)\n    tail = (1 - prob) / 2\n    def pick(q):\n        index = int(round(q * (total - 1)))\n        return pooled[max(0, min(total - 1, index))]\n    return {\"rhat\": rhat, \"mean\": sum(pooled) / total,\n            \"low\": pick(tail), \"high\": pick(1 - tail)}",
+      "test": "# Chains that agree: the diagnostic sits at essentially one.\nagree = [[float(i % 10) for i in range(200)],\n         [float((i + 3) % 10) for i in range(200)],\n         [float((i + 7) % 10) for i in range(200)]]\nd = diagnose(agree)\nassert 0.99 < d[\"rhat\"] < 1.01, d[\"rhat\"]\nassert abs(d[\"mean\"] - 4.5) < 0.1, d\n\n# Chains exploring completely different regions: the diagnostic blows past the\n# usual threshold, and the summary that comes with it must not be reported.\ndisagree = [[float(i % 10) for i in range(200)],\n            [100.0 + (i % 10) for i in range(200)],\n            [-50.0 + (i % 10) for i in range(200)]]\nbad = diagnose(disagree)\nassert bad[\"rhat\"] > 1.5, bad[\"rhat\"]\nassert bad[\"low\"] < 0 < bad[\"high\"], bad\n\n# Identical chains: no disagreement at all, so the ratio does not exceed one.\nsame = [[float(i % 7) for i in range(100)] for _ in range(4)]\nassert diagnose(same)[\"rhat\"] <= 1.0, diagnose(same)\n\n# The interval is read off the pooled draws and widens with the requested mass.\ndraws = [[float(i) for i in range(100)], [float(i) for i in range(100)]]\nnarrow = diagnose(draws, prob=0.5)\nwide = diagnose(draws, prob=0.99)\nassert wide[\"low\"] <= narrow[\"low\"] and wide[\"high\"] >= narrow[\"high\"], (narrow, wide)\nassert wide[\"high\"] - wide[\"low\"] > narrow[\"high\"] - narrow[\"low\"]\nassert abs(narrow[\"mean\"] - 49.5) < 1e-9, narrow\n\n# A skewed cloud: the interval is not symmetric about the mean, because it is\n# read from the samples rather than assumed.\nskew = [[1.0] * 80 + [50.0] * 20, [1.0] * 80 + [50.0] * 20]\ns = diagnose(skew, prob=0.8)\nassert s[\"low\"] == 1.0 and s[\"high\"] == 50.0, s\nassert s[\"mean\"] > s[\"low\"], s\n\nfor bad_args in (([[1.0, 2.0]],), ([[1.0], [2.0]],), ([[1.0, 2.0], [3.0]],),\n                 ([[5.0, 5.0], [5.0, 5.0]],)):\n    try:\n        diagnose(*bad_args)\n    except ValueError:\n        continue\n    raise AssertionError(f\"must be rejected: {bad_args}\")\n\ntry:\n    diagnose(agree, prob=1.0)\nexcept ValueError:\n    pass\nelse:\n    raise AssertionError(\"prob outside (0, 1) must be rejected\")"
+    },
+    {
+      "id": "pymc-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A grouped model reports several hundred warnings about pathological geometry. The modeller raises the sampler's acceptance target twice, which reduces the count but slows sampling severely and leaves warnings behind, then proposes reporting the results anyway with a footnote. Assess the approach.",
+      "explanation": "This is a geometry problem, and the fix is a re-expression of the same model rather than more effort from the sampler. The entanglement between a group-level spread and the deviations it scales is the standard cause in hierarchical models, and separating them removes it. Widening priors toward flatness makes sampling harder, not easier, which is the opposite of the last option's claim.",
+      "grade_id": "pymc-aae8b344367fd60a",
+      "options": [
+        "Raising the acceptance target treats mild cases and is not a fix here: persistent warnings of this kind indicate the posterior's shape is hard for the sampler, which in grouped models is the classic funnel where a group-level spread and the group deviations are entangled. The standard remedy is to restate the model so the deviations are drawn from a standard distribution and then scaled \u2014 an equivalent model with a geometry the sampler can traverse. Reporting samples from a run with many such warnings is reporting draws that do not represent the posterior, footnote or not",
+        "The warnings are a performance signal only; they indicate that sampling was slow in some regions and have no bearing on whether the samples represent the posterior",
+        "The right fix is more draws: the warnings are a small-sample artefact and disappear once enough iterations have accumulated, with no change to the model",
+        "The warnings mean the priors are too informative and are fighting the likelihood; widening them to be effectively flat resolves the geometry"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "pymc-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Route four tasks and give the deciding property. (1) A recommendation ranking scored on ten million rows nightly, where only the ranking is used. (2) A hierarchical model already written here whose sampling now takes nine hours and must run on the team's accelerator hardware. (3) A conventional grouped regression that a colleague wants to specify with a compact formula rather than by declaring each variable. (4) A published analysis for a journal that requires the exact model be reproducible by reviewers with a mature, widely used toolchain.",
+      "explanation": "Only the first leaves the paradigm, and it does so because nothing consumes the uncertainty. The other three are a faster engine, a terser front door, and a different implementation chosen for reproducibility \u2014 which is why 'should this be Bayesian' and 'which tool' are separate questions.",
+      "grade_id": "pymc-6f99e9e2f6ff9d14",
+      "expected": "A correct answer must place all four by a property. (1) Not this library: at that volume, with only a ranking consumed and nothing interpreted, sampling is enormously more expensive than a predictive fit and buys nothing \u2014 reach for a predictive machine-learning library or gradient boosting, because the deciding property is that no uncertainty statement is used downstream. (2) A probabilistic programming library built on an array framework with just-in-time compilation and accelerator support: the model is the same and the modelling idioms carry over, so this is a change of engine rather than of approach \u2014 the deciding property is that sampling speed has become the bottleneck. (3) The formula-based interface layered on top of this library: it turns a compact specification with grouping terms into the same underlying model, saving the boilerplate, at the cost of less control over the details \u2014 the deciding property is that the model is conventional enough for a formula to express it. (4) The mature dedicated probabilistic language with its own modelling syntax: it is the established choice for reproducible published work and its ecosystem is built around that, at the cost of a separate language and heavier setup \u2014 the deciding property is the reproducibility and maturity requirement rather than any modelling capability. Noting that three of the four keep the Bayesian approach and change only the engine or the front door, so none of them is a rewrite of the statistical model, is a plus."
+    }
+  ]
+}

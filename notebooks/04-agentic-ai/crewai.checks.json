@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "crewai",
+  "title": "CrewAI",
+  "domain": "04-agentic-ai",
+  "runnable": true,
+  "generated": "2026-08-27T08:07:20+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "crewai-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "Three jobs are proposed for this framework. (a) Produce a market report: gather facts, analyse them, then write it up \u2014 three clearly different kinds of work, run in that order every time. (b) A support assistant that reads a ticket, and depending on what it finds either answers, escalates, or loops back to gather more detail before deciding again. (c) A single assistant with a calculator and a search tool answering one-off questions. Which is the framework's sweet spot, and what makes the other two poor fits?",
+      "explanation": "The framework's bet is structure: a team with clear roles working a task list. That fits a job with distinct phases in a fixed order. It does not fit work whose route depends on results \u2014 the assembly line cannot branch or revisit, and trying to fake that with cleverly worded tasks is the classic mistake, since the autonomy is in the agents and not in the control flow. And a single agent with a couple of tools has no team to model, so a plain tool-use loop is less machinery for the same result.",
+      "grade_id": "crewai-ce87685bbd4cbe51",
+      "options": [
+        "(a). The deciding property is that the work decomposes into distinct specialist phases running in a fixed order, which is exactly what a team of roles working a checklist expresses. (b) is a poor fit because it needs conditional branching and a loop that revisits an earlier step, which a fixed assembly line cannot express \u2014 that belongs in a graph-based runtime or the framework's own event-driven alternative. (c) is a poor fit because the job never decomposes into specialists at all, so a single tool-using agent is simpler",
+        "(b). Autonomy is the framework's core strength, so branching and revisiting decisions are what it handles best; (a) is too rigid to need a multi-agent framework and (c) is too small",
+        "(c). The framework's value is the tool-calling loop for a single agent, and (a) and (b) both need explicit orchestration that the framework deliberately does not provide",
+        "All three equally. Because the roles and tasks are written in natural language, any control flow can be described in the task text, which is what makes the framework general"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "crewai-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Explain this framework using its workplace metaphor. Say what each of the four core pieces corresponds to, what the two execution strategies are and how they differ, and how one step's result reaches the next. Then explain the sentence 'the framework is the org chart and the conveyor belt, not the intelligence' \u2014 and what practical consequence that has for someone whose crew produces meandering, expensive output.",
+      "explanation": "",
+      "grade_id": "crewai-10009940923342a8",
+      "expected": "A correct answer must map the metaphor onto the four pieces. An agent is an employee: a job title, a mandate and a r\u00e9sum\u00e9-like persona, which together become its system prompt, plus optionally tools and a specific model. A task is a work ticket: a description of what to do, a statement of what the finished thing should look like, and the agent it is assigned to. The crew is the team \u2014 the agents, the tasks, and the execution strategy. The strategy is the org chart, and the two shapes must be distinguished: one runs the tasks in a fixed order like an assembly line, with each output flowing forward; the other adds a manager that plans, delegates to workers and reviews their results. The handoff must be described as context passing: in the ordered strategy each completed task's output is automatically supplied as context to the tasks that follow, and specific upstream tasks can be pinned instead of taking everything. The final sentence must be unpacked as: the agents are still language models, and the framework supplies structure \u2014 turning job descriptions into prompts and chaining outputs \u2014 rather than reasoning. The practical consequence must be drawn: since the framework does not make the model smarter, quality is controlled through what you write, and the strongest lever is a concrete description and an explicit statement of the expected deliverable, because that specification is what bounds the agent; vague tickets are what produce meandering output, repeated tool calls and burned tokens. Noting that delegation between agents can ping-pong and needs capping, or that a single blurred prompt failing to hold several phases at once is the problem the split solves in the first place, is a plus."
+    },
+    {
+      "id": "crewai-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A crew of eight tasks has become slow and expensive, and the eighth task's answers have started drifting off-topic. Inspecting the prompts shows the eighth task's prompt contains all seven earlier outputs, most of them irrelevant to it. A developer proposes reordering the tasks so the relevant ones come last. What is the actual mechanism, and what is the intended fix?",
+      "explanation": "In the ordered strategy every prior output is fed forward automatically. That is a genuine convenience on a short pipeline and a genuine problem on a long one: prompts grow, cost grows and the relevant material gets diluted by things the task does not need. The fix is to declare, per task, which upstream tasks it actually depends on, so it receives exactly those. Reordering changes nothing, because the rule is everything-that-came-before rather than the most recent output.",
+      "grade_id": "crewai-002131de278652c2",
+      "options": [
+        "In the ordered strategy, context passing is implicit: every earlier task's output is fed forward into each later task, which is convenient for short pipelines and bloats prompt size and cost on long ones. The intended fix is to pin the specific upstream tasks each task depends on, so it receives only those; reordering does not help because the mechanism is everything-before, not the most recent one",
+        "Only the immediately preceding task's output is passed forward, so the eighth prompt cannot contain seven outputs \u2014 the real cause is that the agents share one conversation history, and the fix is to give each agent its own model instance",
+        "Context is passed only when a task explicitly requests it, so the crew must have pinned them; the fix is to remove those declarations and rely on the implicit behaviour, which passes nothing",
+        "Context accumulates because the strategy is the manager-delegates shape rather than the assembly line; switching to the assembly line makes context passing lazy and resolves both problems"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "crewai-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement `kickoff(agents, tasks, inputs=None)`, the ordered execution strategy. `agents` is a list of dicts with `role`, `goal`, `backstory` and `llm` (a callable taking one prompt string and returning the reply). `tasks` is a list, in running order, of dicts with `description`, `expected_output`, `agent` (one of the agent dicts) and `context`, which is either None or a list of the 0-based positions of earlier tasks. Run each task in order. Its context is the outputs of the pinned tasks, in the order given, when `context` is a list \u2014 including the empty list, which means no context \u2014 and otherwise ALL earlier task outputs in order. Interpolate `{placeholder}` fields from `inputs` (default empty) in the task's `description` and `expected_output` and in the agent's `goal`, using `str.format`, so a placeholder with no matching key raises `KeyError`. Build the prompt as exactly `\"You are a {role}. Goal: {goal}. Backstory: {backstory}\\nTASK: {description}\\nEXPECTED: {expected_output}\\nCONTEXT: \"` followed by the context entries joined with newlines, call the agent's `llm` with it, and record the reply. Raise `ValueError` if a task is assigned to an agent that is not in `agents`, or if it pins a position that is not strictly earlier than its own. Return `{\"raw\": <the last task's output>, \"tasks_output\": [<every output, in order>]}`. Standard library only.",
+      "explanation": "The exercise makes the conveyor belt literal. Look at the first block: the first task sees nothing, the second sees one output, the third sees two \u2014 that accumulation is the whole behaviour of the ordered strategy, and it is also why a long crew's prompts balloon. The pinning block is the remedy: naming the upstream tasks a step depends on replaces the everything-so-far default, and note that an empty pin list means genuinely no context rather than falling back to the default, which is the distinction that makes pinning usable at all. The refusals matter for the same reason the specification does: a placeholder with nothing to fill it is a prompt with a hole in it, and a task depending on one that has not run yet is an assembly line pointing backwards. And the last assertion is the quiet one \u2014 what the finished thing should look like travels in the prompt, because that statement is the main lever you have over an agent's output.",
+      "grade_id": "crewai-444c9951a1b03557",
+      "starter": "def kickoff(agents, tasks, inputs=None):\n    ...",
+      "solution": "def kickoff(agents, tasks, inputs=None):\n    inputs = inputs or {}\n    outputs = []\n    for position, task in enumerate(tasks):\n        agent = task[\"agent\"]\n        if agent not in agents:\n            raise ValueError(f\"task {position} is assigned to an agent not in the crew\")\n        pinned = task.get(\"context\")\n        if pinned is None:\n            context = list(outputs)\n        else:\n            context = []\n            for index in pinned:\n                if index >= position:\n                    raise ValueError(\n                        f\"task {position} pins task {index}, which has not run yet\")\n                context.append(outputs[index])\n        prompt = (\n            f\"You are a {agent['role']}. \"\n            f\"Goal: {agent['goal'].format(**inputs)}. \"\n            f\"Backstory: {agent['backstory']}\\n\"\n            f\"TASK: {task['description'].format(**inputs)}\\n\"\n            f\"EXPECTED: {task['expected_output'].format(**inputs)}\\n\"\n            f\"CONTEXT: \" + \"\\n\".join(context)\n        )\n        outputs.append(agent[\"llm\"](prompt))\n    return {\"raw\": outputs[-1] if outputs else \"\", \"tasks_output\": outputs}",
+      "test": "seen = []\n\n\ndef recorder(name):\n    def llm(prompt):\n        seen.append(prompt)\n        return f\"<{name} output>\"\n    return llm\n\n\ndef agent(role, goal=\"do {topic} work\", llm=None):\n    return {\"role\": role, \"goal\": goal, \"backstory\": f\"a veteran {role}\",\n            \"llm\": llm or recorder(role)}\n\n\ndef task(description, agent, expected=\"something\", context=None):\n    return {\"description\": description, \"expected_output\": expected,\n            \"agent\": agent, \"context\": context}\n\n\ndef context_of(prompt):\n    body = prompt.split(\"CONTEXT:\", 1)[1].strip()\n    return [line for line in body.splitlines() if line]\n\n\n# The assembly line: every step sees everything produced before it.\nseen.clear()\nresearcher, writer, editor = agent(\"Researcher\"), agent(\"Writer\"), agent(\"Editor\")\ncrew = [task(\"Research {topic}.\", researcher),\n        task(\"Write about {topic}.\", writer),\n        task(\"Edit it.\", editor)]\nresult = kickoff([researcher, writer, editor], crew, inputs={\"topic\": \"solar\"})\nassert context_of(seen[0]) == [], seen[0]\nassert context_of(seen[1]) == [\"<Researcher output>\"], seen[1]\nassert context_of(seen[2]) == [\"<Researcher output>\", \"<Writer output>\"], seen[2]\nassert result[\"raw\"] == \"<Editor output>\", result\nassert result[\"tasks_output\"] == [\"<Researcher output>\", \"<Writer output>\",\n                                  \"<Editor output>\"], result\n\n# Placeholders are filled from the inputs, in the task AND in the agent's mandate.\nassert \"Research solar.\" in seen[0], seen[0]\nassert \"Goal: do solar work\" in seen[0], seen[0]\n\n# Pinning upstream tasks replaces the implicit everything-so-far, which is how a\n# long crew stops dragging every earlier output into every later prompt.\nseen.clear()\na, b, c, d = agent(\"A\"), agent(\"B\"), agent(\"C\"), agent(\"D\")\ncrew = [task(\"one\", a), task(\"two\", b), task(\"three\", c),\n        task(\"four\", d, context=[0, 2])]\nkickoff([a, b, c, d], crew, inputs={\"topic\": \"x\"})\nassert context_of(seen[3]) == [\"<A output>\", \"<C output>\"], seen[3]\nassert \"<B output>\" not in seen[3], \"a pinned task sees only what it pinned\"\n\n# An empty pin list means no context at all -- not \"fall back to everything\".\nseen.clear()\ncrew = [task(\"one\", a), task(\"two\", b, context=[])]\nkickoff([a, b], crew, inputs={\"topic\": \"x\"})\nassert context_of(seen[1]) == [], seen[1]\n\n# The order pinned is the order supplied.\nseen.clear()\ncrew = [task(\"one\", a), task(\"two\", b), task(\"three\", c, context=[1, 0])]\nkickoff([a, b, c], crew, inputs={\"topic\": \"x\"})\nassert context_of(seen[2]) == [\"<B output>\", \"<A output>\"], seen[2]\n\n# A placeholder with nothing to fill it is an error, not a prompt with a hole in it.\ntry:\n    kickoff([a], [task(\"Research {subject}.\", a)], inputs={\"topic\": \"x\"})\nexcept KeyError:\n    pass\nelse:\n    raise AssertionError(\"a missing input key must be refused\")\n\n# The line only runs forwards: a task cannot depend on one that has not run.\ntry:\n    kickoff([a, b], [task(\"one\", a, context=[1]), task(\"two\", b)], inputs={\"topic\": \"x\"})\nexcept ValueError:\n    pass\nelse:\n    raise AssertionError(\"a forward reference must be refused\")\n\ntry:\n    kickoff([a, b], [task(\"one\", a, context=[0])], inputs={\"topic\": \"x\"})\nexcept ValueError:\n    pass\nelse:\n    raise AssertionError(\"a task cannot pin itself\")\n\n# A task assigned to somebody who is not on the crew is a wiring bug.\ntry:\n    kickoff([a], [task(\"one\", b)], inputs={\"topic\": \"x\"})\nexcept ValueError:\n    pass\nelse:\n    raise AssertionError(\"an agent outside the crew must be refused\")\n\n# The specification the agent is given includes what done looks like.\nseen.clear()\nkickoff([a], [task(\"one\", a, expected=\"exactly three bullet points\")],\n        inputs={\"topic\": \"x\"})\nassert \"EXPECTED: exactly three bullet points\" in seen[0], seen[0]"
+    },
+    {
+      "id": "crewai-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A first crew fails immediately with an error from the model layer before any task completes, on a machine with no provider credentials configured. Once that is resolved, a second problem appears: two agents that may delegate to each other pass work back and forth for dozens of turns on a task described only as 'improve the document', running up a large bill. What are the two causes and the two right responses?",
+      "explanation": "Two unrelated traps that first-time crews hit in order. The framework has no offline default model \u2014 it routes through a provider layer and expects credentials, so with none configured the first model call fails. Then, delegation is autonomy with no natural stopping point: agents allowed to delegate to each other can ping-pong, and a task whose description is a wish rather than a deliverable gives them nothing to stop at. The response is both structural and editorial \u2014 cap iterations and switch delegation off where it is not needed, and write a concrete expected output, because that specification is what bounds the work.",
+      "grade_id": "crewai-151b253033d7362c",
+      "options": [
+        "There is no offline default model: the framework routes to a provider and assumes a key, so a key must be configured or the model pointed at a local endpoint before anything runs. The second is unbounded delegation meeting an unbounded task: cap the iterations, turn delegation off for agents that do not need it, and make the task concrete about the deliverable \u2014 the statement of what done looks like is what bounds the agent",
+        "The first failure means the framework was installed without its tools package, which supplies the default local model; the delegation loop is a known defect fixed by switching to the manager-delegates strategy, which serialises the work",
+        "The first failure is the assembly line running tasks before agents are constructed, fixed by declaring agents after tasks; the delegation loop is caused by passing every prior output forward, fixed by pinning upstream tasks",
+        "Both are caused by a version mismatch between the framework and its tools package; pinning both to the same release resolves the missing model and the delegation loop together"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "crewai-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "A team built a crew for a compliance workflow. It now needs to branch \u2014 if a document fails validation, go back and regenerate it, up to three times \u2014 and every decision must be auditable and reproducible for a regulator. They ask whether to add more agents and describe the branching in the task descriptions. Advise them, explain the two escalation paths available and how they differ, and say what signal in general tells you that you have outgrown this abstraction.",
+      "explanation": "",
+      "grade_id": "crewai-32756bc39e7b81ad",
+      "expected": "A correct answer must refuse the proposed fix and say why: the ordered strategy is a fixed assembly line that cannot branch, loop, or revisit a task based on a result, and describing the branching in the task text does not create control flow \u2014 it merely asks the agents to improvise it, which is the opposite of the auditable, reproducible behaviour a regulator needs. The autonomy that makes the abstraction fast to stand up is exactly what makes it unsuitable when determinism is a requirement. Two escalation paths must be given and distinguished: the framework's own event-driven, code-first alternative, where steps are explicit methods with explicit state and routing \u2014 more control at the cost of more code, and it composes, since such a step can still start a crew; and dropping to a lower-level graph-based runtime, which models nodes, edges, a shared state object, cycles, persistence and human-in-the-loop directly, at the cost of wiring the control flow yourself. Either is a reasonable recommendation provided the reasoning is the requirement for deterministic branching with a bounded retry count; a strong answer notes the retry cap is a control-flow construct that belongs in the orchestration layer rather than in a prompt. The general signal must be stated: when you find yourself fighting the abstraction for conditional branches, loops or precise control of state, you have outgrown the crew abstraction. Noting that the reverse also holds \u2014 if the job really is a team of specialists working a checklist, this is the fastest path and a lower-level runtime is needless wiring \u2014 is a plus."
+    }
+  ]
+}

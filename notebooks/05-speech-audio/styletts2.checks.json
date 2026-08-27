@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "styletts2",
+  "title": "StyleTTS 2",
+  "domain": "05-speech-audio",
+  "runnable": true,
+  "generated": "2026-08-27T08:49:44+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "styletts2-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A team needs the most natural self-hosted synthesis they can get, with expressive prosody and the ability to clone a voice from a few seconds of reference audio, and they can run a model on their own hardware. Which pair of ideas is this system's answer, and what does it NOT give them?",
+      "explanation": "The two contributions are exactly these. Modelling the style as a latent sampled by a diffusion model gives diverse, expressive deliveries without any reference \u2014 and lets a reference clip bias the sampler for zero-shot cloning. Using a large pretrained speech language model as the discriminator during training is the single biggest naturalness gain over its predecessor, because its representations are far closer to how humans hear speech than a discriminator learned from scratch. What it is not is a product: no inline cues for laughter or effects, no embedded footprint, and a research-grade setup.",
+      "grade_id": "styletts2-d937d8f40d4dea8e",
+      "options": [
+        "Style diffusion \u2014 a diffusion model samples a compact latent capturing prosody, emotion and timbre, so a plausible delivery can be invented with no reference audio at all or steered toward one when cloning \u2014 and adversarial training against a large pretrained speech language model, whose rich human-trained representations push the generator toward natural output far more effectively than a discriminator trained from scratch. What it does not give them is an inline markup for non-speech sounds, an on-device footprint, or a packaged product: it is a research codebase",
+        "Autoregressive generation over discrete audio codes and inline markup for laughter and effects; what it lacks is multilingual coverage",
+        "A concatenative unit-selection engine paired with a large voice database; what it lacks is any ability to clone a voice",
+        "A hosted service with a per-character price; what it lacks is the ability to run on your own hardware"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "styletts2-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Explain the slogan 'diffuse the style, not the audio'. Say why diffusing the audio itself is expensive, what is diffused here instead, and what handles everything else. Then trace the inference path from text to waveform, naming the stages, and say which parts are stochastic and which are a single fast pass.",
+      "explanation": "",
+      "grade_id": "styletts2-61143495e80fa9db",
+      "expected": "A correct answer must explain the cost argument: diffusion is expensive in proportion to the size of the thing being generated, so running it over a waveform \u2014 or over a long sequence of audio tokens \u2014 is slow. The insight is that the only part genuinely needing a rich generative prior is the STYLE: a small latent vector, on the order of a hundred-odd dimensions, capturing prosody, rhythm, emotion and speaker timbre. Diffusion is run over that alone, and everything else is a fast, deterministic, non-autoregressive decoder \u2014 so the expensive sampler operates on something tiny and the bulk of the work is one forward pass. The inference path must be traced: text is phonemised and encoded by a text encoder pretrained at the phoneme level; in parallel a diffusion sampler produces the style vector from noise, conditioned on that text encoding and optionally on a reference clip; the style conditions the duration and prosody predictors; the phoneme encodings are upsampled to frames through a soft monotonic alignment; and a fast adversarial vocoder produces the waveform. What is stochastic must be identified as the style sampling \u2014 which is why the same text gives different deliveries \u2014 while the decoder is a single deterministic pass. A strong answer notes that the adversarial judge is a training-time component only and does not run at inference, and that the number of sampling steps trades speed for style diversity while a guidance scale sharpens the sample toward the text-conditioned region."
+    },
+    {
+      "id": "styletts2-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A team clones a voice from a reference clip and reports that the output is lively but does not sound much like the target. They are using a high value for the two blend factors and many sampling steps. What is the relationship they are missing, and what should they change?",
+      "explanation": "The two blend factors decide how much of the timbre and how much of the prosody are taken from the freshly sampled style rather than from the reference clip. Turned up they buy diversity and character at the cost of faithfulness; turned down they track the reference closely and sound less varied. Since cloning is a faithfulness requirement, they should come down \u2014 and the same applies to exploring the style manifold with more sampling steps, which pushes in the same unhelpful direction here. It is genuinely a trade rather than a setting to get right.",
+      "grade_id": "styletts2-b7bbdeb399ad6685",
+      "options": [
+        "Those two factors control how much of the timbre and how much of the prosody come from the SAMPLED style rather than from the reference \u2014 so high values mean varied and expressive but drifting away from the target, and low values mean faithful to the reference but less lively. Cloning wants them low; more sampling steps explore the style manifold further, which also works against faithfulness. The trade is between expressiveness and fidelity and cannot be had both ways",
+        "The two factors control the vocoder's output gain and sample rate, so they are unrelated to cloning; the problem is that too few sampling steps were used",
+        "They set the guidance strength and the number of speakers; cloning requires raising them further so the reference is weighted more heavily",
+        "Those factors are training-time hyperparameters with no effect at inference; the mismatch means the wrong checkpoint was used and cannot be tuned"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "styletts2-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement the upsampling and the style blend. Write `hard_upsample(phonemes, durations)` returning a new list holding a COPY of each phoneme encoding repeated `round(duration)` times, raising `ValueError` when the two lists differ in length or a rounded duration is below 1. Write `soft_alignment(durations, sigma=0.7)` returning a matrix with one row per frame \u2014 where the frame count is the rounded sum of the durations \u2014 and one column per phoneme: place phoneme `i` at the centre of its span, that is the cumulative duration up to and including it minus half its own duration, evaluate a Gaussian of width `sigma` at each frame's midpoint (frame index plus a half) against every centre, and normalise each row to sum to 1; raise `ValueError` for an empty list or any non-positive duration. Write `soft_upsample(phonemes, durations, sigma=0.7)` returning, per frame, the weighted sum of the phoneme encodings under that matrix, raising `ValueError` on a length mismatch. Write `blend_style(sampled, reference, alpha)` returning the element-wise `alpha` times the sampled value plus one minus `alpha` times the reference value, raising `ValueError` for an `alpha` outside 0 to 1 inclusive or a dimension mismatch. Write `difference(a, b)` returning the summed absolute element-wise difference between two such matrices. Standard library only.",
+      "explanation": "The three assertions in the middle are the whole argument for the soft version. Nudge one duration by a fraction of a frame and the repeat-based expansion is byte-identical, because rounding swallowed the change \u2014 so a loss computed downstream can learn nothing at all about durations from it; the gradient is zero almost everywhere and infinite at the jumps. The smooth version moves, and crucially it moves CONTINUOUSLY: halve the nudge and the change roughly halves, which is exactly the property an optimiser needs to be told 'make this phoneme a little longer'. That is what makes duration prediction trainable from the same losses as everything else, rather than requiring a separate alignment stage. Note too where the smoothness comes from: at a boundary a frame draws on both neighbouring phonemes, and narrowing the kernel until it does not recovers the hard behaviour and destroys the gradient with it. The blend at the end is the inference-time knob between an invented style and one taken from a reference clip, with the endpoints being exactly faithful and exactly invented.",
+      "grade_id": "styletts2-8c43bbecc5e4ce04",
+      "starter": "def hard_upsample(phonemes, durations):\n    ...\n\n\ndef soft_alignment(durations, sigma=0.7):\n    ...\n\n\ndef blend_style(sampled, reference, alpha):\n    ...",
+      "solution": "import math\n\n\ndef hard_upsample(phonemes, durations):\n    if len(phonemes) != len(durations):\n        raise ValueError(\"one duration per phoneme is required\")\n    rows = []\n    for encoding, duration in zip(phonemes, durations):\n        count = int(round(duration))\n        if count < 1:\n            raise ValueError(\"every phoneme needs at least one frame\")\n        rows.extend([list(encoding) for _ in range(count)])\n    return rows\n\n\ndef soft_alignment(durations, sigma=0.7):\n    if len(durations) == 0:\n        raise ValueError(\"no durations to align\")\n    if any(duration <= 0 for duration in durations):\n        raise ValueError(\"durations must be positive\")\n    total = int(round(sum(durations)))\n    centres = []\n    running = 0.0\n    for duration in durations:\n        running += duration\n        centres.append(running - duration / 2.0)\n    matrix = []\n    for frame in range(total):\n        position = frame + 0.5\n        row = [math.exp(-0.5 * ((position - centre) / sigma) ** 2)\n               for centre in centres]\n        weight = sum(row)\n        matrix.append([value / weight for value in row])\n    return matrix\n\n\ndef soft_upsample(phonemes, durations, sigma=0.7):\n    if len(phonemes) != len(durations):\n        raise ValueError(\"one duration per phoneme is required\")\n    matrix = soft_alignment(durations, sigma)\n    width = len(phonemes[0])\n    out = []\n    for row in matrix:\n        frame = [0.0] * width\n        for weight, encoding in zip(row, phonemes):\n            for index in range(width):\n                frame[index] += weight * encoding[index]\n        out.append(frame)\n    return out\n\n\ndef blend_style(sampled, reference, alpha):\n    if not 0.0 <= alpha <= 1.0:\n        raise ValueError(\"alpha must be between 0 and 1\")\n    if len(sampled) != len(reference):\n        raise ValueError(\"style vectors must have the same dimension\")\n    return [alpha * s + (1 - alpha) * r for s, r in zip(sampled, reference)]\n\n\ndef difference(a, b):\n    return sum(abs(x - y) for row_a, row_b in zip(a, b)\n               for x, y in zip(row_a, row_b))",
+      "test": "PHONEMES = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]\nDURATIONS = [2.0, 3.0, 1.0]\n\nhard = hard_upsample(PHONEMES, DURATIONS)\nassert len(hard) == 6\nassert [row.index(max(row)) for row in hard] == [0, 0, 1, 1, 1, 2], hard\nfor bad in ([2.0, 3.0], [2.0, 0.4, 1.0], [2.0, -1.0, 1.0]):\n    try:\n        hard_upsample(PHONEMES, bad)\n    except ValueError:\n        continue\n    raise AssertionError(f\"{bad} must be refused\")\n\nmatrix = soft_alignment(DURATIONS)\nassert len(matrix) == 6 and len(matrix[0]) == 3\nfor row in matrix:\n    assert abs(sum(row) - 1.0) < 1e-12\n    assert all(weight > 0 for weight in row)\n\n# The alignment is monotonic: the phoneme each frame leans on never moves backwards.\npeaks = [row.index(max(row)) for row in matrix]\nassert peaks == sorted(peaks), peaks\nassert peaks[0] == 0 and peaks[-1] == 2, peaks\n\n# The smoothness is the point: at a boundary a frame draws on BOTH neighbouring\n# phonemes, which is what leaves a usable gradient.\nboundary = matrix[2]\nassert boundary[0] > 0.05 and boundary[1] > 0.05, boundary\n# ...and a narrower kernel approaches the hard version, losing that sharing.\nsharp = soft_alignment(DURATIONS, sigma=0.05)\nassert max(sharp[2]) > 0.99, sharp[2]\nassert max(matrix[2]) < max(sharp[2])\n\nsoft = soft_upsample(PHONEMES, DURATIONS)\nassert len(soft) == 6 and len(soft[0]) == 3\nassert [row.index(max(row)) for row in soft] == [0, 0, 1, 1, 1, 2], soft\ntry:\n    soft_upsample(PHONEMES, [1.0, 1.0])\nexcept ValueError:\n    pass\nelse:\n    raise AssertionError(\"a mismatched duration list must be refused\")\nfor bad in ([], [1.0, 0.0, 1.0], [1.0, -2.0, 1.0]):\n    try:\n        soft_alignment(bad)\n    except ValueError:\n        continue\n    raise AssertionError(f\"{bad} must be refused\")\n\n# THE reason for the soft version. Nudge a duration slightly: the repeat-based\n# expansion is byte-identical, so the loss can learn nothing about durations from\n# it -- the gradient is exactly zero almost everywhere.\nnudged = [2.4, 3.0, 1.0]\nassert hard_upsample(PHONEMES, nudged) == hard, \"rounding swallowed the change\"\nassert difference(hard_upsample(PHONEMES, nudged), hard) == 0.0\n\n# The soft version moves, so a loss downstream can say \"make this one longer\".\nmoved = difference(soft_upsample(PHONEMES, nudged), soft)\nassert moved > 0.0, moved\n\n# ...and it moves CONTINUOUSLY: halve the nudge and the change roughly halves.\nsmall = difference(soft_upsample(PHONEMES, [2.1, 3.0, 1.0]), soft)\nsmaller = difference(soft_upsample(PHONEMES, [2.05, 3.0, 1.0]), soft)\nassert 0.0 < smaller < small < moved, (smaller, small, moved)\nassert abs(small / smaller - 2.0) < 0.35, small / smaller\n\n# Blending is the knob between a sampled style and one taken from a reference clip.\nsampled = [1.0, -1.0, 0.5]\nreference = [0.0, 0.0, 0.0]\nassert blend_style(sampled, reference, 0.0) == reference, \"faithful to the reference\"\nassert blend_style(sampled, reference, 1.0) == sampled, \"purely invented\"\nmiddle = blend_style(sampled, reference, 0.5)\nassert middle == [0.5, -0.5, 0.25], middle\n# Moving the knob toward the sampled end moves away from the reference, monotonically.\ndistances = [sum(abs(v - r) for v, r in zip(blend_style(sampled, reference, a), reference))\n             for a in (0.0, 0.25, 0.5, 0.75, 1.0)]\nassert distances == sorted(distances) and distances[0] == 0.0, distances\nfor bad in (-0.1, 1.1, 2.0):\n    try:\n        blend_style(sampled, reference, bad)\n    except ValueError:\n        continue\n    raise AssertionError(f\"alpha={bad} must be refused\")\ntry:\n    blend_style([1.0], [0.0, 0.0], 0.5)\nexcept ValueError:\n    pass\nelse:\n    raise AssertionError(\"mismatched dimensions must be refused\")"
+    },
+    {
+      "id": "styletts2-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A first attempt fails with confusing errors from the phonemisation layer. Once fixed, a regression test comparing generated audio against a stored file fails on every run, and a long article synthesised in one call comes out noticeably worse than the same text synthesised sentence by sentence. What is the correct assessment?",
+      "explanation": "Three separate practicalities. Phonemisation depends on a system binary rather than a Python package, and its absence produces errors that do not obviously point at it. Stochastic style sampling means output legitimately differs run to run, so byte-comparison is the wrong test; pinning a reference and lowering the blend factors is how stability is bought. And like most non-autoregressive synthesis, quality falls off on very long inputs, so the practical approach is per-sentence synthesis with a shared style vector so the voice does not drift between sentences.",
+      "grade_id": "styletts2-a75550fbd201665a",
+      "options": [
+        "Phonemisation goes through a system binary that must be installed through the operating system's package manager before the Python package will work. The failing test is expected: sampling the style is stochastic, so the same text gives different prosody each run \u2014 pin a reference clip and lower the blend factors for stability, and do not assert byte-equality. And quality degrades on very long inputs as with most non-autoregressive synthesis, so synthesise sentence by sentence and concatenate, keeping the same style vector so the voice stays consistent",
+        "The phonemisation error means the wrong checkpoint was downloaded; the failing test means the model was left in training mode; and long input is handled internally, so the difference must be a sample-rate mismatch",
+        "All three are caused by running without an accelerator, which disables the diffusion sampler and falls back to a deterministic but lower-quality path",
+        "The phonemisation error is harmless and can be ignored; the failing test indicates a corrupted download; and long input should be handled by raising the number of sampling steps"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "styletts2-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Position this system against a fast end-to-end synthesiser, an autoregressive codec-token model with inline effect markup, a packaged cloning toolkit, a tiny on-device engine, and a hosted commercial service. Say when each wins. Then advise an audiobook publisher that wants the most natural narration they can self-host, in a narrator's own voice, produced offline. Say what you would use, what setup friction to expect, and what settings you would start from.",
+      "explanation": "",
+      "grade_id": "styletts2-83823eb001d8913d",
+      "expected": "A correct answer must position all five. This system wins on naturalness, expressive and controllable prosody, zero-shot cloning and fast non-autoregressive inference, at the cost of being a research codebase with a system dependency, a weight download and stochastic output. The fast end-to-end synthesiser wins for solid, quick synthesis of a fixed voice, with a lower naturalness ceiling and no diffusion prior over style. The codec-token model wins when non-speech sounds, music or singing are wanted through inline markup, at the cost of being slow, capped to short clips and lower fidelity. The packaged cloning toolkit wins on being turnkey across many languages, though this system generally edges it on naturalness. The tiny on-device engine wins on real-time embedded synthesis with a minimal footprint, and sounds robotic by comparison. The hosted service wins on quality with no infrastructure at all, at the cost of being paid, closed and off-premises. The recommendation must be this system, justified by the stated requirements: most natural self-hosted output, cloning the narrator's voice from reference audio, and offline production where its speed is more than adequate. The friction to expect must be named concretely: a system phonemiser package installed outside the Python environment, a several-hundred-megabyte weight download, and the need for the multi-speaker checkpoint rather than the single-voice one for cloning. The starting settings must follow from the goal: low blend factors so the output stays faithful to the narrator's timbre and prosody, a modest number of sampling steps, and per-sentence synthesis with a shared style vector so the voice does not drift across a chapter. Noting that stochastic sampling means auditioning takes rather than expecting reproducibility is a plus."
+    }
+  ]
+}

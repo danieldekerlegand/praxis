@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "datalog",
+  "title": "Datalog",
+  "domain": "01-symbolic-ai-logic",
+  "runnable": true,
+  "generated": "2026-08-27T05:50:02+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "datalog-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A security team stores role grants as pairs \u2014 a role may grant another role, arbitrarily deep \u2014 and every request has to answer 'does this user hold this permission?'. Why is that the canonical shape for Datalog rather than for a hand-written traversal in the service?",
+      "explanation": "Recursive derivation over relational data, stated declaratively and guaranteed to terminate, is precisely the niche. It is not an in-memory or laziness story \u2014 bottom-up evaluation is eager, and the inheritance is irreducibly recursive.",
+      "grade_id": "datalog-2a8768f0133aa310",
+      "options": [
+        "The answer is the least fixpoint of two short rules over data that is already stored, so the recursion is declared once and computed by the engine, and the absence of function symbols means every query is guaranteed to finish",
+        "Datalog keeps the grant pairs resident in memory, so answering avoids a database round trip that application code would have to make",
+        "Datalog can flatten the inheritance into a single non-recursive join, which is not expressible in application code",
+        "Datalog evaluates lazily per request, so parts of the grant graph that no request touches are never examined"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "datalog-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Take the left-recursive rule `reach(X, Y) :- reach(X, Z), edge(Z, Y).` and run it over a graph that contains a cycle. Describe what a Prolog engine does with it and what a Datalog engine does with it, and identify the two properties of Datalog that account for the difference.",
+      "explanation": "Bottom-up alone is not the guarantee \u2014 it is bottom-up over a finite universe. That is why the same rules that hang Prolog terminate here, and why Datalog is called Prolog's decidable core.",
+      "grade_id": "datalog-ded274f5d8af53e1",
+      "expected": "A correct answer must describe both directions. Prolog resolves the query TOP-DOWN: to prove reach(X, Y) it expands the leftmost body goal, which is reach again on no smaller an argument, so it descends forever and never reaches a base fact \u2014 it does not even need the cycle to diverge. Datalog evaluates BOTTOM-UP from the stored facts, applying every rule to what it already has and keeping only facts it did not have before, so it halts as soon as a round adds nothing. The two properties: (1) the direction of evaluation, which makes clause order and left recursion irrelevant, and (2) the absence of function symbols, so no rule can invent a new constant and the space of derivable facts is finite \u2014 together these force the loop to reach a least fixpoint. Noting that set semantics collapses the several paths a cycle creates into one derived fact is a plus."
+    },
+    {
+      "id": "datalog-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "An engine rejects `bigger(X, Y) :- X > Y.` before it evaluates anything. Which restriction is being enforced, what would go wrong without it, and how is the clause repaired?",
+      "explanation": "Safety is what keeps a derived relation finite and computable. Comparisons and negations consume bindings rather than produce them, so something positive has to produce them first.",
+      "grade_id": "datalog-8faf15e554f51cb6",
+      "options": [
+        "Range restriction: every variable in the head, and in any comparison or negated goal, must also occur in a positive body goal, or the derived relation would be infinite \u2014 bind them first, as in `num(X), num(Y), X > Y`",
+        "Stratification: a comparison counts as a negated goal and may not appear in a recursive predicate, so the comparison has to be lifted into its own stratum",
+        "Set semantics: a body that can derive the same fact by more than one route must be made explicitly distinct before the engine will accept it",
+        "The ban on function symbols: `>` builds a term from its arguments, which Datalog forbids, so it has to be replaced by a stored relation"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "datalog-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement `closure(edges)`. `edges` is a set of `(source, target)` pairs; return the set of every `(x, y)` such that y is reachable from x by following one or more edges. This is the two-rule ancestor program written directly: it must return a set with no duplicate pairs, and it must terminate on a graph containing cycles \u2014 including reporting that a node on a cycle reaches itself. Standard library only.",
+      "explanation": "The loop you wrote is the fixpoint: grow the fact set, stop when a round adds nothing new. Cycles need no special case at all \u2014 a pair already in the set is simply not new, which is the whole termination argument. Seeding the next round from only the pairs just derived is semi-naive evaluation; re-deriving everything each round would be the naive version and would return the same answer.",
+      "grade_id": "datalog-5ed896706d9d9b5e",
+      "starter": "def closure(edges):\n    \"\"\"Every (x, y) linked by one or more edges. Must terminate on cyclic input.\"\"\"\n    ...",
+      "solution": "def closure(edges):\n    out = {}\n    for x, y in edges:\n        out.setdefault(x, set()).add(y)\n    reach = set(edges)\n    frontier = set(edges)\n    while frontier:\n        new = set()\n        for x, y in frontier:\n            for z in out.get(y, ()):\n                if (x, z) not in reach:\n                    new.add((x, z))\n        reach |= new\n        frontier = new\n    return reach",
+      "test": "assert closure(set()) == set()\nassert closure({(\"a\", \"b\")}) == {(\"a\", \"b\")}\n\nr = closure({(\"a\", \"b\"), (\"b\", \"c\"), (\"c\", \"a\"), (\"c\", \"d\")})\nassert r == {(x, y) for x in \"abc\" for y in \"abcd\"}, sorted(r)\nassert (\"a\", \"a\") in r, \"a cycle makes every node on it reach itself\"\nassert not any(x == \"d\" for x, _ in r), \"d has no outgoing edge\"\nassert len([p for p in r if p == (\"a\", \"c\")]) == 1, \"set semantics: two paths, one pair\"\n\nchain = {(f\"n{i}\", f\"n{i + 1}\") for i in range(120)}\nc = closure(chain)\nassert len(c) == 120 * 121 // 2, len(c)\nassert (\"n0\", \"n120\") in c and (\"n120\", \"n0\") not in c"
+    },
+    {
+      "id": "datalog-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A colleague porting a Prolog program to Datalog is careful to keep the base case above the recursive clause, 'so that it terminates'. Is that care buying anything here?",
+      "explanation": "Order-independence is a consequence of the semantics, not an optimisation: the least fixpoint is unique. Stratification is computed from the dependency graph of the predicates, not from line order.",
+      "grade_id": "datalog-16ce02c49b44aa19",
+      "options": [
+        "No \u2014 bottom-up evaluation fires all rules in every round and converges on the same least fixpoint whatever order they are written in, so neither the result nor termination depends on it",
+        "Yes \u2014 Datalog also tries clauses from the top down, so a recursive clause written first will diverge exactly as it would in Prolog",
+        "Yes \u2014 the engine derives its stratification from the order the clauses appear in, so the base case has to come first for negation to be layered correctly",
+        "No \u2014 but only because the engine sorts the clauses internally first; an engine written by hand would still need the base case above the recursive one"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "datalog-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Two tasks land on your desk. (a) 'Which permissions does user U hold, counting inheritance through roles?' (b) 'Assign 12 nurses to 21 shifts so that no one works two nights running and every shift is covered.' Both are described as logic problems. Say which engine each one wants, and name the property of the formalism that settles it.",
+      "explanation": "The dividing line is not 'how hard is the problem' but whether you are deducing consequences or choosing among possible worlds. Datalog is deliberately confined to the first.",
+      "grade_id": "datalog-7997511aa0fa4711",
+      "expected": "A correct answer must send (a) to Datalog and (b) to Answer Set Programming, and must justify it by MONOTONE DERIVATION versus MODEL SEARCH. (a) only ever derives consequences of facts that are already stored: there is one least fixpoint, nothing has to be chosen, and the answer is unique and guaranteed to be reached. (b) is not a derivation at all \u2014 an assignment is a candidate world that either satisfies the constraints or does not, so the engine has to SEARCH over candidate models, which needs choice rules, unrestricted negation and usually an optimisation criterion. Datalog cannot express (b) because it has no way to say 'pick one of these possibilities'; its semantics hands you the smallest model rather than searching the space of them. Observing that SQL would serve neither, and that Prolog could encode (b) only by writing the search yourself, is a plus."
+    }
+  ]
+}

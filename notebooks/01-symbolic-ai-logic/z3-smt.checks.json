@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "z3-smt",
+  "title": "Z3 / SMT Solving",
+  "domain": "01-symbolic-ai-logic",
+  "runnable": true,
+  "generated": "2026-08-27T05:50:25+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "z3-smt-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A problem mixes fixed-width arithmetic over machine words, a handful of array reads, and some either/or structure. Why is this solver the default reach rather than a pure boolean solver or a numeric optimiser?",
+      "explanation": "Theories are the whole value proposition, and 'a model or a proof of impossibility' is the shape of answer. The last option is the opposite of the truth: giving up is one of the three legitimate verdicts, and knowing when it happens is most of what you have to learn.",
+      "grade_id": "z3-smt-8503cb415d86639b",
+      "options": [
+        "The theories come built in: word-sized arithmetic, array access and the rest are handled by specialist decision procedures, so the constraints are written at that level instead of being hand-encoded down to bits \u2014 and what comes back is a witness or a proof that none exists, rather than an optimum",
+        "It is faster than the alternatives on every class of problem, which is why the boolean solvers are now mainly of historical interest",
+        "It optimises a numeric objective by default, where the alternatives require the objective to be supplied and tuned separately",
+        "It always terminates with a definite yes or no, where the alternatives may simply time out and leave you with nothing"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "z3-smt-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A colleague reports that a formula containing the product of two integer variables either hangs or comes back with no verdict, while the identical shape written over reals is decided instantly, and concludes the solver is buggy. Use the architecture to explain what is actually happening, and give two practical routes out.",
+      "explanation": "Which fragment you are in decides everything about what you can expect, and the fragment is a property of the constraints you wrote rather than of the solver. Once that is clear the fixes suggest themselves: shrink the space, or change the theory.",
+      "grade_id": "z3-smt-a47d9e78a56bc24c",
+      "expected": "A correct answer must describe the split architecture: a boolean search over the formula's structure that repeatedly asks specialist procedures whether a proposed combination of atoms is consistent \u2014 so whatever guarantee you get comes entirely from whether the theory involved HAS a complete decision procedure. Multiplication of variables over the INTEGERS is undecidable, so no such procedure exists and the solver falls back on incomplete heuristics, which is why it may run long or return no verdict; the same shape over the REALS is decidable, which is why it answers. It must state that the non-verdict is an honest third outcome rather than a bug. Two routes out must be given from: bound the integer variables so the space is finite; move to fixed-width machine words, where multiplication is decidable, accepting wrapping arithmetic as the price; or reformulate to remove the variable-times-variable term, for instance by multiplying only by constants or by case-splitting on one factor."
+    },
+    {
+      "id": "z3-smt-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "You want to establish that a routine never divides by zero, whatever it is called with. You encode the routine's constraints, add the claim that the divisor is non-zero, run the check, and it reports satisfiable. What have you actually established?",
+      "explanation": "A satisfiable verdict is an existence claim, and it is the weakest thing you could have asked for. Universal claims are established the other way round: assert the counterexample and prove there isn't one.",
+      "grade_id": "z3-smt-5b3a0cf960b73c8a",
+      "options": [
+        "Only that there exists at least one input for which the divisor is non-zero \u2014 to establish it for every input you have to assert that the divisor CAN be zero and require that no assignment satisfies that",
+        "That the property holds for every input, since the whole space was searched before the verdict was reported",
+        "Nothing at all, because a satisfiability question cannot be posed about a routine's behaviour in the first place",
+        "That the property holds for every input representable in the theories used, though not necessarily for values outside them"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "z3-smt-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement `solve(clauses)`, the boolean search that sits underneath the theories. `clauses` is a list of clauses; each clause is a list of non-zero integers where `n` means variable n is true and `-n` means it is false, and a clause holds when at least one of its literals does. Return a dict mapping every variable that appears to True or False such that all clauses hold, or None when no such assignment exists. An empty clause list is satisfied by the empty dict; a clause with no literals can never be satisfied. Drive the search with propagation \u2014 repeatedly commit to any clause left with a single literal and simplify the rest \u2014 and branch only when no such clause remains, so that a chain of forty forced implications is not explored as a space of assignments. Standard library only.",
+      "explanation": "This is the boolean half of the architecture with the theory half taken out. Propagate-then-branch is what makes the last case cheap: a conflict thirty-nine implications away is found by following forced consequences, never by trying assignments. The real thing adds conflict analysis on top \u2014 when a branch fails it derives a new clause explaining why, so the same dead end is never revisited \u2014 and asks a specialist procedure whether the atoms it has committed to are consistent in their theory.",
+      "grade_id": "z3-smt-52262bee0248934e",
+      "starter": "def solve(clauses):\n    \"\"\"A satisfying assignment for the clause set, or None if there is none.\"\"\"\n    ...",
+      "solution": "def solve(clauses):\n    variables = sorted({abs(lit) for clause in clauses for lit in clause})\n\n    def simplify(clauses, lit):\n        out = []\n        for clause in clauses:\n            if lit in clause:\n                continue\n            out.append([other for other in clause if other != -lit])\n        return out\n\n    def dpll(clauses, model):\n        while True:\n            unit = None\n            for clause in clauses:\n                if not clause:\n                    return None\n                if len(clause) == 1:\n                    unit = clause[0]\n                    break\n            if unit is None:\n                break\n            if model.get(abs(unit), unit > 0) != (unit > 0):\n                return None\n            model[abs(unit)] = unit > 0\n            clauses = simplify(clauses, unit)\n        if not clauses:\n            return model\n        lit = clauses[0][0]\n        for guess in (lit, -lit):\n            branch = dict(model)\n            branch[abs(guess)] = guess > 0\n            found = dpll(simplify(clauses, guess), branch)\n            if found is not None:\n                return found\n        return None\n\n    found = dpll([list(clause) for clause in clauses], {})\n    if found is None:\n        return None\n    return {var: found.get(var, False) for var in variables}",
+      "test": "def satisfies(model, clauses):\n    return all(any(model[abs(l)] == (l > 0) for l in c) for c in clauses)\n\ncnf = [[1, -2], [-1, 2], [2, 3]]\nmodel = solve(cnf)\nassert model is not None and satisfies(model, cnf), model\nassert set(model) == {1, 2, 3}, \"every variable that appears gets a value\"\n\nassert solve([]) == {}, \"nothing to satisfy\"\nassert solve([[]]) is None, \"an empty clause is unsatisfiable\"\nassert solve([[1], [-1]]) is None\n\nexcluded = []\nfor a in (1, -1):\n    for b in (2, -2):\n        for c in (3, -3):\n            excluded.append([-a, -b, -c])\nassert solve(excluded) is None, \"every assignment of three variables is ruled out\"\n\nchain = [[1]] + [[-i, i + 1] for i in range(1, 40)]\nmodel = solve(chain)\nassert model is not None and all(model[v] for v in range(1, 41)), model\nassert solve(chain + [[-40]]) is None, \"the conflict is 39 implications away\""
+    },
+    {
+      "id": "z3-smt-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A range restriction written with the host language's own conjunction between two comparisons ends up constraining only the second of them, and nothing anywhere raises an error. What is going on?",
+      "explanation": "Nothing is being rewritten or merged \u2014 the expression never became a conjunction at all. It is a silent failure precisely because the operators are doing exactly what they are defined to do on any object that is not a plain boolean.",
+      "grade_id": "z3-smt-1ebefb018c8aaf51",
+      "options": [
+        "The language's boolean operators test the left operand for truthiness and then return one of the two operands unchanged; a symbolic term is truthy, so the expression is just the second comparison and the first is silently discarded \u2014 the library's own combining function has to be used instead",
+        "Comparison binds more tightly than conjunction here, so the expression parses as a comparison against a boolean rather than as two comparisons",
+        "The conjunction is deferred until a model is read back rather than applied when the constraint is added, and only the last constraint survives that rewriting",
+        "Two constraints on the same variable are merged automatically and the tighter of the two is kept, which in this case is the upper bound"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "z3-smt-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four requests arrive. (a) Find an input that drives a C function down a particular branch. (b) Minimise the cost of a fleet assignment with ten thousand continuous variables under linear constraints. (c) Build a rostering model whose structure is mostly all-different and cumulative-resource conditions. (d) Prove a statement about all natural numbers by induction. Assign each to a tool and name the property that settles it.",
+      "explanation": "All four are 'constraints' in casual speech, and the distinctions are what stop you spending a week encoding a scheduling model into a solver that will never propagate it well. The fourth is the one people misjudge most: automation stops at the boundary of decidability.",
+      "grade_id": "z3-smt-88034c3ed20e2819",
+      "expected": "A correct answer must place all four and justify each by a property. (a) goes to the SMT solver: the constraints ARE machine arithmetic, memory accesses and branch conditions, and what is wanted is a concrete witness or a proof that no input reaches the branch \u2014 its home ground, and the reason it is embedded inside symbolic-execution tools. (b) goes to a linear or mixed-integer programming solver: thousands of continuous variables, linear structure and a numeric objective are what those are engineered for, and this solver is not a numeric optimiser and will be far slower. (c) goes to constraint programming: the value is in the global constraints and their specialised propagators, which would otherwise have to be encoded by hand and would lose that propagation strength. (d) goes to an interactive theorem prover: induction over an unbounded domain is outside any decision procedure for a decidable fragment \u2014 such provers CALL an automated solver for the decidable subgoals rather than being replaced by one. The settling property must be named as the shape of the question \u2014 witness-or-proof over decidable theories, numeric optimum, combinatorial model with global structure, or unbounded inductive proof."
+    }
+  ]
+}

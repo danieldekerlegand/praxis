@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "duckdb",
+  "title": "DuckDB",
+  "domain": "10-data-analysis-research",
+  "runnable": true,
+  "generated": "2026-08-27T06:55:17+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "duckdb-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "Four systems need a storage or query layer. (i) A desktop application recording user preferences and edits, thousands of tiny writes a session. (ii) An analyst joining and aggregating 40 GB of columnar files on a laptop. (iii) A web service with 200 concurrent writers needing transactions and access control. (iv) A nightly job across 900 TB on a cluster. Which allocation follows this notebook's reasoning?",
+      "explanation": "Two axes decide all four: the shape of the work \u2014 many small durable writes versus scans and aggregations \u2014 and whether more than one process or machine must participate. Being embedded and serverless is what makes the analytical case pleasant; it is also exactly why it cannot be the shared multi-writer database, and spilling to disk raises a single machine's ceiling without making it a cluster.",
+      "grade_id": "duckdb-fadb77e0197eeae9",
+      "options": [
+        "(i) the embedded row-oriented transactional engine, which is what frequent small durable writes want; (ii) this engine, which is exactly its case \u2014 analytical SQL over files on one machine with no server; (iii) a client-server transactional database, because concurrent writers and access control are what a server provides; (iv) a distributed query system, because one machine genuinely will not hold it",
+        "(i) and (ii) this engine, since both are embedded and serverless; (iii) and (iv) a client-server database, since both involve many users",
+        "(ii) and (iv) this engine, since both are analytical, with the larger one relying on spilling to disk to avoid a cluster; (i) and (iii) the embedded transactional engine",
+        "All four this engine: it is embedded so it covers the desktop case, transactional so it covers the service, and it spills to disk so it covers the cluster case"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "duckdb-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A colleague's pipeline loads a directory of columnar files into memory with a DataFrame library, concatenates them, then runs a grouped aggregation, and it is slow and close to the memory limit. They ask whether switching the aggregation to this engine will help. Explain the two independent reasons it will, and what would happen if they kept the load step and only replaced the aggregation.",
+      "explanation": "The two ideas are separable and people usually adopt only the first. Reading less is the larger of the two effects, and a load step performed before the engine sees the query makes it impossible.",
+      "grade_id": "duckdb-1c05e2ed15a021ae",
+      "expected": "A correct answer must give two distinct mechanisms. First, storage orientation and execution: an analytical query reads a few columns of many rows, and laying each column out contiguously means only those columns are dragged through memory, processed in batches of values through tight loops that use the processor well, rather than walking rows and touching every field to read one. Second \u2014 and this is the one their pipeline is throwing away \u2014 the engine can be pointed at the files themselves, with a path or a glob standing where a table name would go, so filters and the column list are pushed into the reading of the files and the rows and columns the query discards are never read at all; there is no load step to pay for or to hold in memory. If they keep the load step and only replace the aggregation, they lose the second benefit entirely: the whole directory is already materialised in memory before the engine is consulted, so the memory pressure is unchanged and the engine can only optimise what it has been handed. They would still get the first benefit, since the aggregation itself would run column-wise and in parallel \u2014 a real but much smaller win than removing the load. Noting that an in-memory frame can also be queried in place, so the seam is cheap in both directions, is a plus."
+    },
+    {
+      "id": "duckdb-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A query that works at the top level of a script raises a message about the table not existing when the same code is moved inside a function in another module. A second, subtler bug appears when someone names a local variable the same as a table that already exists in the database. What is the mechanism and the robust fix?",
+      "explanation": "The convenience of writing a variable's name where a table would go is a scope-directed fallback, and it inherits both of scope lookup's hazards: something not in view is simply absent, and something with a colliding name silently wins or loses. Registering the frame under an explicit name removes the guesswork and makes the dependency visible.",
+      "grade_id": "duckdb-aae1132fceaa2459",
+      "options": [
+        "A bare name in the source position is resolved against the calling Python scope as a fallback, so a variable that is not visible from where the query is issued cannot be found, and one that shares a name with a real table can shadow it \u2014 bind the frame to an explicit name on the connection instead of relying on the scope lookup",
+        "Queries are compiled once and cached per connection, so moving the code invalidates the cache; recreating the connection inside the function resolves both problems",
+        "Names are case-sensitive at the top level and case-insensitive inside functions, so the mismatch is a quoting problem that double-quoting the identifier fixes",
+        "The frame must be converted to the engine's own storage before it can be queried at all; the top-level version only worked because an implicit conversion runs in interactive scopes"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "duckdb-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Quantify why the layout matters. Implement `bytes_scanned(row_groups, widths, projected, predicate=None, layout=\"column\")`. `row_groups` is a list of dicts, each `{\"rows\": n, \"stats\": {column: (min, max)}}` \u2014 the recorded value range of each column in that block. `widths` maps every column to its bytes per value. `projected` is the columns the query outputs. `predicate`, when given, is `(column, lo, hi)` and keeps rows whose value falls in the inclusive range. Under `layout=\"row\"` every column of every row of every block is read and no block can be skipped, because no per-block statistics are kept. Under `layout=\"column\"`, a block is skipped entirely when the predicate's column has statistics whose range cannot overlap `[lo, hi]`, and for a block that is read, only the projected columns plus the predicate's own column are read. A block with no statistics for that column cannot be skipped. Return `{\"groups_read\": int, \"bytes\": int}`. Standard library only.",
+      "explanation": "Two savings compound, and the arithmetic shows they are independent. Narrowing the columns is the layout's structural advantage: a row-oriented reader has no way to fetch one field without dragging its neighbours along, which is why selecting one column there costs exactly what selecting all of them costs. Skipping whole blocks is the statistics' advantage, and it is why a predicate that matches nothing can cost nothing at all. The two assertions worth rereading are the near-tenfold gap on a single query, and the block with no recorded range \u2014 an optimisation that depends on metadata degrades to reading everything the moment the metadata is missing, rather than guessing.",
+      "grade_id": "duckdb-ac45412ad422f718",
+      "starter": "def bytes_scanned(row_groups, widths, projected, predicate=None, layout=\"column\"):\n    \"\"\"How much of a file each storage layout actually has to read for one query.\"\"\"\n    ...",
+      "solution": "def bytes_scanned(row_groups, widths, projected, predicate=None, layout=\"column\"):\n    groups_read = 0\n    total = 0\n    for group in row_groups:\n        rows = group[\"rows\"]\n        if layout == \"row\":\n            groups_read += 1\n            total += rows * sum(widths.values())\n            continue\n        if predicate is not None:\n            column, lo, hi = predicate\n            stats = group.get(\"stats\", {}).get(column)\n            if stats is not None and (stats[1] < lo or stats[0] > hi):\n                continue\n        groups_read += 1\n        columns = set(projected)\n        if predicate is not None:\n            columns.add(predicate[0])\n        total += rows * sum(widths[c] for c in columns)\n    return {\"groups_read\": groups_read, \"bytes\": total}",
+      "test": "WIDTHS = {\"id\": 8, \"region\": 8, \"units\": 8, \"price\": 8, \"note\": 64, \"ts\": 8}\nGROUPS = [\n    {\"rows\": 1000, \"stats\": {\"units\": (0, 4)}},\n    {\"rows\": 1000, \"stats\": {\"units\": (5, 9)}},\n    {\"rows\": 1000, \"stats\": {\"units\": (10, 14)}},\n]\nWIDE = sum(WIDTHS.values())   # 104 bytes per row across every column\n\n# Row layout: every column of every row, and nothing can be skipped.\nrow = bytes_scanned(GROUPS, WIDTHS, [\"region\", \"units\"], (\"units\", 5, 100), layout=\"row\")\nassert row[\"groups_read\"] == 3, row\nassert row[\"bytes\"] == 3000 * WIDE, row\n\n# Column layout, same query: two columns instead of six, and the group whose\n# recorded range cannot satisfy the predicate is never opened.\ncol = bytes_scanned(GROUPS, WIDTHS, [\"region\", \"units\"], (\"units\", 5, 100))\nassert col[\"groups_read\"] == 2, col\nassert col[\"bytes\"] == 2000 * (8 + 8), col\nassert row[\"bytes\"] > 9 * col[\"bytes\"], (col, row)\n\n# The predicate's column is read even when it is not part of the output.\nonly_region = bytes_scanned(GROUPS, WIDTHS, [\"region\"], (\"units\", 5, 100))\nassert only_region[\"bytes\"] == 2000 * (8 + 8), only_region\n\n# A predicate that matches nothing opens nothing.\nnone = bytes_scanned(GROUPS, WIDTHS, [\"region\"], (\"units\", 900, 1000))\nassert none == {\"groups_read\": 0, \"bytes\": 0}, none\n\n# A predicate that spans everything still benefits from the narrow projection.\nwide_pred = bytes_scanned(GROUPS, WIDTHS, [\"region\"], (\"units\", -5, 500))\nassert wide_pred[\"groups_read\"] == 3, wide_pred\nassert wide_pred[\"bytes\"] == 3000 * 16, wide_pred\n\n# No predicate at all: every group, projected columns only.\nplain = bytes_scanned(GROUPS, WIDTHS, [\"note\"])\nassert plain[\"groups_read\"] == 3 and plain[\"bytes\"] == 3000 * 64, plain\nassert plain[\"bytes\"] < bytes_scanned(GROUPS, WIDTHS, [\"note\"], layout=\"row\")[\"bytes\"]\n\n# A group with no statistics for the predicate's column cannot be skipped.\nunknown = bytes_scanned([{\"rows\": 500, \"stats\": {}}], WIDTHS, [\"region\"], (\"units\", 900, 1000))\nassert unknown[\"groups_read\"] == 1, unknown\n\n# The row layout ignores projection entirely -- selecting one column costs the same as all.\na = bytes_scanned(GROUPS, WIDTHS, [\"region\"], layout=\"row\")[\"bytes\"]\nb = bytes_scanned(GROUPS, WIDTHS, list(WIDTHS), layout=\"row\")[\"bytes\"]\nassert a == b, (a, b)\n\nassert bytes_scanned([], WIDTHS, [\"region\"]) == {\"groups_read\": 0, \"bytes\": 0}"
+    },
+    {
+      "id": "duckdb-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A script builds a query, closes the connection in a context manager, and then converts the result to a DataFrame outside the block, where it fails. A second script aggregates a billion rows down to twelve and works fine, but a colleague's copy converts to a DataFrame first and then aggregates in Python, and exhausts memory. What single fact about how results are handled explains both?",
+      "explanation": "One fact \u2014 a query hands back an unexecuted relation \u2014 produces both symptoms. Execution is triggered by whatever asks for concrete rows, so it must happen while the connection is alive, and whatever you ask for is what gets built. Aggregating first and converting last is the same discipline as pushing filters into the scan: let the engine reduce the data before it crosses into your process.",
+      "grade_id": "duckdb-53107ac41cfcba56",
+      "options": [
+        "Issuing a query returns a description of a result rather than the result itself \u2014 nothing runs until something materialises it \u2014 so a materialisation attempted after its connection is gone has no engine left to run on, and materialising before aggregating pulls the entire unaggregated result into memory instead of the twelve rows the engine would have produced",
+        "Results are cached on the connection and evicted when it closes, and the memory failure is that cache being duplicated during conversion; raising the cache limit fixes both",
+        "Conversion to a DataFrame is always a copy, so the first failure is a copy of a freed buffer and the second is the copy itself; requesting the shared columnar representation instead avoids both",
+        "Both are threading problems: the query runs on a background thread that is joined when the connection closes and starved when memory is tight"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "duckdb-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Answer four questions from a team. (a) 'We already use the fast DataFrame library. Is adopting this a migration?' (b) 'Can two of our batch jobs write to the same database file at once?' (c) 'Our source files are comma-separated with awkward quoting and dates; the automatic reader keeps getting types wrong.' (d) 'We want the same query to run against files in object storage rather than local disk.' Give the decisive property in each answer.",
+      "explanation": "None of the four is a reason to change tools. Three are seams the design anticipates \u2014 a shared memory format, a schema-carrying file format, a loadable extension \u2014 and the fourth is a genuine limit that follows directly from having no server to arbitrate writers.",
+      "grade_id": "duckdb-19451ccf88666ef4",
+      "expected": "A correct answer must treat all four. (a) No \u2014 the two are complements rather than rivals: both sit on the same in-memory columnar representation, so results pass between them without copying, and the sensible rule is to write SQL where a query is clearer and method-chained expressions where they are, in the same pipeline. The deciding property is a shared memory format, which makes the boundary free rather than a migration. (b) No, not for writing: a persistent database file admits a single writer, though concurrent readers are fine, and within one process a single query is already parallelised across threads \u2014 so two writing jobs need to be serialised, or to write separate files, or to use a client-server database. The deciding property is the embedded single-writer design, which is the price of having no server. (c) Reach for a typed file format rather than fighting the sniffer: the automatic reader infers types from a sample and can be corrected with explicit type declarations, a date format, or by sampling the whole file, but a columnar typed format carries its schema with it and removes the class of problem entirely \u2014 the deciding property is whether the format records its own types. (d) Load the extension that adds remote file access, after which the same query text works against a remote path \u2014 extensions are installed once and loaded per session, and this one needs network access. The deciding property is that reading remotely is an add-on capability rather than a different engine or a different query."
+    }
+  ]
+}

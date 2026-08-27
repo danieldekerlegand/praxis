@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "rdflib",
+  "title": "RDF & Turtle with rdflib",
+  "domain": "01-symbolic-ai-logic",
+  "runnable": true,
+  "generated": "2026-08-27T05:50:22+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "rdflib-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "Two teams model overlapping information independently \u2014 one as triples, one as nested JSON documents \u2014 and a year later both have to be combined into one dataset. What is materially different about the triple case?",
+      "explanation": "Merging as set union is the single practical payoff of naming things globally, and the honest half of the answer is that the naming is the work \u2014 two datasets that mint their own identifiers for the same thing merge into two disconnected halves.",
+      "grade_id": "rdflib-8668c8c7f34ba939",
+      "options": [
+        "Combining is the union of the two sets of statements: anything carrying the same global name is the same node without a mapping layer or a chosen join key \u2014 the cost being that those names had to be agreed on, or reconciled afterwards",
+        "The two models are validated against each other and the combination is rejected outright if their vocabularies disagree, which catches the mismatch early",
+        "The data is held in a normalised internal form, so combining is a one-off schema migration rather than an ongoing concern",
+        "Each statement carries a numeric identity, so statements duplicated between the two sets can be detected and removed automatically"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "rdflib-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A colleague records each customer's address as a piece of text hanging off the customer, then finds they cannot ask anything about the city. Explain what each of the three kinds of node is for, say which one they should have reached for, and set out the trade-off if the address has no obvious global name of its own.",
+      "explanation": "The three node kinds are a choice about what you will need to say later. Anything you might want to describe, filter on, or point at from elsewhere has to be a node \u2014 a value is a leaf, permanently.",
+      "grade_id": "rdflib-5e9b69001caa1777",
+      "expected": "A correct answer must distinguish all three. A GLOBAL NAME identifies a thing, can be referred to from anywhere including other datasets, and can have further statements hanging off it. A VALUE is a piece of data \u2014 it may only ever be the third element of a statement, never the first, so nothing can hang off it and its internal structure is opaque; that is exactly why the city is unreachable. An ANONYMOUS node is a real node with no global name, used for structure that needs no name outside this graph. The address should have been a node with its own statements for street, city and postcode rather than a value. For the trade-off: an anonymous node gives that structure without inventing an identifier, but its identity is LOCAL and is regenerated whenever the graph is written out and read back, so nothing outside the graph can point at it and it must never be stored as a key \u2014 minting a real name is what buys stable reference, at the cost of having to decide on one. Noting that a value's datatype or language tag is part of its identity, so even comparing the text is fussier than it looks, is a plus."
+    },
+    {
+      "id": "rdflib-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A numeric comparison over people's ages returns nothing at all, though the ages are plainly in the graph and the comparison looks right. What class of mistake should be suspected first?",
+      "explanation": "Two values that print identically can be different terms. Being deliberate about datatypes when writing, and about them again when comparing, prevents most of the empty results people blame on the engine.",
+      "grade_id": "rdflib-f050c921684cf512",
+      "options": [
+        "The ages were written as plain text rather than as typed numbers \u2014 a value's datatype and language tag are part of its identity, so a bare string and a typed integer are different terms that never match and never compare numerically",
+        "Numeric comparison requires the values to have been inserted in ascending order, which this data model does not maintain",
+        "Comparisons apply only to identifiers, never to values, so a comparison over ages is empty by construction",
+        "Values are always held internally as text and have to be cast, which is only possible in the part of the query that selects the output"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "rdflib-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement `parse_turtle(text)`, expanding the compact syntax into the triples it abbreviates. Return a set of `(subject, predicate, object)` string tuples. Rules for this subset: a line whose first non-space character is '#' is a comment and a blank line is ignored; every term and every punctuation mark is a whitespace-separated token, so '.', ';' and ',' always stand alone; '.' ends a statement, ';' begins another predicate for the SAME subject, and ',' begins another object for the same subject AND predicate; a predicate written as the bare token 'a' stands for 'rdf:type'. Terms carry over across line breaks. Standard library only.",
+      "explanation": "Writing the expansion out makes the point the syntax is designed to hide: the compact form is not a different data model, it is one set of flat three-element statements with the repetition elided. Note the last case \u2014 the bare token is only shorthand in the predicate slot, because the shorthand is defined by position, not by the characters.",
+      "grade_id": "rdflib-288de03f390ba354",
+      "starter": "def parse_turtle(text):\n    \"\"\"Expand the abbreviated form into the set of triples it stands for.\"\"\"\n    ...",
+      "solution": "def parse_turtle(text):\n    tokens = []\n    for line in text.splitlines():\n        line = line.strip()\n        if line and not line.startswith(\"#\"):\n            tokens += line.split()\n\n    triples = set()\n    subject = predicate = None\n    expect = \"subject\"\n    for token in tokens:\n        if token == \".\":\n            subject = predicate = None\n            expect = \"subject\"\n        elif token == \";\":\n            expect = \"predicate\"\n        elif token == \",\":\n            expect = \"object\"\n        elif expect == \"subject\":\n            subject, expect = token, \"predicate\"\n        elif expect == \"predicate\":\n            predicate = \"rdf:type\" if token == \"a\" else token\n            expect = \"object\"\n        else:\n            triples.add((subject, predicate, token))\n    return triples",
+      "test": "text = \"\"\"\n# people\nex:alice a foaf:Person ;\n    foaf:name \"Alice\" ;\n    foaf:knows ex:bob , ex:carol .\n\nex:bob a foaf:Person .\n\"\"\"\nparsed = parse_turtle(text)\nassert parsed == {\n    (\"ex:alice\", \"rdf:type\", \"foaf:Person\"),\n    (\"ex:alice\", \"foaf:name\", '\"Alice\"'),\n    (\"ex:alice\", \"foaf:knows\", \"ex:bob\"),\n    (\"ex:alice\", \"foaf:knows\", \"ex:carol\"),\n    (\"ex:bob\", \"rdf:type\", \"foaf:Person\"),\n}, sorted(parsed)\n\nassert parse_turtle(\"\") == set()\nassert parse_turtle(\"# nothing but a comment\\n\") == set()\nassert len(parse_turtle(\"ex:a ex:p ex:b .\\nex:a ex:p ex:b .\")) == 1, \"a set, not a list\"\n\nsugar = parse_turtle(\"ex:a ex:p a .\")\nassert sugar == {(\"ex:a\", \"ex:p\", \"a\")}, sugar\n\none_line = parse_turtle(\"ex:x ex:p ex:y ; ex:q ex:z . ex:y ex:p ex:x .\")\nassert one_line == {\n    (\"ex:x\", \"ex:p\", \"ex:y\"),\n    (\"ex:x\", \"ex:q\", \"ex:z\"),\n    (\"ex:y\", \"ex:p\", \"ex:x\"),\n}, sorted(one_line)"
+    },
+    {
+      "id": "rdflib-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A nightly job writes its graph to a file and, alongside it, saves references to the anonymous nodes it created so that tomorrow's run can find and update them. What breaks, and when?",
+      "explanation": "Local, unstable identity is the whole deal you accept in exchange for not having to name something. It fails immediately rather than gradually, which is at least a mercy.",
+      "grade_id": "rdflib-d486a26a3ce40b4e",
+      "options": [
+        "The internal names given to anonymous nodes are local to one graph and are made afresh every time a file is read, so the saved references stop resolving on the very next run \u2014 anything that has to be referred to later needs a real, minted identifier",
+        "Nothing breaks until two anonymous nodes are given the same internal name, which becomes likely once the graph passes a few million nodes",
+        "The references survive unless the serialization format is changed, since each format has its own convention for writing those names out",
+        "Anonymous nodes cannot be written out at all, so the nightly file silently loses them along with everything attached"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "rdflib-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "A prototype built on the in-memory Python library works well and is now going to production: eighty million statements and a query endpoint exposed to the public. Say what has to change, what genuinely carries over, and what evidence would make you question the choice of this data model altogether.",
+      "explanation": "The library is a development and prototyping tool that happens to implement the standards faithfully \u2014 which is exactly what makes the queries portable and the runtime replaceable. Scaling it is a change of engine, not a rewrite, unless the data was never a good fit.",
+      "grade_id": "rdflib-0283338ab77bcd4d",
+      "expected": "A correct answer must separate the three. CARRIES OVER: the data model, the vocabularies and identifiers, and \u2014 crucially \u2014 the queries themselves, since the same query text runs against a server; prototyping locally in order to move later is a legitimate plan. MUST CHANGE: the in-memory graph is not a deployment \u2014 it does not persist, it holds everything in one process's memory, and it is not built for that volume or for concurrent writers, so a dedicated store that persists, indexes and serves the query protocol replaces it; and because the library performs no inference, any entailment the application relies on has to become an explicit step, either materialised in advance or provided by the store. The public endpoint needs enforced time and row limits, since an unbounded path query is a denial of service. WOULD QUESTION THE MODEL: if the data turns out to be uniform, high-volume and transactional with no external datasets to join and no need for shared semantics, a relational store is simpler and faster; and if relationships carry their own attributes and the workload is local traversal, a property graph is more ergonomic."
+    }
+  ]
+}

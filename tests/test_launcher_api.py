@@ -1108,14 +1108,34 @@ def test_the_next_topic_is_locked_until_this_one_is_finished(
 
 
 def test_an_ungated_seed_notebook_is_open_and_says_so(client: TestClient) -> None:
-    """221 hand-written notebooks have no checks: nothing to gate, nothing locked."""
-    library = client.get("/api/library").json()
-    seed = next(d for d in library["domains"] if not d["dir"].startswith("subjects/"))
-    assert not any(t["gated"] or t["locked"] for t in seed["topics"])
+    """A seed notebook with no checks beside it gates nothing and locks nothing.
 
-    state = client.get(f"/api/study/{seed['topics'][0]['rel']}").json()
+    The topic is chosen by its state, not by its position: the gating backfill turns
+    seed domains gated one at a time, so "the first seed domain" stops meaning "an
+    ungated one" as coverage rises. The property under test never moved.
+    """
+    library = client.get("/api/library").json()
+    seeds = [d for d in library["domains"] if not d["dir"].startswith("subjects/")]
+    ungated = [t for d in seeds for t in d["topics"] if not t["gated"]]
+    assert ungated, "the seed library has no ungated notebook left to check"
+
+    state = client.get(f"/api/study/{ungated[0]['rel']}").json()
     assert state["gated"] is False and state["sections"] == []
-    assert state["locked"] is False
+
+    # Locking belongs to the module, not to the notebook: an ungated topic sitting
+    # after an unfinished gate in the same module is locked BY that gate, which is
+    # module_gates()'s ordering rule and is what a backfilled domain now looks like.
+    # The complementary claim — a module carrying NO gate locks nothing — is asserted
+    # against module_gates() rather than against the shipped library, because after the
+    # backfill every seed domain carries at least one gate and there is no such module
+    # left to point at. The rule is the thing under test; the library is not.
+    from praxis.progress import module_gates
+
+    rels = [t["rel"] for t in seeds[0]["topics"]][:3]
+    open_module = module_gates(rels, {rel: None for rel in rels}, {})
+    assert not any(state["locked"] for state in open_module.values())
+    assert not any(state["gated"] for state in open_module.values())
+    assert all(state["blockedBy"] == "" for state in open_module.values())
 
 
 # --- the gate's authority, at the API ----------------------------------------

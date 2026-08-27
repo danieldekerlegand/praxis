@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "voronoi-delaunay",
+  "title": "Voronoi / Delaunay",
+  "domain": "09-procedural-generation",
+  "runnable": true,
+  "generated": "2026-08-27T07:20:04+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "voronoi-delaunay-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A world generator needs three things from a scatter of seed points: organic-looking province polygons, a graph saying which provinces border which so armies can move between neighbours, and an even spread of the seeds so no province is tiny. Which structures supply which?",
+      "explanation": "The two structures are duals and answer different questions: one is who owns which space, the other is who is adjacent to whom. Getting adjacency from the dual is exact and free, which is much better than thresholding distances. And the relaxation is the standard way to turn a random scatter into an even one while keeping it irregular.",
+      "grade_id": "voronoi-delaunay-2881be97808bb463",
+      "options": [
+        "The partition into nearest-site regions gives the province polygons; its dual \u2014 join two sites exactly when their regions share a border \u2014 gives the adjacency graph directly, so no distance thresholding is needed; and repeatedly moving each site to the centre of the region it owns spreads a clumped scatter into an even one",
+        "The partition gives the polygons and the adjacency, and the dual triangulation is only needed for mesh generation; evenness requires re-sampling the seeds from scratch until no two are close",
+        "The dual triangulation gives the polygons and the partition gives the adjacency \u2014 the two are commonly stated the wrong way round; evenness comes from using a hexagonal lattice instead of a scatter",
+        "All three require the dual triangulation: the polygons are its faces, adjacency is its edges, and evenness follows automatically from the empty-circumcircle property"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "voronoi-delaunay-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Explain the two structures in terms of one scatter of points, say precisely where a border between two regions lies and why that makes the regions convex, and state what property of the triangulation makes it preferable to an arbitrary triangulation of the same points.",
+      "explanation": "Everything follows from nearest-site assignment: bisectors give straight borders, intersecting half-planes give convexity, and the dual gives adjacency for free. The empty-circumcircle property is what makes the triangulation the well-shaped one rather than merely a triangulation.",
+      "grade_id": "voronoi-delaunay-ad31bbc970ba117c",
+      "expected": "A correct answer must define both and give the geometric facts. Given a set of sites, the first structure assigns every location in the plane to whichever site is nearest, so the plane is divided into one region per site. The border between two neighbouring regions is the set of points equidistant from those two sites, which is the perpendicular bisector of the segment joining them \u2014 a straight line. Each region is therefore the intersection of half-planes, one per competing site, and an intersection of half-planes is convex, which is why the regions are convex polygons. The second structure is the dual: put an edge between two sites exactly when their regions share a border segment. So one structure answers who owns this space and the other answers who is adjacent to whom, from the same input. The property that makes the triangulation preferable is that no site lies inside the circumscribed circle of any triangle; a consequence is that it maximises the smallest angle across all triangulations of those points, so it avoids long thin slivers \u2014 which matters for meshes, interpolation and anything numerical. Noting that its edges are a superset of the nearest-neighbour graph and of the minimum spanning tree, so it is a good scaffold for roads or rivers, is a plus."
+    },
+    {
+      "id": "voronoi-delaunay-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Code computes the regions for 300 sites and then colours each site's polygon by looking up the region at the same index in the list of regions. Areas come out attached to the wrong sites, several polygons cannot be filled at all, and one entry is empty. What are the three issues?",
+      "explanation": "Three separate facts about the data structure, each with a silent failure mode. The site-to-region correspondence goes through an explicit mapping, not through position. Sites on the convex hull genuinely have unbounded regions, so anything that needs an area or a fill has to bound them first. And the empty entry is an artefact of the representation, to be skipped rather than debugged.",
+      "grade_id": "voronoi-delaunay-47444cbdeb60055e",
+      "options": [
+        "The region list is not in site order, so a site must be mapped to its region through the library's index-mapping array rather than by position \u2014 that is the wrong-colours bug. The unfillable polygons belong to sites on the outer boundary, whose regions extend to infinity and so have no finite vertex list; they must be clipped to a bounding box or surrounded by distant guard sites. And one empty entry in the region list is normal and should be skipped",
+        "All three come from duplicate sites, which produce degenerate regions; removing duplicates fixes the ordering, the infinite regions and the empty entry",
+        "The ordering is correct and the wrong colours come from the polygons being listed clockwise rather than anticlockwise; the unfillable ones are numerically degenerate and need a tolerance",
+        "The library returns regions sorted by area, so sorting the sites by area restores the correspondence; the infinite regions are a bug that a newer version fixes"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "voronoi-delaunay-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Compute the structures by sampling. Implement `owner(point, sites)`, returning the sorted indices of the nearest sites to `point`, with ties within a tolerance of 1e-12 in squared distance all included. Implement `delaunay_edges(sites, samples, width, height)`, which walks a `samples` by `samples` lattice of cell centres over the rectangle from the origin to `(width, height)` \u2014 sample `(i, j)` sitting at `(width * (i + 0.5) / samples, height * (j + 0.5) / samples)` \u2014 and records an edge between two site indices whenever a sample is tied between them, or whenever a sample and its immediate neighbour one lattice step to the right or one step up have different owners; return the sorted list of index pairs, each with the smaller index first. Implement `lloyd(sites, samples, width, height)`, which returns a new list of sites where each has been moved to the average position of the lattice samples it owns outright, leaving a site that owns no samples exactly where it was. Raise `ValueError` for no sites, for fewer than two sites when computing edges, and for fewer than two samples per axis. Standard library only.",
+      "explanation": "Three assertions state the geometry. A point exactly between two sites is owned by both, which is the border, and it lies on the perpendicular bisector \u2014 that is why the regions have straight edges and are convex. Adjacency is detected by finding where ownership changes, which is the dual relationship made operational: two sites are joined precisely because their regions touch, rather than because they happen to be close. And the relaxation assertions show what it is for: a badly clumped scatter has its closest pair pushed apart on each pass, converging toward an even but still irregular arrangement \u2014 while an already-symmetric one barely moves, being near a fixed point.",
+      "grade_id": "voronoi-delaunay-5c57844e8a6d413c",
+      "starter": "def owner(point, sites):\n    ...\n\n\ndef delaunay_edges(sites, samples, width, height):\n    ...\n\n\ndef lloyd(sites, samples, width, height):\n    ...",
+      "solution": "import math\n\n\ndef owner(point, sites):\n    if not sites:\n        raise ValueError(\"no sites\")\n    best = None\n    best_d = None\n    for index, site in enumerate(sites):\n        d = (site[0] - point[0]) ** 2 + (site[1] - point[1]) ** 2\n        if best_d is None or d < best_d - 1e-12:\n            best, best_d = [index], d\n        elif abs(d - best_d) <= 1e-12:\n            best.append(index)\n    return sorted(best)\n\n\ndef delaunay_edges(sites, samples, width, height):\n    if len(sites) < 2:\n        raise ValueError(\"need at least two sites\")\n    if samples < 2:\n        raise ValueError(\"need at least two samples per axis\")\n    edges = set()\n    for j in range(samples):\n        for i in range(samples):\n            x = width * (i + 0.5) / samples\n            y = height * (j + 0.5) / samples\n            here = owner((x, y), sites)\n            if len(here) > 1:\n                for a in range(len(here)):\n                    for b in range(a + 1, len(here)):\n                        edges.add((here[a], here[b]))\n                continue\n            for dx, dy in ((width / samples, 0.0), (0.0, height / samples)):\n                if x + dx > width or y + dy > height:\n                    continue\n                there = owner((x + dx, y + dy), sites)\n                if there[0] != here[0]:\n                    edges.add(tuple(sorted((here[0], there[0]))))\n    return sorted(edges)\n\n\ndef lloyd(sites, samples, width, height):\n    totals = [[0.0, 0.0, 0] for _ in sites]\n    for j in range(samples):\n        for i in range(samples):\n            x = width * (i + 0.5) / samples\n            y = height * (j + 0.5) / samples\n            index = owner((x, y), sites)[0]\n            totals[index][0] += x\n            totals[index][1] += y\n            totals[index][2] += 1\n    moved = []\n    for site, (sx, sy, n) in zip(sites, totals):\n        moved.append(site if n == 0 else (sx / n, sy / n))\n    return moved",
+      "test": "import math\n\nSITES = [(1.0, 1.0), (3.0, 1.0), (1.0, 3.0), (3.0, 3.0)]\n\n# Every location belongs to its nearest site -- that is the whole definition.\nassert owner((0.9, 0.9), SITES) == [0]\nassert owner((2.9, 3.1), SITES) == [3]\n\n# The border between two cells falls exactly halfway between them, on the\n# perpendicular bisector -- which is why the cells are convex polygons.\nassert owner((2.0, 1.0), SITES) == [0, 1], owner((2.0, 1.0), SITES)\nassert owner((1.0, 2.0), SITES) == [0, 2]\n# ...and the point equidistant from all four is a corner of four cells at once.\nassert owner((2.0, 2.0), SITES) == [0, 1, 2, 3]\n\n# Adjacency is the dual: two sites are joined exactly when their cells share a\n# border. Here the four sites form a square, so the four sides are edges...\nedges = delaunay_edges(SITES, 40, 4.0, 4.0)\nfor side in ((0, 1), (0, 2), (1, 3), (2, 3)):\n    assert side in edges, (side, edges)\n# ...and only those four: the two diagonal pairs meet at a single point rather than\n# along a border segment, which is the degenerate case four co-circular sites create.\nassert edges == [(0, 1), (0, 2), (1, 3), (2, 3)], edges\n\n# Three sites in general position: every pair of regions shares a border, so all\n# three edges appear.\nTRI = [(0.5, 0.5), (3.5, 0.5), (2.0, 3.5)]\nassert delaunay_edges(TRI, 40, 4.0, 4.0) == [(0, 1), (0, 2), (1, 2)], \\\n    delaunay_edges(TRI, 40, 4.0, 4.0)\n\n# A distant site borders nobody it is not actually next to.\nFAR = [(1.0, 1.0), (3.0, 1.0), (50.0, 50.0)]\nfar_edges = delaunay_edges(FAR, 30, 60.0, 60.0)\nassert (0, 1) in far_edges\nassert len(far_edges) >= 2\n\n# Relaxation moves each site toward the middle of the region it owns, so a badly\n# clumped scatter spreads out: the closest pair gets further apart.\ndef closest(points):\n    return min(math.dist(a, b)\n               for i, a in enumerate(points) for b in points[i + 1:])\n\n\nCLUMP = [(0.2, 0.2), (0.3, 0.25), (0.25, 0.35), (3.5, 3.5)]\nonce = lloyd(CLUMP, 40, 4.0, 4.0)\nassert closest(once) > closest(CLUMP), (closest(CLUMP), closest(once))\ntwice = lloyd(once, 40, 4.0, 4.0)\nassert closest(twice) > closest(once), (closest(once), closest(twice))\n\n# A site that owns nothing at all is left where it is rather than moving to nowhere.\nburied = lloyd([(2.0, 2.0), (2.0, 2.0)], 10, 4.0, 4.0)\nassert buried[1] == (2.0, 2.0), buried\n\n# An already-symmetric arrangement is close to a fixed point of the relaxation.\nrelaxed = lloyd(SITES, 40, 4.0, 4.0)\nassert all(math.dist(a, b) < 0.2 for a, b in zip(relaxed, SITES)), relaxed\n\nfor bad in (lambda: owner((0.0, 0.0), []),\n            lambda: delaunay_edges([(1.0, 1.0)], 10, 4.0, 4.0),\n            lambda: delaunay_edges(SITES, 1, 4.0, 4.0)):\n    try:\n        bad()\n    except ValueError:\n        continue\n    raise AssertionError(\"must be rejected\")"
+    },
+    {
+      "id": "voronoi-delaunay-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A generator relaxes its sites repeatedly and finds that all of them drift steadily toward the middle of the map, leaving the borders empty. Separately, a perfectly regular grid of sites causes the triangulation library to error. What are the causes?",
+      "explanation": "Both are consequences of the structure meeting a real input. Outer sites genuinely have unbounded regions, so their centres do not exist and relaxation must be told what to do about them. And co-circular inputs \u2014 a regular grid being the worst case \u2014 make the triangulation genuinely non-unique, which is why the standard advice is to perturb the points slightly.",
+      "grade_id": "voronoi-delaunay-cfbd6a6630a6bf2a",
+      "options": [
+        "The drift is from relaxing sites whose regions are unbounded: a region extending to infinity has no well-defined centre, so relaxing the outer sites is meaningless and any finite substitute pulls them inward. Clip the regions to the domain, or hold the boundary sites fixed. The error is degeneracy: a regular grid puts many sites on a common circle, so the triangulation is genuinely ambiguous \u2014 add a tiny jitter, or ask the library to perturb the input for you",
+        "Both come from too few relaxation passes; running to convergence spreads the sites back out and resolves the ambiguity",
+        "The drift means the domain bounds are being applied after relaxation rather than before; the error means duplicate sites, which a tolerance-based deduplication removes",
+        "The drift is correct behaviour, since relaxation converges to a centroidal arrangement in which all sites are central; the error is a bug in the library"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "voronoi-delaunay-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four jobs. (a) Scatter rocks so none are closer than two metres. (b) A province map with an adjacency graph. (c) A terrain mesh of well-shaped triangles. (d) Territories on a globe. Assign each and give the deciding property, then say what distinguishes the first from the third case even though both involve point sets.",
+      "explanation": "Two of the four want a structure over the points and two want something about the points themselves. The last case is the reminder that these constructions are defined against a metric \u2014 change the space and the planar version is not merely less accurate but wrong.",
+      "grade_id": "voronoi-delaunay-23443a4c5e61ce8c",
+      "expected": "A correct answer must place all four. (a) Dart-throwing with a rejection radius: all that is wanted is a minimum spacing, and that method is simpler and faster than constructing regions and relaxing them \u2014 the deciding property is that no cells or adjacency are needed, only distance. (b) The nearest-site partition together with its dual: the polygons are the provinces and the dual's edges are exactly the borders, so adjacency comes for free rather than from a distance threshold \u2014 the deciding property is that the deliverable includes a graph as well as shapes. (c) The dual triangulation: its defining empty-circumcircle property maximises the smallest angle, so it avoids the sliver triangles that a naive fan or grid triangulation produces and that make numerical work on the mesh badly conditioned \u2014 the deciding property is triangle quality. (d) The spherical variants of the same constructions: the planar versions assume a flat Euclidean plane and go wrong near the poles, so a globe needs the geodesic formulation \u2014 the deciding property is the geometry of the domain, not the algorithm. What distinguishes the first from the third: in one case the point set is the answer and only its spacing matters, while in the other the points are the input to a structure and what matters is the quality of the triangles built over them. Noting that relaxation would also produce an even scatter for the first case but at much greater cost is a plus."
+    }
+  ]
+}

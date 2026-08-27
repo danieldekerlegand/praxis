@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "perlin-noise",
+  "title": "Perlin Noise",
+  "domain": "09-procedural-generation",
+  "runnable": true,
+  "generated": "2026-08-27T07:19:36+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "perlin-noise-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A developer generates terrain by calling the language's random-number function once per grid cell and is surprised the result looks like television static rather than hills. They propose averaging each cell with its neighbours repeatedly until it looks smooth. What is the real difference, and what is wrong with the proposed repair?",
+      "explanation": "Spatial coherence \u2014 nearby inputs giving nearby outputs \u2014 is the whole point, and blurring is one way to fake it. What it costs is the two properties that make the real thing valuable in generation: it is a continuous function of position, so you can ask for the value anywhere without materialising a grid, and it is deterministic in the coordinates, so an infinite world can be streamed and regenerated rather than stored.",
+      "grade_id": "perlin-noise-75ac4cc2fb4c79ae",
+      "options": [
+        "Independent draws have no relationship between nearby positions, which is exactly the property terrain has and static lacks. Blurring does impose some relationship, but it destroys the two things that make this technique useful: the result is no longer a function you can evaluate at any position on demand \u2014 you have to build and keep the whole grid \u2014 and it is no longer directly seekable, so an endless world cannot be regenerated a piece at a time from coordinates alone",
+        "There is no real difference \u2014 blurring independent draws is mathematically identical to gradient noise, and the proposed repair is the standard implementation",
+        "The difference is only the output range: independent draws are uniformly distributed and the technique produces a bell-shaped distribution, which is what makes it look like terrain",
+        "Blurring is the correct repair, but it must be applied in the frequency domain rather than by averaging neighbours, which is what the technique does internally"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "perlin-noise-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A colleague implements 'noise' by putting a random VALUE at each lattice point and interpolating between them, and complains the output has a visible grid of blobs. Explain what the technique actually places at the lattice points, how a value is computed from them, and why that construction has no grid artefact.",
+      "explanation": "Randomising directions rather than heights is the entire difference between the two techniques, and the zero-at-the-lattice property is what removes the artefact. It is also why so many tutorials labelled with this technique's name are actually showing the colleague's version.",
+      "grade_id": "perlin-noise-81430de968f43488",
+      "expected": "A correct answer must identify what is randomised and what follows from it. What is placed at each lattice point is not a value but a random direction \u2014 a unit vector \u2014 which is why this is called gradient noise. To evaluate at a point, find the cell containing it, and for each of that cell's corners take the dot product of that corner's direction with the offset from the corner to the point. Each of those is a linear ramp: signed according to whether the point lies along the corner's direction, and, crucially, exactly zero at the corner itself. The value is then a smooth blend of the corner ramps, with the interpolation parameter first passed through an easing curve that is flat at both ends. Why there is no grid: because every corner contributes zero at its own position, the field's value is zero at every lattice point rather than taking a distinctive random value there, so there is nothing at the lattice points for the eye to pick out \u2014 the randomness is expressed in the slopes between them, not in the heights at them. The colleague's construction randomises the heights, so each lattice point is an extreme of the field and the grid of them is exactly what you see. Noting that the easing curve is chosen so that not only the value but the slope, and in the improved version the curvature, match at cell boundaries \u2014 which is why adjacent cells join without a visible crease under lighting \u2014 is a plus."
+    },
+    {
+      "id": "perlin-noise-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A terrain looks like smooth blobs at the size of a valley, with no fine texture. Three changes are proposed: render at four times the pixel resolution; increase the number of lattice cells per unit distance; add more layers at doubling rates and halving amplitudes. What does each actually do?",
+      "explanation": "Resolution, feature size and fractal richness are three separate knobs and only the last produces detail at multiple scales simultaneously. Sampling a continuous function more finely cannot invent structure that is not in the function, which is the confusion the notebook flags directly.",
+      "grade_id": "perlin-noise-c5673d1e99dcf3ad",
+      "options": [
+        "Rendering more pixels samples the same continuous function more densely and adds no new structure at all \u2014 the blobs simply get smoother edges. Increasing the lattice density makes the features themselves smaller, turning valley-sized blobs into hill-sized ones but still with no texture within them. Adding layers is the change that produces fine detail on top of the coarse shape, because each layer contributes structure at a smaller scale and a smaller amplitude",
+        "All three are equivalent ways of adding detail; the third is simply the most convenient to write",
+        "Rendering more pixels adds detail because the function is evaluated at more points; increasing the lattice density has no visible effect since the field is continuous; adding layers only changes the output's range",
+        "Increasing the lattice density adds fine texture within the existing blobs, while adding layers changes the overall size of the features \u2014 the two are commonly stated the wrong way round"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "perlin-noise-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Build the one-dimensional core. Implement `fade(t)`, `perlin1d(x, gradients)` and `fbm1d(x, layers, lacunarity=2.0, gain=0.5)`. `fade(t)` is the quintic easing curve `6t^5 - 15t^4 + 10t^3`. `gradients` holds one gradient per integer lattice point, spaced one unit apart, so the lattice spans 0 to `len(gradients) - 1`. To evaluate at `x`: let `i` be the index of the cell containing it (clamped so that `x` exactly at the right-hand end uses the last cell) and `t = x - i`; the left corner's ramp is `gradients[i] * t`, the right corner's is `gradients[i + 1] * (t - 1)`, and the result is the linear interpolation from left to right using `fade(t)` as the parameter. `fbm1d` sums octaves: for each entry of `layers` in order, add `amplitude * perlin1d(x * frequency, layer)`, starting at frequency 1 and amplitude 1 and multiplying them by `lacunarity` and `gain` after each. Raise `ValueError` for fewer than two gradients, for an `x` outside the lattice, and for an empty `layers`. Standard library only.",
+      "explanation": "Two assertions here are the whole construction. The field is exactly zero at every lattice point regardless of the gradients \u2014 that is what stops the lattice from being visible, and it falls out of each corner's ramp being zero at its own corner rather than being enforced anywhere. And the numerical slope at a lattice point comes back equal to that point's gradient, which is the sense in which the random data really is a field of directions: the arrows are the derivative of the surface where they sit. The octave assertions show the other half of the picture \u2014 each additional layer varies faster and contributes less, so the coarse shape is preserved while detail accumulates on top of it, which is why the sum looks fractal rather than merely noisier.",
+      "grade_id": "perlin-noise-4dcc702ac8843edc",
+      "starter": "def fade(t):\n    ...\n\n\ndef perlin1d(x, gradients):\n    ...\n\n\ndef fbm1d(x, layers, lacunarity=2.0, gain=0.5):\n    ...",
+      "solution": "def fade(t):\n    return t * t * t * (t * (t * 6 - 15) + 10)\n\n\ndef perlin1d(x, gradients):\n    n = len(gradients)\n    if n < 2:\n        raise ValueError(\"need at least two lattice gradients\")\n    if not 0 <= x <= n - 1:\n        raise ValueError(f\"x={x} is outside the lattice [0, {n - 1}]\")\n    i = int(x)\n    if i == n - 1:\n        i = n - 2\n    t = x - i\n    left = gradients[i] * t\n    right = gradients[i + 1] * (t - 1.0)\n    u = fade(t)\n    return left + u * (right - left)\n\n\ndef fbm1d(x, layers, lacunarity=2.0, gain=0.5):\n    if not layers:\n        raise ValueError(\"need at least one octave\")\n    total = 0.0\n    frequency = 1.0\n    amplitude = 1.0\n    for gradients in layers:\n        total += amplitude * perlin1d(x * frequency, gradients)\n        frequency *= lacunarity\n        amplitude *= gain\n    return total",
+      "test": "G = [1.0, -1.0, 0.5, -0.25, 1.0, 0.75, -1.0, -0.5, 0.25]\n\n# The defining property of gradient noise: the value is exactly zero at every\n# lattice point, whatever the gradients are. This is why no grid shows through.\nfor i in range(len(G)):\n    assert perlin1d(float(i), G) == 0.0, i\n\n# The fade curve is flat at both ends and passes through the midpoint.\nassert fade(0.0) == 0.0 and fade(1.0) == 1.0\nassert abs(fade(0.5) - 0.5) < 1e-12\nassert fade(0.25) < 0.25 and fade(0.75) > 0.75, \"the curve eases in and out\"\n\n# Zero gradients everywhere give a flat field, not merely a smooth one.\nflat = [0.0] * 5\nassert all(perlin1d(x / 8, flat) == 0.0 for x in range(33))\n\n# The slope at a lattice point is that point's own gradient -- the arrows are\n# literally the derivative of the field where they sit.\nh = 1e-6\nfor i in (0, 2, 5):\n    slope = (perlin1d(i + h, G) - perlin1d(float(i), G)) / h\n    assert abs(slope - G[i]) < 1e-3, (i, slope, G[i])\n\n# Continuity across a cell boundary: approaching a lattice point from either side\n# converges on the same value, so neighbouring cells join without a seam.\nfor i in (1, 3, 6):\n    assert abs(perlin1d(i - h, G)) < 1e-5 and abs(perlin1d(i + h, G)) < 1e-5\n\n# Deterministic and bounded well inside the theoretical extremes.\nassert perlin1d(2.37, G) == perlin1d(2.37, G)\nassert max(abs(perlin1d(x / 100, G)) for x in range(801)) < 0.6\n\n# Stacking octaves: each layer contributes at half the amplitude and twice the rate,\n# so the coarse shape survives while fine wiggles are added.\nL1, L2, L3 = G, [0.8, -0.6] * 9, [-1.0, 1.0] * 17\none = [fbm1d(x / 50, [L1]) for x in range(200)]\nthree = [fbm1d(x / 50, [L1, L2, L3]) for x in range(200)]\nassert one != three, \"extra octaves must change the field\"\nassert max(abs(a - b) for a, b in zip(one, three)) < 1.0, \"and only add detail\"\n\n# Every layer is zero at the origin, so the sum is too.\nassert fbm1d(0.0, [L1, L2, L3]) == 0.0\n\n# A smaller gain damps the added octaves; a gain of zero leaves the first alone.\nassert fbm1d(1.3, [L1, L2, L3], gain=0.0) == fbm1d(1.3, [L1])\nassert abs(fbm1d(1.3, [L1, L2, L3], gain=0.1) - fbm1d(1.3, [L1])) < \\\n       abs(fbm1d(1.3, [L1, L2, L3], gain=0.9) - fbm1d(1.3, [L1]))\n\nfor bad in (lambda: perlin1d(-0.1, G), lambda: perlin1d(len(G) + 0.5, G),\n            lambda: perlin1d(0.5, [1.0]), lambda: fbm1d(0.5, [])):\n    try:\n        bad()\n    except ValueError:\n        continue\n    raise AssertionError(\"must be rejected\")"
+    },
+    {
+      "id": "perlin-noise-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A team lights a generated heightmap and sees faint regular creases running along cell boundaries, plus faint streaks aligned with the two axes. They also find the field never quite reaches the range they assumed when mapping it to colours. Which set of diagnoses is right?",
+      "explanation": "Three separate facts. The easing curve is chosen for its second derivative, not just its shape, and the consequence only becomes visible under lighting. The axis bias is inherent to a square lattice and is precisely why the successor technique exists. And the practical range is narrower than the theoretical one, which is why mapping to colours or heights should always normalise against what was actually produced.",
+      "grade_id": "perlin-noise-c5ebf101423346bc",
+      "options": [
+        "The creases come from an easing curve whose second derivative is nonzero at the cell boundaries \u2014 the older cubic \u2014 which is invisible in the height itself but shows up once surface normals are computed; the quintic curve fixes it. The streaks are the technique's known bias along the lattice axes, which is the reason its successor uses a triangular lattice. And the output does not reliably reach its theoretical extremes, so it should be normalised from its observed range before being mapped to anything",
+        "All three are symptoms of too few octaves: adding layers removes the creases, breaks up the axis alignment and widens the output range",
+        "The creases and the streaks are the same artefact seen at two scales, both fixed by increasing the lattice density; the range issue is a separate bug in the interpolation",
+        "The creases indicate the gradients were not normalised to unit length, the streaks indicate a seeding mistake reusing one pattern across octaves, and the range is correct as specified"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "perlin-noise-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four generation tasks. (a) A continuous height field for an endless world streamed a chunk at a time. (b) Placing 400 trees so they look randomly scattered but never clump or leave bald patches. (c) Cracked-stone and reptile-scale textures. (d) A volumetric cloud field animated over time, wanted in four dimensions and as fast as possible. Recommend and justify each.",
+      "explanation": "Only the first two words of the question \u2014 continuous field \u2014 pick out this technique's territory. Point placement and cell patterns are different problems with different tools, and higher dimensions are where its successor stops being a refinement and becomes the practical choice.",
+      "grade_id": "perlin-noise-7a5b80e93549af18",
+      "expected": "A correct answer must place all four with a decisive property. (a) This technique, or its successor: it is a deterministic function of position, so a chunk can be generated from its coordinates alone and regenerated identically later without anything being stored, and the field is continuous so chunk boundaries match \u2014 the deciding property is that the output is a function rather than a data structure. (b) Not a continuous field at all: the requirement is a set of points with a minimum separation and no large gaps, which is what dart-throwing with a rejection radius, or the blue-noise family generally, produces \u2014 the deciding property is that the deliverable is point placement, and sampling a smooth field would not enforce a spacing constraint. (c) Cellular noise: its look comes from distance to the nearest of a set of scattered feature points, which produces cell and blob patterns rather than rolling hills \u2014 the deciding property is the shape of the pattern wanted, which is not smooth undulation. (d) The successor technique built on a triangular lattice: it has markedly fewer directional artefacts and, importantly here, its cost grows far better with dimension, so an animated volumetric field \u2014 three spatial dimensions plus time \u2014 is exactly where the original's cost and artefacts are worst. Noting that the patent that once discouraged its use has expired, and that a patent-free reimplementation exists in any case, is a plus."
+    }
+  ]
+}

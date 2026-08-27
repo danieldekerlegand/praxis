@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "swi-prolog",
+  "title": "SWI-Prolog",
+  "domain": "01-symbolic-ai-logic",
+  "runnable": true,
+  "generated": "2026-08-27T05:49:58+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "swi-prolog-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "Your team keeps an org chart as a table of direct-report pairs and needs to answer 'who, at any level above her, may sign off Ann's expenses?' for chains of unknown depth. What makes this a better fit for SWI-Prolog than for a hand-written Python traversal?",
+      "explanation": "The value is declarative: you state the relation and the engine derives it. Speed is not the argument, and termination is emphatically not guaranteed \u2014 Prolog has function symbols and general recursion, which is exactly the property Datalog gives up in exchange.",
+      "grade_id": "swi-prolog-8c986e0b88aa59e2",
+      "options": [
+        "The answer is defined by a rule over the same table it queries, and the engine supplies the depth-first search and backtracking, so nothing about the frontier, the visiting order or the termination has to be coded",
+        "Prolog stores the pairs in an indexed database, so lookups are asymptotically faster than a Python dictionary of adjacency lists",
+        "Prolog guarantees the query terminates on any input, so a cycle in the reporting chain cannot hang the program",
+        "Prolog evaluates the rule concurrently across the pairs, so deep chains are resolved in parallel"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "swi-prolog-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Someone reorders the `parent/2` facts in the family program \u2014 same five facts, different lines. Using the two ideas the mental model rests on, say what this can and cannot change about `grandparent(tom, Who)`, and name one reordering elsewhere in a program that could change far more than that.",
+      "explanation": "Declarative reading gives you the answer set; the operational reading \u2014 depth-first, top-to-bottom, backtrack on failure \u2014 gives you order, cost and termination. Confusing the two is what makes clause order feel arbitrary until a program suddenly loops.",
+      "grade_id": "swi-prolog-a599887ed15cfe7f",
+      "expected": "A correct answer must separate the two: the SET of answers is unchanged, because every clause is still tried on backtracking and unification does not care which line a fact sits on; what changes is the ORDER in which answers are produced, and therefore which one `once/1` or a first-solution query returns, plus how much search happens before each. It must then name a reordering that changes more: moving a recursive clause of a predicate ahead of its base case, or putting a recursive goal before the goal that narrows the search (left recursion), can turn a terminating predicate into an infinite loop \u2014 because the search is depth-first and commits to the first matching clause before it ever reaches the later one."
+    },
+    {
+      "id": "swi-prolog-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A predicate must succeed exactly when two arithmetic expressions come out to the same number, and both expressions are already fully instantiated. Which of Prolog's comparison operators does the job, and what goes wrong with the others here?",
+      "explanation": "`is/2` evaluates its RIGHT side only and unifies the result with its left, so it cannot compare two expressions; `=` and `==` are structural and never evaluate. Only `=:=` evaluates both sides.",
+      "grade_id": "swi-prolog-6b479b68784b0a4a",
+      "options": [
+        "`=:=`, which evaluates each side and compares the results; `=` would instead try to make the two unevaluated structures match, and `==` asks whether they are already the identical term without binding anything, so both fail for `2+3` against `5`",
+        "`=`, because arithmetic is evaluated automatically whenever both sides are ground",
+        "`==`, because it is the strictest of the three and therefore the safest default",
+        "`is`, because it is the only operator that performs arithmetic evaluation at all"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "swi-prolog-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement `unify(term_a, term_b)`, the two-way matcher underneath every query in the notebook. Represent a term as: a Python string starting with an uppercase letter for a logic variable; any other string for an atom; and a tuple `(functor, arg, ...)` for a compound term. Return a dict mapping variable names to the terms they were bound to, or None when no binding makes the two terms equal. A variable already bound must follow its binding rather than be bound a second time. Standard library only.",
+      "explanation": "Everything Prolog does at a query step is here: matching is symmetric, a bound variable is dereferenced rather than rebound (which is why `p(X,X)` against `p(a,b)` fails), and compound terms match only on identical functor and arity, recursively. Note there is no occurs check \u2014 the same omission real Prolog makes by default.",
+      "grade_id": "swi-prolog-232a7716b4a1e250",
+      "starter": "def unify(term_a, term_b):\n    \"\"\"Return the bindings that make the two terms equal, or None.\"\"\"\n    ...",
+      "solution": "def unify(term_a, term_b):\n    s = {}\n\n    def isvar(t):\n        return isinstance(t, str) and t[:1].isupper()\n\n    def walk(t):\n        while isvar(t) and t in s:\n            t = s[t]\n        return t\n\n    def rec(x, y):\n        x, y = walk(x), walk(y)\n        if x == y:\n            return True\n        if isvar(x):\n            s[x] = y\n            return True\n        if isvar(y):\n            s[y] = x\n            return True\n        if (isinstance(x, tuple) and isinstance(y, tuple)\n                and len(x) == len(y) and x[0] == y[0]):\n            return all(rec(xi, yi) for xi, yi in zip(x[1:], y[1:]))\n        return False\n\n    return s if rec(term_a, term_b) else None",
+      "test": "def _resolve(t, s):\n    while isinstance(t, str) and t[:1].isupper() and t in s:\n        t = s[t]\n    return t\n\nassert unify(\"a\", \"a\") == {}, \"identical atoms unify, binding nothing\"\nassert unify(\"a\", \"b\") is None, \"different atoms cannot unify\"\nassert unify(\"X\", \"a\") == {\"X\": \"a\"}\nassert unify(\"a\", \"X\") == {\"X\": \"a\"}, \"unification is two-way, not assignment\"\n\nr = unify((\"foo\", \"X\", \"b\"), (\"foo\", \"a\", \"Y\"))\nassert r == {\"X\": \"a\", \"Y\": \"b\"}, r\nassert unify((\"foo\", \"X\"), (\"bar\", \"X\")) is None, \"functor must match\"\nassert unify((\"foo\", \"X\"), (\"foo\", \"X\", \"Y\")) is None, \"arity must match\"\n\nassert unify((\"p\", \"X\", \"X\"), (\"p\", \"a\", \"a\")) == {\"X\": \"a\"}\nassert unify((\"p\", \"X\", \"X\"), (\"p\", \"a\", \"b\")) is None, \"one variable, two values\"\n\nr = unify((\"p\", \"X\", \"Y\"), (\"p\", \"Y\", \"a\"))\nassert r is not None and _resolve(\"X\", r) == \"a\", \"bindings chain through\"\n\nr = unify((\"p\", (\"q\", \"Z\"), \"Y\"), (\"p\", (\"q\", \"b\"), (\"r\", \"c\")))\nassert r is not None and _resolve(\"Z\", r) == \"b\", r\nassert _resolve(\"Y\", r) == (\"r\", \"c\"), r\n\nr = unify((\"p\", \"X\", \"X\"), (\"p\", (\"q\", \"Z\"), (\"q\", \"b\")))\nassert r is not None and _resolve(\"Z\", r) == \"b\", \"a bound variable is followed into\""
+    },
+    {
+      "id": "swi-prolog-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "`safe(X) :- \\\\+ blocked(X), user(X).` yields nothing at all, while `safe2(X) :- user(X), \\\\+ blocked(X).` yields exactly the users you expected. The two bodies contain the same goals. What is going on?",
+      "explanation": "`\\\\+ G` succeeds when G is not provable *as written*. With a free variable, G is provable if any instance is, so the negation fails wholesale. Ground the variable first \u2014 generate, then test.",
+      "grade_id": "swi-prolog-e570c6134db1c480",
+      "options": [
+        "In the first clause the argument is still free when negation runs, so the goal asks whether the database contains no such fact anywhere \u2014 which is false as soon as one exists \u2014 and negation therefore has to run after a goal that has already instantiated it",
+        "Negation as failure may not appear as the first goal of a clause body under the ISO standard, so the first clause is rejected at load time",
+        "Prolog tries only the first clause of a predicate, so `safe/1` never reaches the goals that would produce answers",
+        "The first clause needs a cut before the negation to stop the engine backtracking into it"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "swi-prolog-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "A product lets customers write their own recursive queries over a reporting graph, and those queries run inside your request handler. You are choosing between SWI-Prolog and Datalog for the engine. Say which you pick, what property of the language decides it, and what you give up by choosing it.",
+      "explanation": "This is the one axis on which the two genuinely differ: Prolog buys power with a termination obligation, Datalog buys a termination guarantee with lost expressiveness. Which side you want follows from who writes the queries.",
+      "grade_id": "swi-prolog-239b7dd0cd45aef5",
+      "expected": "A correct answer must pick Datalog and rest the decision on DECIDABILITY: Datalog has no function symbols and no general recursion over constructed terms, so evaluation is guaranteed to reach a fixpoint on a finite database \u2014 an untrusted or machine-generated query cannot loop forever, which is what makes it safe to run inside a request. In SWI-Prolog termination is the program author's responsibility (left recursion, unbounded term construction), so a hostile or careless query can hang the handler; a timeout is damage control, not a guarantee. It must name what is given up: the expressiveness Datalog lacks \u2014 arbitrary data structures and recursion over them, cut, DCG parsing, I/O, CLP(FD) constraint solving \u2014 so anything beyond deductive queries over relations has to live outside the query language."
+    }
+  ]
+}

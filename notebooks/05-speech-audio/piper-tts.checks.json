@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "piper-tts",
+  "title": "Piper TTS",
+  "domain": "05-speech-audio",
+  "runnable": true,
+  "generated": "2026-08-27T08:48:57+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "piper-tts-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A home-automation project needs spoken responses on a small board computer with no accelerator and no guaranteed internet connection, and the household does not want recordings leaving the house. A second project needs a narrator's own voice reproduced from a short sample, with expressive emphasis. Which project is this engine for, and what exactly is being traded away for the other one?",
+      "explanation": "The niche is precise: good-enough, natural-ish speech that runs faster than real time on modest CPUs, entirely offline, with tiny dependencies and no per-character bill. That is why it is the default engine for offline assistants and accessibility. The price is expressiveness \u2014 no zero-shot cloning, and a deliberately minimal control surface with no rich speech markup \u2014 which is why a cloning-and-emphasis requirement belongs to a heavier self-hosted stack or a cloud vendor. Note also that it USES a formant phonemiser for the text-to-phoneme step, but the synthesis itself is a neural model.",
+      "grade_id": "piper-tts-90ece45c2a57d2de",
+      "options": [
+        "The first. It occupies the gap between cloud services and heavy research stacks: near-real-time, fully offline synthesis on commodity low-power hardware, with a voice being a single exported model file of a few tens of megabytes and no per-use cost. What it trades away is exactly what the second project needs \u2014 there is no zero-shot voice cloning and the prosody control surface is deliberately minimal, with no rich markup for pauses or emphasis",
+        "The second. Its strength is expressive cloning from a short sample, while the low-power offline case is better served by a classic formant synthesiser",
+        "Both. It ships a cloning mode that runs on the same hardware; the only trade is that cloned voices take longer to synthesise",
+        "Neither. It is a phonemiser rather than a synthesiser, so both projects need a separate acoustic model and vocoder alongside it"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "piper-tts-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Trace what happens between a string and a waveform in this engine, naming each stage and what carries it. Explain the sense in which a voice is 'one file, one graph' and how that differs from the older two-stage arrangement. Then explain why the accompanying configuration file is described as the contract, listing what it holds and what breaks without it.",
+      "explanation": "",
+      "grade_id": "piper-tts-f61fae9d6efe872e",
+      "expected": "A correct answer must trace the pipeline: text is converted to phonemes by a rule-based phonemiser, those phonemes are mapped to integer ids and framed in a specific layout, and that integer sequence is fed to a single exported neural graph that emits a sixteen-bit waveform directly. The one-file claim must be explained: each voice is an end-to-end architecture \u2014 a text encoder, a flow-based duration and latent model, and an adversarial decoder, trained jointly \u2014 exported to one portable model file, so inference is a single feed-forward graph execution with a lightweight runtime and no accelerator. That contrasts with the older arrangement, where an acoustic model emits a spectrogram and a SEPARATE vocoder turns it into audio, meaning two checkpoints to pair and keep matched. The configuration file must be described as travelling alongside the weights and holding: the sample rate, which phonemiser voice to use, the map from phoneme symbol to integer id, the number of speakers, and the default inference scales for speed and variability. Without it there is no way to phonemise correctly, no way to turn phonemes into the ids the graph expects, and no way to know at what rate to play the output \u2014 so the weights alone are unusable, and copying only the model file is a real and common deployment error. A strong answer notes that the quality tier is chosen by picking a voice rather than by tuning at run time, since the tier is baked into the model's size and sample rate."
+    },
+    {
+      "id": "piper-tts-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "An engineer building a custom integration reads the phoneme ids straight out of the configuration map, concatenates them and feeds them to the model. The audio is unintelligible mush even though every id is valid. Separately they set the speed parameter to 1.4 expecting faster speech and get slower. What are the two mechanisms?",
+      "explanation": "Two distinct traps. The id sequence has a required shape: a start marker, each phoneme's ids followed by a pad, and an end marker \u2014 that interleaved pad is part of what the network was trained on, so omitting it produces a sequence layout the model has never seen and the audio falls apart despite every id being valid. And the speed control is named for duration, not rate: greater than one is longer and therefore slower, which is the opposite of most people's first guess. Note too that unknown phonemes are dropped silently rather than raising, so a phonemiser mismatch degrades pronunciation without any error.",
+      "grade_id": "piper-tts-5cd3fa93ba6cbcfa",
+      "options": [
+        "The model was trained on a specific framing \u2014 a start marker, then every phoneme's ids followed by a pad symbol, then an end marker \u2014 so a bare concatenation is a sequence layout the model has never seen, and the output degrades even though each id is individually legal. And the speed parameter scales DURATION rather than rate, so values above one lengthen the speech and values below one shorten it",
+        "The ids are correct but must be sorted ascending before being fed in, which is what the framing markers indicate; and the speed parameter is a multiplier on the sample rate, so raising it slows playback",
+        "Each phoneme must be repeated once per predicted frame before being fed in, which the framing accomplishes; and the speed parameter only takes effect for multi-speaker voices",
+        "The mush means the phonemiser produced symbols outside the map, which the framing would have caught by raising; and the speed value is clamped, so 1.4 is treated as its reciprocal"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "piper-tts-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement the two contracts around the model. Define `PAD, BOS, EOS = \"_\", \"^\", \"$\"` and `QUALITY_SAMPLE_RATES` mapping `\"x_low\"` and `\"low\"` to 16000 and `\"medium\"` and `\"high\"` to 22050. Write `phonemes_to_ids(phonemes, phoneme_id_map)`, where the map takes a symbol to a LIST of ids: emit the start marker's ids, then for each phoneme present in the map its ids followed by the pad's ids (a phoneme absent from the map is skipped entirely), then the end marker's ids. Write `to_pcm16(samples)` converting a sequence of floats to bytes: clamp each to the range \u22121 to 1, multiply by 32767, truncate to an integer, and pack little-endian signed 16-bit. Write `write_wav(fileobj, samples, sample_rate)` using the standard library's wave writer to produce a single-channel, two-byte-per-sample file at that rate. Write `voice_sample_rate(quality)`, raising `ValueError` for an unknown tier. Write `parse_voice_name(name)` splitting a name shaped `\"<lang>_<REGION>-<speaker>-<quality>\"` into a dict with keys `language`, `region`, `speaker`, `quality` and `sample_rate`, raising `ValueError` if any part is missing or the tier is unknown. Write `scaled_duration(seconds, length_scale)` returning their product. Standard library only.",
+      "explanation": "The first block is the framing the model was trained on, made literal: a start marker, a pad after every phoneme group, an end marker. Read the second case carefully \u2014 a symbol may map to several ids, and the pad follows the whole group rather than each id, which is the sort of detail a bare concatenation gets wrong while every individual number stays valid. The dropped unknown symbol is the other half of that: a phonemiser producing something outside the map degrades the pronunciation and raises nothing. The audio contract is equally unforgiving in a quieter way. Clipping rather than wrapping is what separates a loud sample from a burst of noise, the sample rate belongs to the voice's quality tier rather than to the call, and the last assertions pin the control that reads backwards to almost everyone: the scale multiplies duration, so a larger number is slower speech.",
+      "grade_id": "piper-tts-5e2fa15a3a2a5b50",
+      "starter": "PAD, BOS, EOS = \"_\", \"^\", \"$\"\n\n\ndef phonemes_to_ids(phonemes, phoneme_id_map):\n    ...\n\n\ndef to_pcm16(samples):\n    ...",
+      "solution": "import struct\nimport wave\n\nPAD, BOS, EOS = \"_\", \"^\", \"$\"\n\nQUALITY_SAMPLE_RATES = {\"x_low\": 16000, \"low\": 16000,\n                        \"medium\": 22050, \"high\": 22050}\n\n\ndef phonemes_to_ids(phonemes, phoneme_id_map):\n    ids = list(phoneme_id_map[BOS])\n    for phoneme in phonemes:\n        if phoneme not in phoneme_id_map:\n            continue\n        ids.extend(phoneme_id_map[phoneme])\n        ids.extend(phoneme_id_map[PAD])\n    ids.extend(phoneme_id_map[EOS])\n    return ids\n\n\ndef to_pcm16(samples):\n    out = bytearray()\n    for sample in samples:\n        clipped = max(-1.0, min(1.0, sample))\n        out += struct.pack(\"<h\", int(clipped * 32767))\n    return bytes(out)\n\n\ndef write_wav(fileobj, samples, sample_rate):\n    with wave.open(fileobj, \"wb\") as writer:\n        writer.setnchannels(1)\n        writer.setsampwidth(2)\n        writer.setframerate(sample_rate)\n        writer.writeframes(to_pcm16(samples))\n\n\ndef voice_sample_rate(quality):\n    if quality not in QUALITY_SAMPLE_RATES:\n        raise ValueError(f\"unknown quality tier {quality!r}\")\n    return QUALITY_SAMPLE_RATES[quality]\n\n\ndef parse_voice_name(name):\n    locale, _, rest = name.partition(\"-\")\n    speaker, _, quality = rest.partition(\"-\")\n    language, _, region = locale.partition(\"_\")\n    if not (language and region and speaker and quality):\n        raise ValueError(f\"malformed voice name {name!r}\")\n    if quality not in QUALITY_SAMPLE_RATES:\n        raise ValueError(f\"unknown quality tier {quality!r}\")\n    return {\"language\": language, \"region\": region, \"speaker\": speaker,\n            \"quality\": quality, \"sample_rate\": voice_sample_rate(quality)}\n\n\ndef scaled_duration(seconds, length_scale):\n    return seconds * length_scale",
+      "test": "import io\nimport struct\nimport wave\n\nMAP = {PAD: [0], BOS: [1], EOS: [2], \" \": [3],\n       \"h\": [10], \"\u0259\": [11], \"l\": [12], \"o\": [13], \"\u028a\": [14],\n       \"\u0259r\": [17, 18], \"d\": [19], \".\": [20]}\n\n# The framing is not decoration: start marker, then every phoneme FOLLOWED BY a pad,\n# then the end marker. The model was trained on exactly this layout.\nids = phonemes_to_ids([\"h\", \"\u0259\", \"l\", \"o\", \"\u028a\"], MAP)\nassert ids == [1, 10, 0, 11, 0, 12, 0, 13, 0, 14, 0, 2], ids\nassert ids[0] == MAP[BOS][0] and ids[-1] == MAP[EOS][0]\nassert ids.count(0) == 5, ids\n\n# A symbol may map to SEVERAL ids, and the pad comes after the whole group -- not\n# after each id.\nids = phonemes_to_ids([\"\u0259r\", \"d\"], MAP)\nassert ids == [1, 17, 18, 0, 19, 0, 2], ids\n\n# Unknown symbols are dropped silently, which is why an unexpected phonemiser\n# output degrades pronunciation instead of raising.\nids = phonemes_to_ids([\"h\", \"\u02b0\", \"\u0259\"], MAP)\nassert ids == [1, 10, 0, 11, 0, 2], ids\nassert phonemes_to_ids([], MAP) == [1, 2]\nassert phonemes_to_ids([\" \"], MAP) == [1, 3, 0, 2]\n\n# The output contract: mono, sixteen-bit signed, little endian.\nassert to_pcm16([0.0]) == b\"\\x00\\x00\"\nassert to_pcm16([1.0]) == struct.pack(\"<h\", 32767)\nassert to_pcm16([-1.0]) == struct.pack(\"<h\", -32767)\nassert len(to_pcm16([0.1] * 100)) == 200\n# Anything outside the range is clipped rather than wrapping around, which is the\n# difference between a loud sample and a burst of noise.\nassert to_pcm16([2.5]) == struct.pack(\"<h\", 32767)\nassert to_pcm16([-9.0]) == struct.pack(\"<h\", -32767)\nassert struct.unpack(\"<h\", to_pcm16([0.5]))[0] == 16383\n\n# Written out, that is a real single-channel sixteen-bit file at the voice's rate.\nbuffer = io.BytesIO()\nwrite_wav(buffer, [0.0, 0.5, -0.5, 1.0], 22050)\nbuffer.seek(0)\nwith wave.open(buffer, \"rb\") as reader:\n    assert reader.getnchannels() == 1\n    assert reader.getsampwidth() == 2\n    assert reader.getframerate() == 22050\n    assert reader.getnframes() == 4\n    assert reader.readframes(4) == to_pcm16([0.0, 0.5, -0.5, 1.0])\n\nlow = io.BytesIO()\nwrite_wav(low, [0.0] * 1600, 16000)\nlow.seek(0)\nwith wave.open(low, \"rb\") as reader:\n    assert reader.getframerate() == 16000\n    assert reader.getnframes() / reader.getframerate() == 0.1\n\n# The quality tier is baked into the voice name and decides the sample rate; you do\n# not choose it at synthesis time.\nassert voice_sample_rate(\"x_low\") == voice_sample_rate(\"low\") == 16000\nassert voice_sample_rate(\"medium\") == voice_sample_rate(\"high\") == 22050\ntry:\n    voice_sample_rate(\"ultra\")\nexcept ValueError:\n    pass\nelse:\n    raise AssertionError(\"an unknown tier must be refused\")\n\nparsed = parse_voice_name(\"en_US-lessac-medium\")\nassert parsed == {\"language\": \"en\", \"region\": \"US\", \"speaker\": \"lessac\",\n                  \"quality\": \"medium\", \"sample_rate\": 22050}, parsed\nassert parse_voice_name(\"de_DE-thorsten-low\")[\"sample_rate\"] == 16000\nfor bad in (\"en_US-lessac\", \"enUS-lessac-medium\", \"en_US-lessac-ultra\", \"lessac\"):\n    try:\n        parse_voice_name(bad)\n    except ValueError:\n        continue\n    raise AssertionError(f\"{bad!r} must be refused\")\n\n# The speed control scales DURATION, so the larger number is the slower speech --\n# the opposite of what the word \"speed\" suggests.\nassert scaled_duration(2.0, 1.5) == 3.0\nassert scaled_duration(2.0, 0.5) == 1.0\nassert scaled_duration(2.0, 1.0) == 2.0\nassert scaled_duration(1.0, 1.2) > scaled_duration(1.0, 0.8)"
+    },
+    {
+      "id": "piper-tts-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A voice works on a developer laptop and fails three ways once deployed to a stripped container image: loading raises because a file is missing, phonemisation raises at run time, and once both are fixed the audio plays back low and slow through a pipeline that assumes 44.1 kHz. What are the three causes?",
+      "explanation": "Three deployment realities. A voice is weights plus a configuration file that carries the sample rate, the phonemiser language and the phoneme map, and they always travel together. Phonemisation is done by a system binary that the wheel usually bundles but which a minimal image may lack, so install the operating-system package. And the sample rate belongs to the voice's quality tier \u2014 16 kHz for the smaller tiers and 22.05 kHz for the larger ones \u2014 so a pipeline that assumes a higher rate reproduces the audio too slowly and too low; read the rate rather than assuming it, and note that the speed parameter changes duration and cannot fix a rate mismatch.",
+      "grade_id": "piper-tts-ef7ce2d884bc9746",
+      "options": [
+        "A voice is TWO files \u2014 the weights and the configuration beside them \u2014 and copying only the weights loses the sample rate and the phoneme map. The phonemiser is a system component the wheel usually bundles but a stripped image may not have, so it must be installed through the operating system's package manager. And the voice's own sample rate is 22.05 or 16 kHz depending on its tier, so a pipeline assuming a higher rate plays the samples too slowly \u2014 read the rate from the configuration or the file header and resample rather than assuming",
+        "The missing file is the phoneme map, which is downloaded separately per language; the run-time failure is the model runtime needing an accelerator; and the slow playback means the wrong quality tier was downloaded, which can be corrected with the speed parameter",
+        "All three are the same problem: the container lacks the model runtime, so the engine falls back to a bundled classic synthesiser at a different rate",
+        "The missing file is a licence acceptance marker; the phonemisation failure is the text not being normalised; and the slow playback is caused by writing 8-bit rather than 16-bit samples"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "piper-tts-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Position this engine against three alternatives: a heavier self-hosted toolkit with zero-shot cloning, a top-quality commercial cloud service, and the rule-based formant synthesiser this engine already depends on. For each, say what it gives and what it costs relative to this one. Then advise a museum building kiosks that must speak in six languages, work when the venue's network fails, and occasionally read out visitor names, and say what you would do about the last requirement specifically.",
+      "explanation": "",
+      "grade_id": "piper-tts-3649bde8d97c5a12",
+      "expected": "A correct answer must position all three. The heavier self-hosted toolkit gives zero-shot voice cloning, custom voice training and a wide model zoo, at the cost of far heavier dependencies, hunger for an accelerator and much slower synthesis on a CPU. The commercial cloud service gives the highest naturalness, instant cloning and rich speech markup with essentially no operational burden, at the cost of per-use charges, a network dependency and audio leaving the machine. The rule-based formant synthesiser is ultra-light, fully deterministic and covers every language, but is unmistakably robotic \u2014 and the relationship must be named: this engine USES it for the text-to-phoneme step rather than competing with it. The kiosk recommendation must be this engine, justified by the stated constraints: it runs offline so a network failure is irrelevant, it runs in real time on modest hardware, it has voices in many languages, and there is no per-use cost for a permanently running exhibit. The last requirement must be addressed as a real limitation rather than waved through: pronunciation comes from the phonemiser's language rules with no learned front end, so unusual names, acronyms and numbers will be mispronounced, and the fix is upstream \u2014 normalise or respell tricky tokens before synthesis, since there is no markup for phoneme overrides and no learned text front end to rescue them. Noting that pauses must be produced by splitting the text and inserting silence, because there is no markup for breaks, is a plus."
+    }
+  ]
+}

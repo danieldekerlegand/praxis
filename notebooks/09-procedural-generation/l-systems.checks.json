@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "l-systems",
+  "title": "L-Systems",
+  "domain": "09-procedural-generation",
+  "runnable": true,
+  "generated": "2026-08-27T07:19:41+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "l-systems-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A level designer wants three things generated: a rolling heightmap, a cave system of connected open regions, and a river network that forks repeatedly from a main channel into ever-smaller tributaries. Which of the three is this technique's case, and what property of the content decides it?",
+      "explanation": "The distinguishing feature is a structure that branches and repeats itself at every scale, produced from a very small specification. What comes out is a skeleton \u2014 a path with forks \u2014 not a filled grid or a height field, which is exactly why the other two tasks belong elsewhere.",
+      "grade_id": "l-systems-7f7fdcc1b9f42c82",
+      "options": [
+        "The river network: the deciding property is recursive branching \u2014 a structure whose parts are smaller copies of the whole, produced by applying one local rule repeatedly. A heightmap is a continuous field with no branching, and a cave system is a filled region rather than a path, so both are better served by noise and by neighbour-rule region growth respectively",
+        "All three: a grammar over symbols can encode any generated content, and the three differ only in which alphabet is chosen",
+        "The heightmap: repeated rewriting produces the self-similar detail a fractal terrain needs, while branching structures require an explicit graph representation",
+        "The cave system: repeated rewriting is a form of region growth, whereas branching structures are better produced by constraint-based tile solvers"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "l-systems-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A programmer implements the rewriting step by looping over the rules and calling a string replace for each one. Their two-rule grammar, which should alternate two symbols, instead collapses everything to one symbol. Explain the two separate phases this technique has, what rewriting rule they violated, and why that rule is what makes the output look the way it does.",
+      "explanation": "Simultaneity is not an implementation detail \u2014 it is the biological idea the technique was invented to capture, every cell dividing at once, and it is what produces growth at every scale from a single rule.",
+      "grade_id": "l-systems-b7baeff9b0566b6f",
+      "expected": "A correct answer must separate the phases and name the parallel semantics. Phase one is purely symbolic: starting from a short seed string, every symbol is replaced by its rule's output, and no drawing happens at all \u2014 the result is just a much longer string. Phase two interprets that final string as instructions for a pen: some symbols draw a step forward, some turn by a fixed angle, and a matched pair of symbols pushes and pops the pen's position and heading. The rule they violated is that all symbols are rewritten simultaneously, from the original string: replacing every occurrence of the first symbol across the whole string and then running the second rule over that result means the second rule is applied to output the first rule just produced, within the same generation, which is not one generation at all. Their alternating grammar collapses because the first replacement turns one symbol into the other and the second replacement then turns all of them back. The correct implementation maps each character of the original string through the rules exactly once and joins the results. Why it matters for the look: simultaneous rewriting means every part of the structure grows at the same time, so after several generations detail exists at every scale at once \u2014 which is what self-similar branching is. This is also precisely how it differs from an ordinary grammar, where one symbol is expanded per step. Noting that a symbol with no rule simply passes through unchanged, acting as a constant, is a plus."
+    },
+    {
+      "id": "l-systems-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A grammar for a plant uses a symbol that appears throughout the rewritten string but is not in the drawing alphabet. A newcomer 'fixes' the interpreter so that symbol also draws a forward step, and gets a plant with doubled, misplaced limbs. Separately they want each generated plant to differ while remaining reproducible from a saved seed. What are the two answers?",
+      "explanation": "Two independent concepts. Some letters exist only to drive the expansion and draw nothing, which is why the alphabet is a design decision rather than something to infer. And variation comes from making a rule probabilistic rather than single-valued \u2014 with an explicitly seeded generator, so a whole scene can be stored as its parameters and reproduced exactly.",
+      "grade_id": "l-systems-fdc8b54f00f9ee2d",
+      "options": [
+        "That symbol is a control symbol: it exists to steer the rewriting and is deliberately silent during interpretation, so giving it a drawing meaning inserts geometry the grammar never intended \u2014 the alphabet must be decided up front, with each letter either drawing or only rewriting. For variation, give a symbol several possible successors chosen by weighted random selection, and seed the generator explicitly so the same seed reproduces the same plant",
+        "The symbol is an undrawn constant that should indeed draw, and the doubled limbs indicate the angle is wrong; for variation, vary the angle randomly per plant",
+        "The symbol must be removed from the grammar entirely before interpretation; for variation, run the rewriting to a randomly chosen depth per plant",
+        "The symbol marks a branch point and must draw a zero-length step; for variation, shuffle the order in which rules are applied within each generation"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "l-systems-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Build both phases. Implement `expand(axiom, rules, depth)` and `turtle(commands, angle_deg, step=1.0, start=(0.0, 0.0), heading_deg=0.0)`. `expand` applies the rules `depth` times; in each pass EVERY symbol of the current string is replaced by its rule's output simultaneously, and a symbol with no rule passes through unchanged. `turtle` walks the string with a pen at `start` facing `heading_deg` degrees, where 0 is along positive x and angles increase anticlockwise: `\"F\"` advances by `step` and records the segment as `((x0, y0), (x1, y1))`; `\"f\"` advances without recording; `\"+\"` turns by `angle_deg` clockwise and `\"-\"` by `angle_deg` anticlockwise; `\"[\"` pushes the pen's position and heading and `\"]\"` restores the most recently pushed one; every other symbol is ignored. Return the list of segments in the order drawn. Raise `ValueError` for a negative `depth`, for a rule whose predecessor is not exactly one symbol, for a string whose brackets do not balance, and for a closing bracket with nothing pushed. Standard library only.",
+      "explanation": "Two assertions carry the whole idea. The swap grammar distinguishes rewriting every symbol at once from running each rule over the string in turn: done simultaneously the two symbols exchange places, done sequentially the second rule eats the first rule's output and everything collapses \u2014 and the generation lengths only come out as the Fibonacci numbers under the correct semantics. On the drawing side, compare the bracketed string with the same commands minus the brackets: with the stack, the third segment begins back at the fork, so the branch is a branch; without it, the pen simply carries on from wherever the last stroke ended, which is the difference between a tree and a scribble.",
+      "grade_id": "l-systems-576c12cb552f8229",
+      "starter": "def expand(axiom, rules, depth):\n    ...\n\n\ndef turtle(commands, angle_deg, step=1.0, start=(0.0, 0.0), heading_deg=0.0):\n    ...",
+      "solution": "import math\n\n\ndef expand(axiom, rules, depth):\n    if depth < 0:\n        raise ValueError(\"depth must not be negative\")\n    for predecessor in rules:\n        if len(predecessor) != 1:\n            raise ValueError(f\"predecessor {predecessor!r} must be a single symbol\")\n    current = axiom\n    for _ in range(depth):\n        current = \"\".join(rules.get(symbol, symbol) for symbol in current)\n    return current\n\n\ndef turtle(commands, angle_deg, step=1.0, start=(0.0, 0.0), heading_deg=0.0):\n    if commands.count(\"[\") != commands.count(\"]\"):\n        raise ValueError(\"unbalanced brackets\")\n    x, y = start\n    heading = heading_deg\n    stack = []\n    segments = []\n    for symbol in commands:\n        if symbol in (\"F\", \"f\"):\n            radians = math.radians(heading)\n            nx = x + step * math.cos(radians)\n            ny = y + step * math.sin(radians)\n            if symbol == \"F\":\n                segments.append(((x, y), (nx, ny)))\n            x, y = nx, ny\n        elif symbol == \"+\":\n            heading -= angle_deg\n        elif symbol == \"-\":\n            heading += angle_deg\n        elif symbol == \"[\":\n            stack.append((x, y, heading))\n        elif symbol == \"]\":\n            if not stack:\n                raise ValueError(\"']' with nothing pushed\")\n            x, y, heading = stack.pop()\n    return segments",
+      "test": "import math\n\n# The textbook grammar whose generation lengths are the Fibonacci numbers -- which is\n# only true if every symbol is rewritten in the same step.\nFIB = {\"A\": \"AB\", \"B\": \"A\"}\nlengths = [len(expand(\"A\", FIB, d)) for d in range(9)]\nassert lengths == [1, 2, 3, 5, 8, 13, 21, 34, 55], lengths\nassert expand(\"A\", FIB, 3) == \"ABAAB\", expand(\"A\", FIB, 3)\n\n# The discriminating case: applying the rules one after another over the whole string\n# would feed the first rule's output into the second. Simultaneous rewriting swaps.\nSWAP = {\"A\": \"B\", \"B\": \"A\"}\nassert expand(\"AB\", SWAP, 1) == \"BA\"\nassert expand(\"AB\", SWAP, 2) == \"AB\"\nassert expand(\"AAB\", SWAP, 1) == \"BBA\"\n\n# Depth zero changes nothing; a symbol with no rule is a constant and passes through.\nassert expand(\"F+F\", {\"F\": \"FF\"}, 0) == \"F+F\"\nassert expand(\"F+F\", {\"F\": \"FF\"}, 2) == \"FFFF+FFFF\"\n\n# A rule may erase a symbol.\nassert expand(\"XFX\", {\"X\": \"\"}, 1) == \"F\"\n\n# The turtle: one drawing symbol, one segment, of the given length along the heading.\nsegs = turtle(\"F\", 90, step=2.0)\nassert len(segs) == 1\nassert segs[0][0] == (0.0, 0.0)\nassert abs(segs[0][1][0] - 2.0) < 1e-9 and abs(segs[0][1][1]) < 1e-9, segs\n\n# A lowercase move advances without leaving a segment behind.\nsegs = turtle(\"fF\", 90)\nassert len(segs) == 1 and abs(segs[0][0][0] - 1.0) < 1e-9, segs\n\n# Turning: '+' goes one way and '-' the other, and they cancel.\nup = turtle(\"-F\", 90)[0][1]\nassert abs(up[0]) < 1e-9 and abs(up[1] - 1.0) < 1e-9, up\nassert abs(turtle(\"+-F\", 90)[0][1][0] - 1.0) < 1e-9\n\n# The stack is what makes a branch a branch: after the bracket closes, the next\n# segment starts where the branch began, not where it ended.\nsegs = turtle(\"F[-F]F\", 90)\nassert len(segs) == 3, segs\ntrunk_end = segs[0][1]\nbranch_end = segs[1][1]\nassert abs(branch_end[1] - 1.0) < 1e-9, \"the branch went up\"\nassert all(abs(a - b) < 1e-9 for a, b in zip(segs[2][0], trunk_end)), \\\n    \"the turtle snapped back to the fork\"\nassert abs(segs[2][1][0] - 2.0) < 1e-9 and abs(segs[2][1][1]) < 1e-9, segs[2]\n\n# Without the stack the same commands trail off from wherever the branch ended.\ntangled = turtle(\"F-FF\", 90)\nassert not all(abs(a - b) < 1e-9 for a, b in zip(tangled[2][0], trunk_end))\n\n# A control symbol steers rewriting and draws nothing.\nassert turtle(\"XFX\", 90) == turtle(\"F\", 90)\nassert turtle(\"\", 90) == []\n\n# Nested branches restore the right state, not merely the last one.\nsegs = turtle(\"F[-F[-F]]F\", 90)\nassert len(segs) == 4\nassert all(abs(a - b) < 1e-9 for a, b in zip(segs[3][0], trunk_end))\n\nfor bad in (lambda: expand(\"A\", FIB, -1), lambda: expand(\"A\", {\"AB\": \"A\"}, 1),\n            lambda: turtle(\"F]\", 90), lambda: turtle(\"F[F\", 90)):\n    try:\n        bad()\n    except ValueError:\n        continue\n    raise AssertionError(\"must be rejected\")"
+    },
+    {
+      "id": "l-systems-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A grammar whose rules roughly triple the string each generation is run at depth 14 to 'get more detail', building the string by repeated concatenation onto a variable inside the loop. The program becomes unresponsive. What are the two problems and the right expectations?",
+      "explanation": "Two multiplicative costs stacked on each other. Exponential growth in the depth means a modest-looking increase produces an enormous string, and the extra generations buy detail smaller than a pixel. On top of that, growing an immutable string by repeated concatenation copies everything already accumulated on every step, so the cost of a single generation is quadratic in its own output.",
+      "grade_id": "l-systems-9e5f5bc5d3bf1373",
+      "options": [
+        "The string grows like the expansion factor raised to the depth, so tripling for fourteen generations is millions of symbols \u2014 and the detail from the last few generations is far below anything visible, which is why six to eight generations is normally enough. Separately, repeatedly concatenating onto an immutable string copies the whole accumulated text each time, making one generation quadratic in its own length; accumulate the pieces and join them once instead",
+        "The depth is fine and the only problem is the concatenation; joining the pieces once makes depth fourteen tractable",
+        "The concatenation is fine because strings are mutable in place; the problem is purely that a deeper expansion needs more turns of the rewriting loop, which is inherently slow",
+        "Neither is the cause: the unresponsiveness comes from the drawing stage, which must render every segment, so capping the number of segments drawn resolves it"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "l-systems-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four generation jobs. (a) A continent's elevation. (b) A cave network of connected open chambers. (c) A tilemap in the style of one hand-drawn example. (d) A city where a river skeleton forks through terrain that also needs elevation and shoreline detail. Recommend an approach for each, and say what is special about the last one.",
+      "explanation": "Three of the four are decided by what kind of thing is wanted: a field, a region, or a tiling. The fourth is the useful observation that these are not rivals \u2014 a skeleton from one technique and a field from another is a common and effective combination.",
+      "grade_id": "l-systems-93a0c406e607cbf1",
+      "expected": "A correct answer must place all four. (a) Gradient noise, or a fractal midpoint-displacement scheme: elevation is a continuous field with no branching and no discrete alphabet \u2014 the deciding property is that the output is a height at every position rather than a path. (b) Neighbour-rule region growth of the cellular-automaton kind: caves are areas that are open or solid, produced by repeatedly smoothing a random fill according to how many neighbours are open, which fills space rather than tracing a route \u2014 the deciding property is that the deliverable is regions, not a skeleton. (c) The constraint-solving tile approach that learns which tiles may sit beside which from an example: the requirement is stated as a style to match rather than a rule to write, and that technique extracts the adjacency rules from the sample \u2014 the deciding property is that the specification is an example image. (d) This technique for the river, combined with the others: what is special is that it composes rather than competes. It produces a branching skeleton and nothing else \u2014 no elevation, no shoreline, no filled regions \u2014 so the natural pipeline is to grow the river network from a compact grammar and then generate the surrounding terrain with noise, letting each tool produce the kind of structure it is good at. Noting that the grammar being small enough to store as a seed makes the whole scene reproducible from a few parameters is a plus."
+    }
+  ]
+}

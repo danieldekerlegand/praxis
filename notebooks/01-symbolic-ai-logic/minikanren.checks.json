@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "minikanren",
+  "title": "miniKanren (relational programming)",
+  "domain": "01-symbolic-ai-logic",
+  "runnable": true,
+  "generated": "2026-08-27T05:50:28+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "minikanren-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "The pitch is that a relation has no privileged direction. In a case where you would otherwise have written a function and, later, its inverse, what does that actually buy?",
+      "explanation": "One artefact, many query shapes \u2014 including ones with several unknowns that no pair of routines would have covered. Nothing here is compiled or made unique; the engine searches, and an inverse may have any number of answers including none.",
+      "grade_id": "minikanren-03f7446575d86173",
+      "options": [
+        "One declaration answers every shape of query: with the result known and an argument unknown it computes the inverse, with several unknown it enumerates every consistent combination \u2014 and none of that is a second implementation to keep in step with the first",
+        "The single declaration is compiled ahead of time into a forward and an inverse routine, so both directions run at the speed of code written by hand",
+        "Recursive definitions no longer need a base case, because the search stops on its own once no variable is left unbound",
+        "The inverse is guaranteed to exist and to be unique, which a pair of separately written routines cannot promise"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "minikanren-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A newcomer writes a helper that works out a value with ordinary Python code and returns it from inside a relation, then finds the engine takes no notice of it whatsoever. Say what a relation is obliged to hand back, trace how an answer actually reaches the caller, and describe the rewrite they need.",
+      "explanation": "Returning a value assumes there is an output slot. There is not: the engine's only channel is the substitution, and the only way to write into it is to unify. That constraint is exactly what makes every position queryable.",
+      "grade_id": "minikanren-a0645a15617397e8",
+      "expected": "A correct answer must state that a relation returns a GOAL, not a value \u2014 an object the engine runs against the partial answer it has built so far and which produces a stream of extended partial answers, an empty stream meaning that branch failed. It must trace the path an answer takes: the query variable is UNIFIED with the term you want, the engine records that binding in the substitution, and the runner reads the query variable's binding back out at the end \u2014 so a returned Python value is never looked at, because nothing ever asked the relation for a value. The rewrite must be: take the variable that is to hold the answer as an argument and return the goal that unifies it with the intended term, composing further goals with conjunction when that term depends on other unknowns. Connecting this to why any argument position may be known or unknown \u2014 nothing is designated as the output \u2014 is a plus."
+    },
+    {
+      "id": "minikanren-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "The disjunction operator is given two rows, and each row lists two goals. In how many ways can that expression succeed, and what is the relationship between the goals inside a single row?",
+      "explanation": "Disjunction across rows, conjunction within a row \u2014 and crucially the later rows are still explored after an earlier one succeeds, which is what makes multiple answers possible at all. Reading it as if/else is the commonest way to lose solutions silently.",
+      "grade_id": "minikanren-4f56f08347555dbc",
+      "options": [
+        "The rows are alternatives while the goals inside a row must hold together, so the expression succeeds along either row and, within a row, only where both goals agree on the bindings they make",
+        "Both the rows and the goals within a row are alternatives, giving four independent ways for the expression to succeed",
+        "Every row must hold and any single goal within a row suffices, making it a conjunction of disjunctions",
+        "Only the first row that succeeds is taken and the remaining rows are discarded, so it behaves like a chain of if/else branches"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "minikanren-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement `solve_append(xs, ys, zs)`, one relation queried in every direction. Each argument is a tuple when it is known and None when it is not, and the relation holds when `xs + ys == zs`. Return the list of complete `(xs, ys, zs)` triples consistent with what was given, ordered by increasing length of the first element, using tuples throughout. With the whole known, that means every way of splitting it that agrees with any part already given \u2014 possibly none. With both parts known and the whole unknown, there is exactly one. With the whole unknown and either part also unknown, the answers are unbounded, so raise ValueError instead of returning. Standard library only.",
+      "explanation": "Four query shapes and one definition \u2014 that is the whole argument for programming this way, made concrete without an engine. The last case is the honest part: bidirectionality is not free, and a query whose answer set is infinite is a query the search will never finish, which is why asking for every solution is the operation that hangs.",
+      "grade_id": "minikanren-7094a2632f43797d",
+      "starter": "def solve_append(xs, ys, zs):\n    \"\"\"Every (xs, ys, zs) with xs + ys == zs consistent with what is known.\"\"\"\n    ...",
+      "solution": "def solve_append(xs, ys, zs):\n    if zs is None:\n        if xs is None or ys is None:\n            raise ValueError(\"unbounded: give the whole, or both parts\")\n        return [(tuple(xs), tuple(ys), tuple(xs) + tuple(ys))]\n    zs = tuple(zs)\n    out = []\n    for i in range(len(zs) + 1):\n        head, tail = zs[:i], zs[i:]\n        if xs is not None and tuple(xs) != head:\n            continue\n        if ys is not None and tuple(ys) != tail:\n            continue\n        out.append((head, tail, zs))\n    return out",
+      "test": "assert solve_append((1, 2), (3,), None) == [((1, 2), (3,), (1, 2, 3))]\nassert solve_append((1, 2), None, (1, 2, 3)) == [((1, 2), (3,), (1, 2, 3))]\nassert solve_append(None, (3,), (1, 2, 3)) == [((1, 2), (3,), (1, 2, 3))]\n\nboth = solve_append(None, None, (1, 2))\nassert both == [\n    ((), (1, 2), (1, 2)),\n    ((1,), (2,), (1, 2)),\n    ((1, 2), (), (1, 2)),\n], both\n\nassert solve_append(None, None, ()) == [((), (), ())]\nassert solve_append((1,), (2,), (9,)) == [], \"no consistent split\"\nassert solve_append((1,), None, (2, 1)) == []\n\ntry:\n    solve_append(None, None, None)\nexcept ValueError:\n    pass\nelse:\n    raise AssertionError(\"two unknowns and no whole is an unbounded search\")"
+    },
+    {
+      "id": "minikanren-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A recursive relation is queried for every solution and the call simply never returns, on a machine with memory to spare and no error raised. What is happening, and what is the immediate remedy?",
+      "explanation": "'Every solution' is a request the engine takes literally. Bounding the count is not a workaround but the correct way to interrogate a search whose size you have not yet established.",
+      "grade_id": "minikanren-6404a9b7d3f85b9d",
+      "options": [
+        "Asking for every solution forces the entire search to be walked, and a recursive relation that can keep building larger terms has infinitely many \u2014 ask for a fixed number of answers until the search is known to be finite",
+        "The interleaving search revisits branches it has already taken, so the same answers are produced over and over; removing duplicates from the results ends it",
+        "A recursive relation has to be fully declared before it is referred to, and the forward reference makes the engine retry the definition indefinitely",
+        "Memory is not the limit here \u2014 the recursion depth limit is \u2014 so raising that limit lets the query run to completion"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "minikanren-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "A colleague has a working relational prototype for a seating problem \u2014 twelve guests, a handful of who-may-not-sit-beside-whom rules \u2014 and it now takes minutes to run. They ask whether to reorder their goals or switch tools. Give your answer, and say what would change it.",
+      "explanation": "Search versus propagation is the line, and it is not a matter of tuning. Reordering buys a constant factor or a termination guarantee; propagation changes the exponent.",
+      "grade_id": "minikanren-c6df1aa98c859846",
+      "expected": "A correct answer must grant that reordering is worth one attempt and say why it is not the fix. Ordering genuinely matters \u2014 putting the goal that GENERATES candidates before the goals that FILTER them keeps the search from enumerating hopeless branches, and ordering can change whether a query terminates at all, not merely how fast it is. But it is a local improvement, because this engine SEARCHES and does not PROPAGATE: there is no domain pruning or consistency reasoning, so a rule is only ever checked after a candidate has been proposed, and the work grows combinatorially with the number of guests. An assignment problem with all-different and adjacency structure belongs in a constraint or SMT solver, which narrows domains as it goes and handles instances far larger than this one. It must then name what would change the advice: if the real requirement is enumerating EVERY solution, or querying the same relation in more than one direction, or the instance genuinely stays this small, staying put is reasonable. Suggesting the prototype be kept as a reference oracle to test the solver model against is a plus."
+    }
+  ]
+}

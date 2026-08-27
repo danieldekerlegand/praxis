@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "slug": "ggplot2",
+  "title": "ggplot2",
+  "domain": "10-data-analysis-research",
+  "runnable": false,
+  "generated": "2026-08-27T06:55:08+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "ggplot2-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A colleague argues that a declarative plotting grammar is 'just a different syntax for the same drawing commands, so it saves typing and nothing else'. Which rebuttal states the actual structural difference and its practical payoff?",
+      "explanation": "Orthogonality is the whole claim. In an imperative library, adding a grouping variable means adding a series, adding a colour, and adding a legend entry by hand, and each of those can fall out of step. Here the grouping is stated once in the mapping and everything downstream \u2014 colours, legend, per-group statistics \u2014 is derived from it, so edits stay local.",
+      "grade_id": "ggplot2-385a6b15faf61794",
+      "options": [
+        "The pieces are orthogonal: the mapping from columns to visual channels, the rendering layers, the statistical transforms, the value-to-pixel scales, the panel splitting, the coordinate system and the non-data styling are separate slots that compose. So changing one \u2014 swapping how the points are drawn, splitting into panels, putting an axis on a log scale \u2014 leaves the others untouched, and legends and guides follow from the mapping automatically instead of being maintained by hand",
+        "The difference is that the grammar computes statistics for you, which imperative libraries cannot do; the composition and legend behaviour are identical in both",
+        "There is no structural difference \u2014 the grammar is a wrapper that expands to the same sequence of drawing calls, so the colleague is correct and the choice is stylistic",
+        "The difference is performance: because the specification is built before anything is drawn, the whole figure is rendered in one pass, which is why it handles far larger datasets"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "ggplot2-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A beginner writes a specification whose top-level mapping includes a grouping column assigned to colour, and inside the point layer they write a colour of blue. They report two surprises: every point is blue, and a trend layer they added afterwards produced three separate trend lines rather than one. Explain both, and give the rule that predicts each.",
+      "explanation": "Two rules, and each of their surprises is one of them in action. Mapping versus setting decides whether a channel varies; the top-level versus layer-level placement decides who inherits it \u2014 including the statistical layers, which is why a grouping quietly becomes a per-group computation.",
+      "grade_id": "ggplot2-2718668958e22b6c",
+      "expected": "A correct answer must explain both from two rules. First, mapping versus setting: naming a channel inside the mapping construct binds it to a column, so the value varies from row to row and a legend is generated for it; giving the same channel a literal value outside the mapping construct sets it to a constant for every observation in that layer, with no legend. Their layer-level constant therefore overrides the inherited mapping for that layer, which is why the points are all one colour \u2014 this is the single most common beginner error and it fails silently because both forms are valid. Second, inheritance: aesthetics declared at the top level are inherited by every layer unless a layer overrides them, so the trend layer inherited the colour mapping, and because that mapping splits the data into groups, the trend is computed once per group \u2014 three lines rather than one. The rule that predicts each is the same in two directions: whether something varies with the data is decided by whether it sits inside the mapping, and which layers see a mapping is decided by whether it was declared at the top or in the layer. Noting the remedy \u2014 put shared mappings at the top and layer-specific ones in the layer, and if a single overall trend is wanted, remove the grouping from the layer that computes it \u2014 is a plus."
+    },
+    {
+      "id": "ggplot2-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "An analyst has already computed the average value for each of eight categories and wants a bar per category with those averages as the heights. Their first attempt produces eight bars all of height one, and the categories come out in alphabetical order rather than by size. What are the two fixes?",
+      "explanation": "Every rendering layer carries a default statistical transform, and the default for bars is to count rows \u2014 invisible until you feed it data that is already summarised, at which point every bar is height one and the diagnosis is immediate. The alphabetical ordering is separate and just as universal: category order comes from the factor's levels, and reordering by the plotted value is almost always what was intended.",
+      "grade_id": "ggplot2-28542ca51e93713b",
+      "options": [
+        "The bar layer they used counts rows by default \u2014 with one row per category every count is one \u2014 so use the layer that takes supplied values as heights, or equivalently set the statistical transform to the identity. And categorical levels are ordered alphabetically unless told otherwise, so reorder the category by the value being plotted",
+        "The heights are one because the values were not scaled; applying a continuous scale to the vertical channel fixes the heights, and the coordinate system controls the category order",
+        "The layer is correct but the values must be mapped to the fill channel rather than the vertical channel; the ordering follows automatically from the values once that is done",
+        "Both problems come from the data being in wide format; reshaping to long format makes the heights correct and orders the categories by value"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "ggplot2-04",
+      "section": "Worked Examples",
+      "kind": "short",
+      "prompt": "An analyst has one row per person with three separate numeric columns \u2014 height, weight and a derived index \u2014 and wants all three drawn as three overlapping distributions in one figure, coloured by which measurement each is. They try to name all three columns in the mapping and get an error. Explain what shape the library expects and why, what the transformation is called and what it does to the table, and what is gained beyond making the error go away.",
+      "explanation": "The pivot is not a workaround for a limitation \u2014 it is what makes the grammar apply. Once the distinction between the series lives in a column, every downstream feature that keys off a column comes free, which is why one long column beats three wide ones.",
+      "grade_id": "ggplot2-74d483d51c2823fe",
+      "expected": "A correct answer must describe the expected shape and the reshaping. The library expects a tidy table with one row per observation and one column per variable, and crucially the thing being mapped to a visual channel must be a single column. Three measurements stored side by side are three columns, so 'which measurement this is' exists only as a column name \u2014 which is metadata, not data, and cannot be mapped. The transformation is a wide-to-long pivot: the three columns collapse into two, one holding the name of the measurement and one holding its value, so the table becomes three times as long and the measurement identity becomes an ordinary column of values. What is gained: the measurement column can now be mapped to a channel such as fill or colour, so the three distributions are drawn by one layer rather than three, the legend is generated automatically from that column instead of being assembled by hand, and the same column can be used to split the figure into one panel per measurement without any further change. It also means adding a fourth measurement changes the data and nothing about the plot specification. Noting that per-measurement panels usually want independent scales, because quantities in different units should not share an axis, is a plus."
+    },
+    {
+      "id": "ggplot2-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "Two axis operations look interchangeable: one restricts the visible range through the coordinate system, the other sets limits on the scale for that channel. A reviewer notices that a box plot's medians moved when the analyst switched from the first to the second. What happened, and which should be used to zoom?",
+      "explanation": "The distinction is when the restriction is applied. Limiting the scale filters the data on the way in, so anything computed downstream \u2014 counts, box summaries, smoothers \u2014 sees less data and reports different numbers, silently. Restricting through the coordinate system is a pure window onto a figure that was computed from everything, which is what people almost always mean by zooming.",
+      "grade_id": "ggplot2-3b4efba2bca47a04",
+      "options": [
+        "Setting limits on the scale discards observations outside the range before any statistical transform runs, so the summaries were recomputed from a subset and the medians genuinely changed; restricting the range through the coordinate system keeps every observation and only changes the visible window. To zoom without altering what is computed, use the coordinate system",
+        "The two are equivalent for the data and differ only in whether the axis labels are redrawn; the medians moved because the box plot layer re-sorts its input when the axis changes",
+        "Setting limits on the scale keeps all observations and the coordinate system version drops them, so the analyst had it backwards and should set limits on the scale to zoom",
+        "Neither drops observations; the medians moved because switching methods also changed the default statistical transform of the box plot layer from a five-number summary to a mean"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "ggplot2-06",
+      "section": "When to Use",
+      "kind": "choice",
+      "prompt": "Four situations. (i) A Python team wants this compositional style without adopting another language. (ii) A dashboard where readers hover for values and zoom. (iii) An existing static figure in this grammar that stakeholders now want to be interactive. (iv) Data arriving as a wide spreadsheet with one column per month. Which set of responses is right?",
+      "explanation": "Three of the four have a specific escape hatch rather than a rewrite: a port of the grammar into the other language, a converter that turns an existing specification into an interactive figure, and a reshaping step that is a prerequisite rather than an obstacle. Only genuinely interactive deliverables call for a different library from the start.",
+      "grade_id": "ggplot2-e2b75e9e237bffed",
+      "options": [
+        "(i) a Python port of the same grammar exists and is the direct answer, with the mainstream Python plotting libraries as the alternative; (ii) an interactive, browser-oriented library, since interactivity is not what this package is for; (iii) the existing specification can be wrapped by a converter that renders it interactively, so it need not be rebuilt; (iv) reshape to long form first \u2014 the reshaping is the prerequisite for the grammar, not a reason to avoid it",
+        "(i) there is no equivalent in Python, so the team must call into the other language; (ii) this package, using its animation features; (iii) rebuild from scratch in an interactive library; (iv) map the twelve columns directly, since the grammar accepts several columns per channel",
+        "(i) the mainstream Python plotting libraries, which implement the same grammar natively; (ii) this package; (iii) export as a vector file, which is interactive in a browser; (iv) reshape to wide form, which is what the grammar expects",
+        "(i) a Python port exists but is unmaintained, so use the low-level library; (ii) an interactive library; (iii) rebuild from scratch; (iv) the grammar handles wide data automatically and no reshaping is needed"
+      ],
+      "answer": 0
+    }
+  ]
+}

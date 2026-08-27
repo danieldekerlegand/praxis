@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "demucs",
+  "title": "Demucs (source separation)",
+  "domain": "05-speech-audio",
+  "runnable": true,
+  "generated": "2026-08-27T08:49:50+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "demucs-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "Four requests arrive for an audio team. (a) Pull the vocal off a finished stereo track for a karaoke feature. (b) Remove background hiss and room echo from a single person's recorded narration. (c) Split a live-mixed rehearsal recording into drums, bass and everything else. (d) Provide separation inside a live monitoring chain with a few milliseconds of latency. Which does this model serve, and what should the others use?",
+      "explanation": "This is a music source separation model: it takes a finished mix and reconstructs the instrument stems, which is what both the karaoke feature and the rehearsal split need. Cleaning up a single voice is a different problem served by speech-enhancement models tuned for voice, some of which do run in real time. And this model is offline and computationally heavy by design, so a monitoring chain with millisecond latency is not something it can serve at all.",
+      "grade_id": "demucs-2372ae42f5e150e2",
+      "options": [
+        "(a) and (c): it is a music source separation model that reconstructs instrument stems from a finished mix, which covers both vocal removal and splitting a mixed recording into parts. (b) is speech enhancement, a different family of models tuned for voice. And (d) is out of scope entirely \u2014 this model is offline and heavy, and low-latency separation needs a specialised streaming design",
+        "(b) and (d): it is a speech enhancement model with a streaming mode, while music stems require a multitrack session",
+        "All four, since separation is separation and latency is only a hardware question",
+        "(a) only: it removes vocals but cannot produce instrument stems, and the other three need different tooling"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "demucs-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Explain why separation is possible at all, using the time-frequency masking picture. Say what a mask is, what it multiplies, and why the spectrogram rather than the waveform is the natural place for the idea. Then describe what makes this particular model 'hybrid', and explain the relationship between masking and what the model actually outputs.",
+      "explanation": "",
+      "grade_id": "demucs-0d84a8ad1dd680dd",
+      "expected": "A correct answer must explain the intuition: once instruments are mixed, their energy overlaps in both time and frequency, so no fixed filter separates them \u2014 but in a time-frequency representation the sources are sparser and more distinguishable, because at most points in that grid one source dominates. A mask must be defined as a value between zero and one for each time-frequency cell, saying what fraction of that cell's energy belongs to a given source, and it multiplies the MIXTURE's spectrogram, with the result converted back to a waveform. The reason the spectrogram is the natural home must be given: the sources overlap far less there than in the raw samples, which is what makes the fractional assignment meaningful. The hybrid design must be described: the model runs parallel branches over the waveform and over the spectrogram and fuses them, taking waveform fidelity from one and spectral structure from the other, with an attention-based bottleneck modelling long-range musical structure. The relationship must be stated carefully: masking is the mental model for WHY separation is possible, and the ideal mask computed from ground truth is the upper bound a masking system chases \u2014 but this model predicts waveforms directly rather than merely applying a mask. A strong answer notes that a real mixture does not add as simply as magnitudes suggest, since energy can cancel, which is one reason even an ideal ratio is only an approximation and why a learned model is needed rather than a rule."
+    },
+    {
+      "id": "demucs-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A team compares two runs of the same separator on the same song and finds one scores several decibels higher on the standard metric. They also notice the fourth output stem contains guitars, keys and strings together. What do these two observations mean?",
+      "explanation": "The headline metric is a scale-invariant ratio expressed in decibels: a difference of several decibels reflects real separation quality, and deliberately does not move when the estimate is simply louder or quieter, since loudness is not a separation error. The fourth stem is by design a catch-all containing everything that is not one of the three named sources \u2014 guitars, keys, synths and strings all land there \u2014 and a variant with more outputs exists precisely for when a specific one of those is wanted.",
+      "grade_id": "demucs-b77b31aa41e17393",
+      "options": [
+        "The metric is a scale-invariant ratio in decibels, so a difference of several decibels is a genuine quality difference and not a loudness one \u2014 a louder or quieter estimate scores the same, which is exactly why the measure is defined that way. And the fourth stem is a catch-all for everything that is not one of the three named sources, so guitars, keys and strings landing there is the intended behaviour; a variant with more outputs is the answer if specific instruments are needed",
+        "The score difference is almost certainly a loudness difference, since the metric is sensitive to gain; and the fourth stem containing several instruments means the model failed and should be re-run with more shifts",
+        "The metric is a percentage, so several decibels is negligible; and the fourth stem is a debugging output that should be discarded",
+        "The score difference means the two runs used different sample rates; and the fourth stem should contain only silence, so its contents indicate a corrupted download"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "demucs-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement the masking principle and the metric. Write `ideal_ratio_mask(a_mag, b_mag, eps=1e-8)` taking two equal-shaped magnitude spectrograms as lists of rows and returning a mask whose every cell is the first source's magnitude divided by the sum of both plus `eps`, raising `ValueError` on any shape mismatch. Write `apply_mask(mask, mix_mag)` returning the element-wise product, raising `ValueError` on a shape mismatch. Write `si_sdr(reference, estimate, eps=1e-8)`: raise `ValueError` for unequal lengths or empty input; subtract each signal's own mean; compute the scaling that best projects the estimate onto the reference \u2014 their dot product divided by the reference's energy plus `eps` \u2014 take that multiple of the reference as the target and the remainder of the estimate as noise; and return ten times the base-ten logarithm of the target's energy plus `eps` over the noise's energy plus `eps`. Write `separation_gain(reference, mixture, estimate)` returning the estimate's score minus the mixture's. Standard library only.",
+      "explanation": "The first half shows both why the idea works and why a learned model is still needed. Where one source dominates a cell the mask goes to one or to zero; where they are equal it goes to a half; and the two sources' masks always partition the cell between them. Applied to a mixture that really is the sum of its parts, the ideal ratio recovers the source exactly \u2014 which is the upper bound any masking system is chasing. But the case immediately after is the honest one: a real mixture does not add that simply, because energy cancels, so the same ideal ratio no longer recovers the source, and a real system has to predict a mask rather than be handed one. The metric assertions pin the property its name advertises: multiply the estimate by fifty or divide it by a hundred and the score is unchanged, and a constant offset is removed too \u2014 because neither loudness nor a shift is a separation error. Only the part of the estimate that does not lie along the reference counts against it, which is why an unrelated signal scores below zero.",
+      "grade_id": "demucs-c6a24a1b44cb8400",
+      "starter": "def ideal_ratio_mask(a_mag, b_mag, eps=1e-8):\n    ...\n\n\ndef si_sdr(reference, estimate, eps=1e-8):\n    ...",
+      "solution": "import math\n\n\ndef ideal_ratio_mask(a_mag, b_mag, eps=1e-8):\n    if len(a_mag) != len(b_mag):\n        raise ValueError(\"the two spectrograms must have the same shape\")\n    mask = []\n    for row_a, row_b in zip(a_mag, b_mag):\n        if len(row_a) != len(row_b):\n            raise ValueError(\"the two spectrograms must have the same shape\")\n        mask.append([a / (a + b + eps) for a, b in zip(row_a, row_b)])\n    return mask\n\n\ndef apply_mask(mask, mix_mag):\n    if len(mask) != len(mix_mag):\n        raise ValueError(\"the mask and the mixture must have the same shape\")\n    out = []\n    for mask_row, mix_row in zip(mask, mix_mag):\n        if len(mask_row) != len(mix_row):\n            raise ValueError(\"the mask and the mixture must have the same shape\")\n        out.append([weight * value for weight, value in zip(mask_row, mix_row)])\n    return out\n\n\ndef si_sdr(reference, estimate, eps=1e-8):\n    if len(reference) != len(estimate):\n        raise ValueError(\"reference and estimate must be the same length\")\n    if not reference:\n        raise ValueError(\"empty signals cannot be scored\")\n    ref_mean = sum(reference) / len(reference)\n    est_mean = sum(estimate) / len(estimate)\n    ref = [value - ref_mean for value in reference]\n    est = [value - est_mean for value in estimate]\n    energy = sum(value * value for value in ref)\n    alpha = sum(e * r for e, r in zip(est, ref)) / (energy + eps)\n    target = [alpha * value for value in ref]\n    noise = [e - t for e, t in zip(est, target)]\n    numerator = sum(value * value for value in target) + eps\n    denominator = sum(value * value for value in noise) + eps\n    return 10 * math.log10(numerator / denominator)\n\n\ndef separation_gain(reference, mixture, estimate):\n    return si_sdr(reference, estimate) - si_sdr(reference, mixture)",
+      "test": "import math\n\nA = [[4.0, 1.0, 0.0], [2.0, 2.0, 5.0]]\nB = [[0.0, 3.0, 6.0], [2.0, 0.0, 5.0]]\nMIX = [[a + b for a, b in zip(row_a, row_b)] for row_a, row_b in zip(A, B)]\n\nmask = ideal_ratio_mask(A, B)\nassert len(mask) == 2 and len(mask[0]) == 3\nfor row in mask:\n    assert all(0.0 <= value <= 1.0 for value in row), row\n\n# The mask says what fraction of each cell belongs to the first source: near one\n# where it dominates, near zero where the other does, and a half when they are equal.\nassert mask[0][0] > 0.999, mask[0][0]\nassert mask[0][2] < 0.001, mask[0][2]\nassert abs(mask[1][0] - 0.5) < 1e-6, mask[1][0]\nassert abs(mask[1][2] - 0.5) < 1e-6, mask[1][2]\n\n# The two sources' masks partition each cell between them.\nother = ideal_ratio_mask(B, A)\nfor row_a, row_b in zip(mask, other):\n    for x, y in zip(row_a, row_b):\n        assert abs(x + y - 1.0) < 1e-6, (x, y)\n\n# Applied to the mixture, the ideal mask recovers the source EXACTLY -- when the\n# mixture really is the sum of the parts.\nrecovered = apply_mask(mask, MIX)\nfor row_r, row_a in zip(recovered, A):\n    for r, a in zip(row_r, row_a):\n        assert abs(r - a) < 1e-6, (r, a)\n\n# ...which is the catch. Real mixtures do not add that simply -- energy cancels --\n# so even the ideal ratio is only an upper bound, and a real system must PREDICT the\n# mask rather than being handed it.\nCANCELLED = [[value * 0.7 for value in row] for row in MIX]\napproximate = apply_mask(mask, CANCELLED)\nassert any(abs(r - a) > 0.1 for row_r, row_a in zip(approximate, A)\n           for r, a in zip(row_r, row_a))\n\nfor bad in (lambda: ideal_ratio_mask(A, [[1.0]]), lambda: apply_mask(mask, [[1.0]]),\n            lambda: ideal_ratio_mask([[1.0, 2.0]], [[1.0]])):\n    try:\n        bad()\n    except ValueError:\n        continue\n    raise AssertionError(\"a shape mismatch must be refused\")\n\n# The metric. A perfect estimate scores enormously high.\nreference = [math.sin(2 * math.pi * 5 * i / 200) for i in range(200)]\ninterferer = [math.sin(2 * math.pi * 40 * i / 200) for i in range(200)]\nmixture = [r + i for r, i in zip(reference, interferer)]\nestimate = [r + 0.1 * i for r, i in zip(reference, interferer)]\n\nassert si_sdr(reference, reference) > 60\nassert si_sdr(reference, estimate) > si_sdr(reference, mixture)\nassert separation_gain(reference, mixture, estimate) > 15\n\n# Scale invariance is the whole point of the name: making the estimate louder or\n# quieter must not change the score, because loudness is not a separation error.\nquiet = [0.01 * value for value in estimate]\nloud = [50.0 * value for value in estimate]\nassert abs(si_sdr(reference, quiet) - si_sdr(reference, estimate)) < 1e-3\nassert abs(si_sdr(reference, loud) - si_sdr(reference, estimate)) < 1e-3\n# ...and a constant offset is removed too, since a shift is not distortion either.\nshifted = [value + 7.0 for value in estimate]\nassert abs(si_sdr(reference, shifted) - si_sdr(reference, estimate)) < 1e-3\n\n# More interference means a worse score, monotonically.\nscores = [si_sdr(reference, [r + level * i for r, i in zip(reference, interferer)])\n          for level in (0.05, 0.1, 0.3, 1.0)]\nassert scores == sorted(scores, reverse=True), scores\n\n# An estimate unrelated to the reference scores near or below zero.\nassert si_sdr(reference, interferer) < 0.0\nassert si_sdr(reference, [0.0] * len(reference)) <= 0.0\n\nfor bad in (lambda: si_sdr(reference, estimate[:10]), lambda: si_sdr([], [])):\n    try:\n        bad()\n    except ValueError:\n        continue\n    raise AssertionError(\"must be refused\")"
+    },
+    {
+      "id": "demucs-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A batch job produces poor stems and occasionally runs out of memory. The team downmixes each track to a single channel first, feeds it at the file's own sample rate without resampling, skips the normalisation step from the reference pipeline, and uses the fine-tuned variant for every run. What should change?",
+      "explanation": "Four separate practices, each with a real reason. The model is trained on stereo, so downmixing first costs quality. The inference helper does not resample, so audio must be brought to the model's own rate or the result is silently wrong. The reference pipeline normalises the input and reverses it afterwards, and skipping that degrades quality. And the fine-tuned variant runs several sub-models, making it several times slower \u2014 right for a final render, wrong for iteration \u2014 while the memory pressure is managed by capping chunk length rather than by anything else.",
+      "grade_id": "demucs-92c8a470b4be14d8",
+      "options": [
+        "Keep the audio in stereo, because the model is trained on stereo and mono input degrades quality. Resample to the model's own rate, because the inference helper does not do it for you and a mismatch silently wrecks the output. Apply the reference pipeline's normalisation before inference and reverse it afterwards. And use the plain variant for iteration, since the fine-tuned one runs several sub-models and is several times slower \u2014 reserving it for final renders \u2014 while capping the chunk length to control memory",
+        "Downmixing is correct because it halves the work; the sample rate is handled internally; normalisation is optional; and the fine-tuned variant should always be used since it is more accurate",
+        "All the problems are the chunk length; setting it larger fixes both the quality and the memory usage",
+        "Stereo is irrelevant, resampling should be avoided because it loses information, normalisation is applied automatically, and the memory issue is solved by increasing the number of averaged shifts"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "demucs-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Compare this model with a faster older separator, with general separation toolkits, with hosted commercial services, and with a speech-enhancement model. Say when each is the right answer. Then advise a music-education startup that wants to let students mute individual instruments in any song they upload, at reasonable cost, with results good enough to practise along to. Say what you would use, what you would set, and what expectation you would manage.",
+      "explanation": "",
+      "grade_id": "demucs-c69ba6307be85dbe",
+      "expected": "A correct answer must position all four. This model is the default for open-source music separation: state-of-the-art quality, several stems, actively maintained and permissively licensed, at the cost of being offline and heavy. The faster older separator is much quicker and lighter, which matters when batch-processing very large catalogues, at the cost of noticeably more bleed between stems. General separation toolkits are for research and for training your own models with recipes covering both speech and music, rather than being the fastest path to good stems. Hosted commercial services often beat open models on quality with no operational burden, at a per-track price and with audio leaving your infrastructure. A speech-enhancement model is the right answer when the source is a single voice needing denoising or dereverberation \u2014 not a music separator at all, and some of those do run in real time. The recommendation must be this model, since the students' uploads are finished music mixes and the four-stem output maps directly onto muting individual parts. What to set must be concrete: keep the audio in stereo, resample to the model's own rate, apply and reverse the reference normalisation, use the plain variant for throughput and reserve the fine-tuned one for anything needing the best quality, and cap the chunk length to bound memory. The expectation to manage must be stated plainly: even the best separation leaves audible bleed and artefacts \u2014 breath in the catch-all stem, cymbal wash in the drums \u2014 so 'good enough to practise along to' is achievable while 'clean isolated multitrack' is not. A strong answer also raises that the rights to the uploaded music are the operator's responsibility, and that if students want to isolate a specific instrument such as guitar or piano, the variant with more outputs is the relevant option."
+    }
+  ]
+}

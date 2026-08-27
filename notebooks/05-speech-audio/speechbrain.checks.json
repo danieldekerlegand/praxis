@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "speechbrain",
+  "title": "SpeechBrain",
+  "domain": "05-speech-audio",
+  "runnable": true,
+  "generated": "2026-08-27T08:49:32+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "speechbrain-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A research group is building a meeting-analysis prototype: transcribe the audio, tell speakers apart, clean up noisy recordings, and later fine-tune the speaker model on their own recordings. A separate team just needs transcripts of a hundred files on a laptop by tomorrow. Which is this toolkit for, and what is its stated design priority?",
+      "explanation": "The problem this toolkit is aimed at is that speech research normally means stitching together several incompatible repositories, each with its own data format, training loop and configuration style. It standardises all of that across a wide span of tasks, and its explicitly stated priority is readability and ease of modification \u2014 you reach for it to understand and adapt a model. That is exactly wrong for someone who wants one transcript quickly, where a light dedicated transcription library is far less work.",
+      "grade_id": "speechbrain-26fc4a1890b1a51f",
+      "options": [
+        "The research group. Its distinguishing feature is breadth behind ONE interface \u2014 recognition, speaker verification and identification, enhancement and separation, voice activity, diarisation and synthesis all in one framework with one training loop and one configuration language \u2014 which is what a prototype mixing several speech tasks needs. Its stated priority is readability and ease of modification: it is the framework for understanding and fine-tuning a model rather than just calling one. The laptop team should use a lighter transcription library",
+        "The laptop team. Its value is a single fast transcription call, while a multi-task prototype requires stitching several specialised repositories together",
+        "Both equally: it is a thin wrapper over a hosted service, so it is as convenient for one transcript as for a research prototype",
+        "Neither. It provides only pretrained checkpoints with no training story, so fine-tuning requires a different framework"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "speechbrain-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Explain this toolkit as a training framework specialised for speech plus a configuration language that IS the experiment. Describe the two central abstractions, saying exactly what you write and what the framework owns. Then explain how inference differs from training in this design, and why the configuration language is described as code rather than data.",
+      "explanation": "",
+      "grade_id": "speechbrain-e39437673c7a95e7",
+      "expected": "A correct answer must name both abstractions. The first is the training-loop class: you subclass it and implement only two methods \u2014 one turning a batch into predictions and one turning predictions into a loss \u2014 and then call its fit method, which drives the epochs. Everything else is owned by the framework: batching, mixed precision, checkpointing, multi-device training, schedulers and logging, with lifecycle hooks at the start and end of each stage for metrics and checkpoint decisions. The second is the configuration language, a superset of ordinary structured configuration in which one directive instantiates a class, another references a callable, and a third substitutes a value defined elsewhere \u2014 so loading a configuration file returns a dictionary of LIVE Python objects rather than strings, and the whole experiment is declarative and overridable from the command line. Inference must be described as a separate, much lighter path: rather than the training loop, you use a pretrained inference wrapper around a published checkpoint that exposes a task verb \u2014 transcribe a file, verify a pair, separate a mixture \u2014 and downloads and caches the model for you. The 'code rather than data' point must be explained with its consequence: constructors actually run and references actually resolve at load time and in order, so a forward reference or a mistyped class path fails when the configuration is loaded rather than later, and indentation mistakes become silent object-graph bugs \u2014 which is why configurations are worth keeping small and testing. Noting that each task and dataset pair ships a runnable recipe as the canonical starting point for reproducing or fine-tuning is a plus."
+    },
+    {
+      "id": "speechbrain-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A team implements speaker verification and asks what the model actually produces and how the decision is made. They also want to report accuracy without committing to a particular operating point. What is the correct account?",
+      "explanation": "Speaker verification here is deliberately simple: each utterance becomes a fixed-length embedding, the two embeddings are compared by cosine similarity, and the result is thresholded. Because the threshold is a deployment choice trading one kind of mistake against the other, comparing models means quoting a threshold-free summary \u2014 the equal error rate, the point at which wrongly accepting an impostor and wrongly rejecting a genuine pair happen at the same rate.",
+      "grade_id": "speechbrain-b9a53f12797e1fc0",
+      "options": [
+        "The encoder maps each utterance to a fixed-length embedding; verification is the cosine similarity between two such embeddings compared against a threshold tuned on held-out data, so the answer is one number and a boundary. To report accuracy without fixing an operating point, sweep the threshold and quote the equal error rate \u2014 the point where the rate of impostors wrongly accepted equals the rate of genuine pairs wrongly rejected",
+        "The encoder produces a transcript for each utterance and verification compares the transcripts; accuracy is reported as word error rate, which is threshold-free",
+        "The model outputs a probability of being the same speaker directly, so no threshold is involved; accuracy is simply the proportion of correct predictions",
+        "The encoder produces variable-length feature sequences that must be aligned before comparison; accuracy is reported as the alignment cost, which needs no threshold"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "speechbrain-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement the scoring and evaluation behind speaker verification. Write `l2_normalise(vector)` returning the vector scaled to unit length, raising `ValueError` for an all-zero vector. Write `cosine(a, b)` returning the dot product of the two normalised vectors, raising `ValueError` when their lengths differ. Write `verify(a, b, threshold)` returning the pair (score, whether the score is STRICTLY greater than the threshold). Write `rates(genuine, impostor, threshold)` taking two lists of scores and returning the pair (fraction of impostor scores strictly above the threshold, fraction of genuine scores at or below it), raising `ValueError` if either list is empty. Write `equal_error_rate(genuine, impostor)` returning the pair (rate, threshold): consider every distinct score in either list as a candidate threshold, plus one candidate below the smallest, compute both rates at each, and return the mean of the two rates and the threshold at the candidate where the absolute difference between them is smallest \u2014 preferring the earliest such candidate on a tie. Standard library only.",
+      "explanation": "The first block is the property that makes this comparison work at all: scaling an embedding does not change the score, because only its direction matters \u2014 so a longer or louder recording does not by itself look like a different speaker. The middle block is the part people skip and then regret. There are two ways to be wrong and they move in opposite directions: raise the threshold and impostors stop getting in while genuine users start being turned away; lower it and the reverse. The assertions show that trade is monotone in the threshold, which is precisely why quoting accuracy at one operating point tells you very little and why a threshold-free summary is the convention. The last assertions make that summary meaningful: perfectly separated scores give zero, scores drawn from the same distribution give about a half \u2014 the coin-flip floor \u2014 and the encoder whose scores separate better gets the better number without either one having to commit to a threshold.",
+      "grade_id": "speechbrain-df0f001ee95f0af6",
+      "starter": "def cosine(a, b):\n    ...\n\n\ndef equal_error_rate(genuine, impostor):\n    ...",
+      "solution": "import math\n\n\ndef l2_normalise(vector):\n    norm = math.sqrt(sum(value * value for value in vector))\n    if norm == 0.0:\n        raise ValueError(\"cannot normalise a zero vector\")\n    return [value / norm for value in vector]\n\n\ndef cosine(a, b):\n    if len(a) != len(b):\n        raise ValueError(\"embeddings must have the same dimension\")\n    left = l2_normalise(a)\n    right = l2_normalise(b)\n    return sum(x * y for x, y in zip(left, right))\n\n\ndef verify(a, b, threshold):\n    score = cosine(a, b)\n    return score, score > threshold\n\n\ndef rates(genuine, impostor, threshold):\n    if not genuine or not impostor:\n        raise ValueError(\"both score sets must be non-empty\")\n    false_accept = sum(1 for score in impostor if score > threshold) / len(impostor)\n    false_reject = sum(1 for score in genuine if score <= threshold) / len(genuine)\n    return false_accept, false_reject\n\n\ndef equal_error_rate(genuine, impostor):\n    candidates = sorted(set(list(genuine) + list(impostor)))\n    candidates = [candidates[0] - 1.0] + candidates\n    best = None\n    for threshold in candidates:\n        far, frr = rates(genuine, impostor, threshold)\n        gap = abs(far - frr)\n        if best is None or gap < best[0]:\n            best = (gap, (far + frr) / 2, threshold)\n    return best[1], best[2]",
+      "test": "import math\n\n# Direction is everything: the score does not depend on how loud or long the\n# recording was, only on where its embedding points.\nassert abs(cosine([1.0, 0.0], [1.0, 0.0]) - 1.0) < 1e-12\nassert abs(cosine([1.0, 0.0], [5.0, 0.0]) - 1.0) < 1e-12\nassert abs(cosine([1.0, 0.0], [-1.0, 0.0]) + 1.0) < 1e-12\nassert abs(cosine([1.0, 0.0], [0.0, 3.0])) < 1e-12\nassert abs(cosine([3.0, 4.0], [3.0, 4.0]) - 1.0) < 1e-12\nassert abs(cosine([1.0, 1.0], [1.0, 0.0]) - 1 / math.sqrt(2)) < 1e-12\n\nnormalised = l2_normalise([3.0, 4.0])\nassert abs(normalised[0] - 0.6) < 1e-12 and abs(normalised[1] - 0.8) < 1e-12\nassert abs(math.sqrt(sum(v * v for v in normalised)) - 1.0) < 1e-12\n\nfor bad in (lambda: cosine([1.0, 0.0], [1.0]), lambda: cosine([0.0, 0.0], [1.0, 0.0]),\n            lambda: l2_normalise([0.0, 0.0, 0.0])):\n    try:\n        bad()\n    except ValueError:\n        continue\n    raise AssertionError(\"must be refused\")\n\n# Verification is that score against a threshold -- one number and a boundary.\nscore, same = verify([1.0, 0.1], [1.0, 0.0], 0.9)\nassert same is True and score > 0.9\nscore, same = verify([1.0, 0.0], [0.0, 1.0], 0.25)\nassert same is False and abs(score) < 1e-12\n# The boundary itself is a rejection, not an acceptance.\n_, at_boundary = verify([1.0, 0.0], [1.0, 0.0], 1.0)\nassert at_boundary is False\n\n# Two ways to be wrong, and they pull in opposite directions.\nGENUINE = [0.9, 0.8, 0.7, 0.6]\nIMPOSTOR = [0.1, 0.2, 0.3, 0.4]\nassert rates(GENUINE, IMPOSTOR, 0.5) == (0.0, 0.0)\n# Raise the bar and impostors stop getting in, but real users start being turned away.\nassert rates(GENUINE, IMPOSTOR, 0.75) == (0.0, 0.5)\nassert rates(GENUINE, IMPOSTOR, 0.95) == (0.0, 1.0)\n# Lower it and the reverse happens.\nassert rates(GENUINE, IMPOSTOR, 0.15) == (0.75, 0.0)\nassert rates(GENUINE, IMPOSTOR, -1.0) == (1.0, 0.0)\n\n# That trade-off is monotone in the threshold, which is what makes a single\n# threshold-free number worth quoting.\nprevious_far, previous_frr = 1.0, 0.0\nfor threshold in [-0.5, 0.0, 0.25, 0.5, 0.75, 1.0]:\n    far, frr = rates(GENUINE, IMPOSTOR, threshold)\n    assert far <= previous_far and frr >= previous_frr, (threshold, far, frr)\n    previous_far, previous_frr = far, frr\n\ntry:\n    rates([], IMPOSTOR, 0.5)\nexcept ValueError:\n    pass\nelse:\n    raise AssertionError(\"empty score sets must be refused\")\n\n# The equal error rate is where the two mistakes balance -- for perfectly separated\n# scores there is a threshold that makes both zero.\neer, threshold = equal_error_rate(GENUINE, IMPOSTOR)\nassert eer == 0.0, (eer, threshold)\nassert 0.4 <= threshold < 0.6, threshold\nassert rates(GENUINE, IMPOSTOR, threshold) == (0.0, 0.0)\n\n# Overlapping scores cannot be separated, and the number says so.\noverlap_eer, overlap_threshold = equal_error_rate([0.5, 0.3], [0.6, 0.4])\nassert overlap_eer > 0.0, overlap_eer\nfar, frr = rates([0.5, 0.3], [0.6, 0.4], overlap_threshold)\nassert abs(far - frr) <= 0.5, (far, frr)\n\n# Scores drawn from the same distribution are indistinguishable: about half of every\n# decision is wrong however the boundary is placed.\nsame_distribution = [0.1 * i for i in range(10)]\ncoin_eer, _ = equal_error_rate(same_distribution, list(same_distribution))\nassert abs(coin_eer - 0.5) < 0.11, coin_eer\n\n# Better separation gives a better number, which is how two encoders are compared\n# without picking a threshold for either of them.\ntight = equal_error_rate([0.95, 0.94, 0.93], [0.05, 0.04, 0.03])[0]\nloose = equal_error_rate([0.6, 0.5, 0.4], [0.55, 0.45, 0.35])[0]\nassert tight < loose, (tight, loose)\nassert tight == 0.0"
+    },
+    {
+      "id": "speechbrain-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A new user hits four problems: an import path from a tutorial does not exist; results on their own recordings are wrong although the same code works on the toolkit's example files; loading two different checkpoints into the same cache directory produces confusing errors; and they cannot find a single call that trains a model on their data. What is the right assessment?",
+      "explanation": "Four separate realities. Import paths were reorganised in a major version, so material written against the older layout will not resolve. The audio contract is single-channel at a specific rate, and although the file-based interfaces resample for you, raw tensors handed in are used as they are. Cache directories are per model \u2014 reusing one across different sources is a reliable way to get load errors that make no sense. And the absence of a one-call training method is deliberate: this is a framework whose value is a loop you can override, which means a training script and a configuration file, normally adapted from a shipped recipe.",
+      "grade_id": "speechbrain-44c35e9b3d24718c",
+      "options": [
+        "The import path moved in a major version, so tutorials and installed version must be matched. Their own recordings are almost certainly not single-channel at the expected rate \u2014 the file-based interfaces resample for you but raw tensors you pass in are not touched, so resample first. Each checkpoint needs its own cache directory, since reusing one across sources causes exactly those load errors. And there is no one-call training method by design: training means a script plus a configuration file, usually adapted from a shipped recipe \u2014 the overridable loop IS the product, and also the learning curve",
+        "The import error means the package is not installed; the wrong results mean the checkpoint is corrupt; the cache errors are a permissions problem alone; and a single training call does exist but is undocumented",
+        "All four are symptoms of a missing audio backend, which breaks imports, file reading, caching and training alike",
+        "The import path is an alias that works either way; the wrong results come from the threshold default; the cache directory is shared by design; and training is done entirely through command-line flags with no configuration file"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "speechbrain-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Compare this toolkit with a lightweight transcription library, with a heavier vendor-oriented speech framework, with a specialist diarisation library, and with a general model-hub library. Say what each wins on. Then advise a university lab building a coursework project that transcribes lecture recordings, identifies which of several known lecturers is speaking, and cleans up noisy recordings \u2014 and must be reproducible by students on modest hardware. Say what you would use and where you might still reach for something else.",
+      "explanation": "",
+      "grade_id": "speechbrain-62d47465f146c585",
+      "expected": "A correct answer must position all four. The lightweight transcription library is much lighter for transcription alone \u2014 one install, good performance without specialised hardware, no training loop \u2014 and is the right choice for grabbing transcripts. The heavier vendor-oriented framework is accelerator-first with leading recognition checkpoints and a production deployment path, but is less hackable and broader only within its own ecosystem; this toolkit is the friendlier research and teaching choice. The specialist diarisation library is best in class for segmenting who spoke when, and the two are commonly combined \u2014 embeddings from this toolkit with the specialist's clustering pipelines. The general model-hub library has an enormous ecosystem and a uniform interface, but is thinner on speaker, enhancement and separation tasks and on a unified training story for them. The recommendation must be this toolkit, and the reasons must map to the requirements: it covers all three tasks behind one interface and one mental model, it prioritises readability and modification which suits coursework, its recipes make experiments reproducible, and pretrained checkpoints run without heavy hardware. Where to reach elsewhere must be concrete: if transcription quality or speed becomes the bottleneck, a dedicated lightweight transcription model is better at that one job, and if the project grows into genuine diarisation over unknown speakers rather than identification among known ones, the specialist library's pipelines are stronger. Noting practical prerequisites \u2014 resampling recordings to single-channel audio at the expected rate, giving each checkpoint its own cache directory, and matching tutorial import paths to the installed version \u2014 is a plus."
+    }
+  ]
+}

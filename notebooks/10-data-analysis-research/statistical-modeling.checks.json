@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "statistical-modeling",
+  "title": "Statistical Modeling",
+  "domain": "10-data-analysis-research",
+  "runnable": true,
+  "generated": "2026-08-27T06:55:09+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "statistical-modeling-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A policy team must answer 'does an extra year of schooling raise earnings, and by how much, with what uncertainty?' from 4,000 survey records. An engineer offers a gradient-boosted ensemble that predicts earnings more accurately than any regression on a held-out split, and proposes shipping it. What is the right response?",
+      "explanation": "The two tools answer different questions. A statistical model is a probability statement, so an estimate, a standard error and an interval fall out of it; an ensemble optimises a prediction and offers no parameter to interpret and no honest uncertainty about one. Deciding by held-out accuracy is choosing on a criterion the brief never mentioned.",
+      "grade_id": "statistical-modeling-880f1bcf10627e11",
+      "options": [
+        "Better held-out accuracy does not answer the question asked: the deliverable is an estimate of one effect with an interval around it, holding other factors fixed, and the ensemble supplies neither a parameter nor its sampling uncertainty. On data of this size and with a question of this shape, a well-specified parametric model is the appropriate tool \u2014 the ensemble would be right if the deliverable were predictions",
+        "The engineer is right: predictive accuracy on held-out data is the strongest available evidence about any relationship, so the more accurate model's importance scores should be reported as the effect",
+        "The engineer is wrong because ensembles cannot be applied to survey data, which violates the independence their training procedure assumes",
+        "Both approaches are equivalent here, since with a few thousand records any sufficiently flexible model recovers the same coefficients; the choice is a matter of team familiarity"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "statistical-modeling-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A colleague has fitted three models this month and describes them as 'completely different techniques': one predicted a continuous measurement, one predicted whether an event happened, and one predicted a count of events. Give the common structure that makes all three the same machine with different settings, name the settings, and explain what goes wrong if the wrong one is chosen for a binary outcome.",
+      "explanation": "Four choices \u2014 predictor, mapping, family, fitting criterion \u2014 specify every one of these models, and reading them as unrelated techniques is what makes the family feel like a list to memorise. The binary case is the clearest illustration, because the mismatch shows up both in impossible predictions and in inference that cannot be believed.",
+      "grade_id": "statistical-modeling-99306a19b3616640",
+      "expected": "A correct answer must give the shared structure and the choices that specialise it. The structure is a systematic part and a random part: the systematic part is a weighted sum of the predictors \u2014 linear in the parameters, though the columns may themselves be transformations or interactions \u2014 which is then mapped by a function onto the scale the outcome's average lives on; the random part is an assumed distribution for the deviations around that average. Fitting means choosing the parameters that make the observed data most probable under that assumed distribution, and the familiar least-squares fit is the special case of that when the assumed distribution is the symmetric bell-shaped one. So the settings are: the linear predictor, the mapping function, the distribution family, and the criterion used to fit. The three models differ only in the mapping and the family \u2014 identity and the bell-shaped distribution for a continuous measurement, a mapping onto the log-odds scale with a two-outcome distribution for an event, and a logarithmic mapping with a count distribution for counts. If a continuous-outcome fit is used on a binary outcome, two things break: the prediction is unconstrained, so fitted values fall below zero or above one and cannot be read as probabilities; and the variability of a binary outcome depends on its own average, so the constant-variance assumption is violated by construction and the reported standard errors and intervals are not trustworthy. Noting that the coefficients may still be roughly informative about direction while the inference is what is broken is a plus."
+    },
+    {
+      "id": "statistical-modeling-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A draft reports: 'the coefficient was 0.42, p = 0.03, so there is a 97% chance the effect is real, and the interval [0.04, 0.80] means there is a 95% probability the true value lies in that range.' Which correction is accurate on both counts?",
+      "explanation": "Both errors are the same reversal \u2014 treating a statement made under an assumption as a statement about the assumption. Complementing the reported probability is not a probability of anything, and the coverage guarantee belongs to the interval-constructing procedure rather than to any one interval. The framework that does put a probability on the parameter requires a prior, which is precisely what the other one declines to supply.",
+      "grade_id": "statistical-modeling-85a159abb03a8e9e",
+      "options": [
+        "Both statements invert what was computed. The reported probability is the chance of seeing data at least this extreme if the effect were exactly zero \u2014 a statement about data under an assumption, not about the assumption given the data \u2014 so it does not license a probability that the effect is real. And the interval's guarantee is about the procedure across hypothetical repeated samples: intervals built this way would cover the true value in 95% of them. A probability statement about the parameter itself requires the other framework, with a prior",
+        "The first statement is a harmless shorthand that is correct to two decimal places, and only the second needs fixing, since intervals are always about procedures",
+        "The second statement is correct as written, and only the first needs fixing; an interval is by definition the range with that probability of containing the parameter",
+        "Both are correct under a large sample, since the two frameworks converge as the sample grows and the distinction is only relevant for very small datasets"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "statistical-modeling-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Compute a regression table's core columns by hand. Implement `ols_fit(x, y)` for a single predictor with an intercept, using only the standard library. With n observations and means x\u0304 and \u0233, let Sxx be the sum of squared deviations of x from x\u0304 and Sxy the sum of the products of the deviations of x and y. The slope is Sxy divided by Sxx and the intercept is \u0233 minus the slope times x\u0304. Let SSE be the sum of squared residuals and SST the sum of squared deviations of y from \u0233; the fraction of variance explained is one minus SSE over SST, and is 1.0 when SST is zero. The residual variance is SSE divided by n \u2212 2, and the slope's standard error is the square root of the residual variance divided by Sxx. Return `{\"intercept\": ..., \"slope\": ..., \"r2\": ..., \"se_slope\": ..., \"t\": ...}` where `t` is the slope divided by its standard error \u2014 but when SSE is exactly zero, report a standard error of `0.0` and a `t` of `None`. Raise `ValueError` when the two inputs differ in length, when there are fewer than three observations, or when x does not vary.",
+      "explanation": "The replication case is the one to sit with. Repeating the identical rows twenty times changes nothing about the relationship \u2014 same slope, same intercept, same fraction of variance explained \u2014 and yet the standard error falls and the test statistic climbs, because the arithmetic treats every copied row as a fresh observation. That is the whole of the sample-size argument in one assertion: a large enough dataset makes almost any non-zero effect report an extreme statistic, so the estimate and its interval are what tell you whether the effect matters while the statistic only tells you how precisely it was pinned down. It is also, incidentally, the reason correlated rows are so dangerous \u2014 duplicated information is exactly what clustered data supplies.",
+      "grade_id": "statistical-modeling-3aad83a278f7c571",
+      "starter": "def ols_fit(x, y):\n    \"\"\"Slope, intercept, variance explained, and the slope's standard error.\"\"\"\n    ...",
+      "solution": "def ols_fit(x, y):\n    if len(x) != len(y):\n        raise ValueError(\"x and y must be the same length\")\n    n = len(x)\n    if n < 3:\n        raise ValueError(\"need at least 3 observations to estimate a residual variance\")\n    xbar = sum(x) / n\n    ybar = sum(y) / n\n    sxx = sum((xi - xbar) ** 2 for xi in x)\n    if sxx == 0:\n        raise ValueError(\"x has no variation, so the slope is not identified\")\n    sxy = sum((xi - xbar) * (yi - ybar) for xi, yi in zip(x, y))\n    slope = sxy / sxx\n    intercept = ybar - slope * xbar\n    resid = [yi - (intercept + slope * xi) for xi, yi in zip(x, y)]\n    sse = sum(r * r for r in resid)\n    sst = sum((yi - ybar) ** 2 for yi in y)\n    r2 = 1.0 if sst == 0 else 1 - sse / sst\n    if sse == 0:\n        se_slope = 0.0\n        t = None\n    else:\n        sigma2 = sse / (n - 2)\n        se_slope = (sigma2 / sxx) ** 0.5\n        t = slope / se_slope\n    return {\"intercept\": intercept, \"slope\": slope, \"r2\": r2,\n            \"se_slope\": se_slope, \"t\": t}",
+      "test": "import math\n\n# A world with no noise: the line is recovered exactly and there is nothing left to be\n# uncertain about.\nx = [0, 1, 2, 3, 4, 5]\ny = [3 + 2 * xi for xi in x]\nf = ols_fit(x, y)\nassert math.isclose(f[\"slope\"], 2.0), f\nassert math.isclose(f[\"intercept\"], 3.0), f\nassert math.isclose(f[\"r2\"], 1.0), f\nassert f[\"se_slope\"] == 0.0 and f[\"t\"] is None, f\n\n# Add noise: the estimate stays near the truth, the fit is no longer perfect,\n# and the slope now has a standard error.\ny = [3 + 2 * xi + e for xi, e in zip(x, [0.4, -0.3, 0.2, -0.5, 0.3, -0.1])]\nnoisy = ols_fit(x, y)\nassert 1.7 < noisy[\"slope\"] < 2.3, noisy\nassert 0.8 < noisy[\"r2\"] < 1.0, noisy\nassert noisy[\"se_slope\"] > 0 and noisy[\"t\"] is not None, noisy\n\n# Replicate the SAME data twenty times over. The relationship is unchanged --\n# identical slope, intercept and fraction of variance explained -- but the standard\n# error shrinks and the test statistic grows, purely because there are more rows.\nbig_x = x * 20\nbig_y = y * 20\nbig = ols_fit(big_x, big_y)\nassert math.isclose(big[\"slope\"], noisy[\"slope\"], rel_tol=1e-9), (big, noisy)\nassert math.isclose(big[\"intercept\"], noisy[\"intercept\"], rel_tol=1e-9), (big, noisy)\nassert math.isclose(big[\"r2\"], noisy[\"r2\"], rel_tol=1e-9), (big, noisy)\nassert big[\"se_slope\"] < noisy[\"se_slope\"] / 3, (big, noisy)\nassert abs(big[\"t\"]) > 3 * abs(noisy[\"t\"]), (big, noisy)\n\n# A tiny but very precisely measured effect beats a large, noisy one on the statistic\n# and loses on the estimate -- the two readings answer different questions.\ntiny = ols_fit(list(range(60)), [0.01 * i for i in range(60)])\nassert math.isclose(tiny[\"slope\"], 0.01), tiny\n\n# A flat relationship: slope near zero, almost no variance explained.\nflat = ols_fit([1, 2, 3, 4, 5, 6], [5.0, 4.9, 5.1, 5.0, 4.95, 5.05])\nassert abs(flat[\"slope\"]) < 0.05, flat\nassert flat[\"r2\"] < 0.5, flat\n\n# Refusals: not enough rows, mismatched lengths, and a predictor that never varies.\nfor bad in (([1, 2], [1, 2]), ([1, 2, 3], [1, 2]), ([4, 4, 4, 4], [1, 2, 3, 4])):\n    try:\n        ols_fit(*bad)\n    except ValueError:\n        continue\n    raise AssertionError(f\"must be rejected: {bad}\")"
+    },
+    {
+      "id": "statistical-modeling-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A residual plot fans out: the spread of the residuals grows steadily with the fitted value. A colleague argues the coefficients are therefore biased and the model must be refit with a transformed outcome before anything can be reported. What is the accurate account of the damage and the cheapest remedy?",
+      "explanation": "This is the general pattern for assumption violations of this kind: what breaks is the uncertainty machinery rather than the point estimates. Standard errors robust to non-constant spread cost nothing and leave the coefficients interpretable, whereas transforming the outcome changes the quantity being modelled and therefore what every coefficient means. Correlated errors do the same damage for the same reason, with clustering as the corresponding remedy.",
+      "grade_id": "statistical-modeling-6867065fda193e1a",
+      "options": [
+        "The coefficient estimates remain roughly unbiased \u2014 the fanning is about the variability of the errors, not about their average \u2014 but the standard errors computed under a constant-variance assumption are wrong, so the intervals and tests are not trustworthy. The cheapest fix is to compute standard errors that do not assume constant variance, keeping the same fit, rather than to transform the outcome and change what the coefficients mean",
+        "The colleague is right on both points: non-constant spread biases the estimates themselves, and only a transformation of the outcome restores them",
+        "Neither the estimates nor the standard errors are affected; fanning residuals are a plotting artefact of ordering the points by fitted value",
+        "The estimates are unbiased and the standard errors are conservative rather than wrong, so the reported intervals are simply too wide and may be reported as they are"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "statistical-modeling-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four analyses arrive. (1) A number of complaints per store per week, mostly small integers with a long right tail. (2) A binary outcome where one predictor happens to separate the two classes perfectly. (3) Ten measurements each from twelve patients, analysed as 120 independent rows. (4) A model with two predictors so highly correlated that each coefficient flips sign depending on whether the other is included, though predictions are stable. Diagnose each and say what to do.",
+      "explanation": "Four different diagnoses, and only one of them is about the outcome's distribution. The other three are about the estimate being unbounded, the rows not being independent, and the parameters not being separately identified \u2014 none of which shows up as a bad fit, which is why fit statistics alone never tell you a model is sound.",
+      "grade_id": "statistical-modeling-34aec7cfc2d6b493",
+      "expected": "A correct answer must diagnose all four. (1) A count outcome is not continuous and is not symmetric: use a member of the family suited to counts, with a logarithmic mapping onto the linear predictor, rather than the ordinary continuous-outcome fit \u2014 and check for more spread than that family predicts, which would call for a more flexible count family. (2) Perfect separation: the estimate that maximises the likelihood is unbounded, so the coefficient runs off toward infinity and its standard error explodes; the fit has not failed numerically so much as reported that there is no finite best answer. The remedies are to penalise the estimate \u2014 a shrinkage penalty or a bias-reducing correction \u2014 or to remove the offending predictor, and either way the situation must be reported rather than the enormous coefficient. (3) The rows are not independent: ten measurements from one patient carry far less information than ten measurements from ten patients, so treating them as 120 independent observations understates uncertainty and inflates the rate of false findings. The fix is a model that represents the grouping, which is what mixed-effects models are for. (4) Collinearity: the data cannot separate the two predictors' individual contributions, so the individual coefficients are unstable and should not be interpreted one at a time, even though the model as a whole predicts perfectly well. Options are to keep only one of the pair, combine them, or use a penalised fit, and in every case to say plainly that the separate effects are not identified rather than to report whichever sign the chosen specification produced. Recognising that the third case is the same underlying disease as replicated rows \u2014 information counted more than once \u2014 is a plus."
+    }
+  ]
+}

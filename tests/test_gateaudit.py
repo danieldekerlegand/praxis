@@ -396,10 +396,18 @@ def test_unreadable_checkset_is_reported_not_raised(tmp_path):
 
 
 def test_every_shipped_seed_gate_is_clean():
+    """Every gate on disk is clean, and the corpus only ever grows.
+
+    A floor, not an equality: the gating backfill (praxis/backfill.py) exists to add
+    gates, so pinning the count would make the tool that raises coverage fail the
+    suite. The 24 hand-built gates the thresholds were measured against are the floor;
+    what stays exact is that NOTHING is flagged, which is the property the numbers
+    were only ever standing in for.
+    """
     report = audit_gates(ROOT / "notebooks")
 
-    assert report["gates"] == 24
-    assert report["checks"] == 144
+    assert report["gates"] >= 24
+    assert report["checks"] >= 144
     flagged = {r["checks"]: r["findings"] for r in report["reports"]
                if r["status"] != "healthy"}
     assert flagged == {}

@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "sparql",
+  "title": "SPARQL",
+  "domain": "01-symbolic-ai-logic",
+  "runnable": true,
+  "generated": "2026-08-27T05:50:19+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "sparql-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "The graph is already loaded in memory and the library gives you a perfectly good API for walking it. Beyond taste, what does moving the questions into the query language actually buy you?",
+      "explanation": "Declarative and portable is the whole of it. Nothing here bounds runtime \u2014 an unbounded path over a large graph is a standing hazard \u2014 and a planner is an implementation detail that no engine turns into a guarantee.",
+      "grade_id": "sparql-52db5807294b33e2",
+      "options": [
+        "Joins, pruning, optional edges and variable-length paths get described instead of coded, and the same text runs unchanged against an in-memory graph, a stored database, or a remote service you do not control",
+        "Evaluation is guaranteed to terminate inside a bounded amount of memory, which a traversal written by hand is not",
+        "The engine plans the work over its indexes, so any query is asymptotically faster than a traversal a person could write",
+        "The results come back with their types attached, which the library's own interface cannot provide"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "sparql-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A colleague's query returns roughly the product of two counts \u2014 vastly more rows than the data could justify \u2014 and they conclude the engine is broken. Using the way patterns are matched, explain the shape of query that produces exactly that, and give the smallest edit that repairs it. Then say what the same reasoning predicts about a query that returns zero rows instead, and where you would look first.",
+      "explanation": "Both symptoms come from the same question \u2014 which variables are shared \u2014 asked in opposite directions. Too many rows means nothing is shared; no rows means something shared can never agree.",
+      "grade_id": "sparql-5efdf6fe7db7f5dc",
+      "expected": "A correct answer must state that patterns are matched CONJUNCTIVELY and that a variable appearing in two patterns is the JOIN KEY that forces their matches to agree. A group of patterns sharing no variable with the rest therefore constrains nothing, and every combination of the two independent match sets is a correct answer \u2014 a cartesian product, which is the engine doing exactly what was asked. The repair is to introduce the shared variable, or the missing pattern, that ties the group to the rest, rather than to filter afterwards. For the second half it must invert the diagnosis: zero rows means the patterns ARE tied together but no consistent binding exists, so the place to look is a single pattern that matches nothing on its own \u2014 a mistyped variable name that accidentally joins two unrelated positions, an identifier or predicate that does not occur in the data, or a value whose written form and datatype differ from the one stored. Running each pattern alone to see which returns nothing is a plus."
+    },
+    {
+      "id": "sparql-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A query group mentions a variable in exactly one place: inside a filter expression comparing it to an identifier. It returns nothing at all. Why, and what should have been written instead?",
+      "explanation": "Filtering and binding are different jobs, and only patterns and inline value tables bind. Placement is a red herring: a filter applies to its whole group wherever inside it you write it, which is its own source of surprises.",
+      "grade_id": "sparql-6de5dbdb18e79b76",
+      "options": [
+        "A filter can only discard solutions that already exist and never creates a binding, so a variable mentioned nowhere else is unbound and the comparison cannot hold \u2014 bind it with a pattern of its own, or supply it as an inline table of values",
+        "A filter may compare a variable only against literal values, not against an identifier, so the comparison is a type error and the whole group yields nothing",
+        "A filter is evaluated before the patterns in its group, so nothing is bound at the moment it runs \u2014 moving it below the last pattern in the group is the fix",
+        "A filter constrains only the pattern immediately preceding it, so it discarded every solution that one pattern produced"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "sparql-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement `match(triples, patterns)` \u2014 the pattern-matching core. `triples` is a set of three-element string tuples. `patterns` is a list of three-element tuples in which any component beginning with '?' is a variable and anything else must match exactly. Return a list of dicts, one per way the whole list of patterns can be satisfied at once, mapping each variable to what it matched. A variable used more than once \u2014 across patterns or twice inside one \u2014 must take the same value everywhere. An empty list of patterns has exactly one solution: the empty binding. Standard library only.",
+      "explanation": "Growing one partial binding at a time through the pattern list is the join, and the reason a shared variable behaves as a join key falls straight out of it: the second pattern may only extend a binding it agrees with. Two patterns with no variable in common never constrain each other, so the same loop produces every combination \u2014 which is why an accidental cartesian product is a correct answer to a badly written query rather than a bug.",
+      "grade_id": "sparql-5b252320c0b36348",
+      "starter": "def match(triples, patterns):\n    \"\"\"Every binding of the patterns' variables that the data supports.\"\"\"\n    ...",
+      "solution": "def match(triples, patterns):\n    def is_var(term):\n        return isinstance(term, str) and term.startswith(\"?\")\n\n    solutions = [{}]\n    for pattern in patterns:\n        nxt = []\n        for binding in solutions:\n            for triple in triples:\n                extended, ok = dict(binding), True\n                for pat, value in zip(pattern, triple):\n                    if is_var(pat):\n                        if extended.setdefault(pat, value) != value:\n                            ok = False\n                            break\n                    elif pat != value:\n                        ok = False\n                        break\n                if ok:\n                    nxt.append(extended)\n        solutions = nxt\n    return solutions",
+      "test": "def norm(rows):\n    return sorted(tuple(sorted(b.items())) for b in rows)\n\ndata = {\n    (\"alice\", \"knows\", \"bob\"),\n    (\"alice\", \"age\", \"30\"),\n    (\"bob\", \"age\", \"25\"),\n    (\"bob\", \"knows\", \"carol\"),\n    (\"carol\", \"age\", \"41\"),\n    (\"dave\", \"age\", \"19\"),\n}\n\nassert norm(match(data, [(\"?p\", \"knows\", \"bob\")])) == [((\"?p\", \"alice\"),)]\n\njoined = match(data, [(\"?p\", \"knows\", \"?f\"), (\"?f\", \"age\", \"?a\")])\nassert norm(joined) == norm([\n    {\"?p\": \"alice\", \"?f\": \"bob\", \"?a\": \"25\"},\n    {\"?p\": \"bob\", \"?f\": \"carol\", \"?a\": \"41\"},\n]), norm(joined)\n\nassert match(data, [(\"alice\", \"knows\", \"bob\")]) == [{}], \"a ground pattern that holds\"\nassert match(data, [(\"alice\", \"knows\", \"carol\")]) == [], \"a ground pattern that does not\"\nassert match(data, []) == [{}], \"no patterns is the identity of the join\"\n\nrepeated = {(\"x\", \"p\", \"x\"), (\"y\", \"p\", \"z\")}\nassert match(repeated, [(\"?a\", \"p\", \"?a\")]) == [{\"?a\": \"x\"}], \"one variable, one value\"\n\ndisjoint = {(\"a\", \"p\", \"1\"), (\"b\", \"p\", \"2\")}\nassert len(match(disjoint, [(\"?x\", \"p\", \"?u\"), (\"?y\", \"p\", \"?v\")])) == 4\n\nassert match(data, [(\"?p\", \"knows\", \"?f\"), (\"?f\", \"knows\", \"?p\")]) == []"
+    },
+    {
+      "id": "sparql-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A store holds both a class hierarchy and instance data. A query for members of the broader class comes back empty, while members of the narrower one are plainly present and queryable. What is going on?",
+      "explanation": "The query language matches; it does not reason. That separation is deliberate and it is the single most common surprise for people arriving from an ontology background \u2014 the axioms are inert until something computes with them.",
+      "grade_id": "sparql-3715be4606535828",
+      "options": [
+        "Matching runs against the statements that were actually asserted and applies no entailment as it goes \u2014 either compute the consequences into the store beforehand, or write the hierarchy into the query itself as a path over the narrowing predicate",
+        "The broader class is a schema term and cannot legally appear in the object position of a pattern, so that pattern is inert",
+        "Entailment is applied, but only downward, so the query has to start from the narrower class and work outward",
+        "The instance data was written in a different serialization from the schema, so the two sets of statements never join"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "sparql-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "A team is choosing the query layer for a graph they are about to build. Two requirements are firm: they must join against two external datasets that already publish their own identifiers, and every relationship has to record when it started and who asserted it. Give your recommendation, and be honest about what it costs.",
+      "explanation": "Shared identifiers and edge attributes are the two axes this decision actually turns on, and they genuinely conflict. Naming the cost of whichever way you go is the substance of the recommendation.",
+      "grade_id": "sparql-76a4b22751f6c947",
+      "expected": "A correct answer must recognise that the two requirements pull in opposite directions and must say so. The external-dataset requirement favours the triple model and this query language: GLOBAL IDENTIFIERS are what make a join across data nobody on the team controls possible at all, and part of a query can be delegated to a remote service \u2014 a property-graph language has no equivalent notion of an identifier shared across datasets. The per-relationship attributes favour a property graph, where an edge carries attributes natively, whereas in the triple model a relationship has nowhere to hang them and must be promoted to an entity of its own or expressed through a statement-about-statements extension. The recommendation must be decided by which requirement is load-bearing rather than by preference, and must state the cost of the choice made: verbosity and modelling work for the triple route, loss of cross-dataset joining and of the standard for the property-graph route. Noting that querying a remote service live is fragile in practice \u2014 rate limits, timeouts, partial results \u2014 so that a periodically materialised local copy is often the pragmatic form of 'joining against external data', is a plus."
+    }
+  ]
+}

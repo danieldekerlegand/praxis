@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "owl",
+  "title": "OWL (Web Ontology Language)",
+  "domain": "01-symbolic-ai-logic",
+  "runnable": true,
+  "generated": "2026-08-27T05:50:16+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "owl-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "The facts are already in a triple store and you can query them perfectly well. What does layering a formal ontology and running a reasoner over it add that writing queries does not?",
+      "explanation": "Classification, realization and consistency checking are the three jobs, and none is a query. The third option is exactly backwards \u2014 the semantics here are emphatically open-world \u2014 and arithmetic is close to the one thing the language cannot do.",
+      "grade_id": "owl-633bf292a27b8a5b",
+      "options": [
+        "Consequences of the axioms get computed instead of asked for: the complete class hierarchy including relationships nobody stated, membership worked out from an individual's own properties, and contradictions in the model surfaced as errors rather than as wrong answers",
+        "Faster queries, because every answer is materialised in advance and served from a cache",
+        "A closed world, so a fact that is absent from the store can finally be treated as false",
+        "Arithmetic over the literal values, which the query language on its own cannot express"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "owl-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A modeller states that anything in a class must be a pizza with a cheese topping, asserts a pizza that has one, runs the reasoner, and finds their pizza was not put in the class. Undeterred, they add an axiom capping a pizza at one base, assert two bases under two different names, and are surprised that no contradiction is reported. Explain both outcomes, and say what the two have in common.",
+      "explanation": "Both surprises are the same discipline seen twice. The reasoner is not being unhelpful; it is refusing to invent the premise that would let it answer, and the fix in each case is to supply that premise.",
+      "grade_id": "owl-0365b504330d31f0",
+      "expected": "A correct answer must diagnose each separately. First: the axiom was written as a one-way, NECESSARY-ONLY condition \u2014 membership implies the conditions, but satisfying the conditions does not imply membership, so the reasoner has no licence to pull anything in. It has to be stated as an EQUIVALENCE, necessary AND sufficient, before individuals are classified into it. Second: there is NO UNIQUE NAME ASSUMPTION \u2014 two identifiers are not presumed to denote two things, so rather than report a contradiction the reasoner satisfies the cap by concluding the two names refer to the same base; asserting that the individuals are pairwise different is what turns it into an inconsistency. The common thread must be named: the reasoner assumes nothing that was not stated, so anything you want concluded \u2014 membership, distinctness, absence \u2014 has to be written down as an axiom. Connecting it to the open-world reading of missing information is a plus."
+    },
+    {
+      "id": "owl-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A class is built from a universal restriction \u2014 the one usually read aloud as 'only cats' \u2014 and a colleague takes it to guarantee at least one cat. What does that restriction actually assert, and where is the trap?",
+      "explanation": "Vacuous truth is the trap: 'only cats' is true of a person with no pets whatsoever. Pair it with an existential restriction when you mean 'at least one, and nothing else'. The last option would make the logic non-monotonic, which it is not.",
+      "grade_id": "owl-3a9f3347e69f31e5",
+      "options": [
+        "It constrains the values that exist without requiring any to: nothing linked by that property may fall outside the named class, which is satisfied vacuously by an individual that has no values for the property at all",
+        "It requires exactly one value, so an individual with none of them fails the restriction and an individual with two is inconsistent",
+        "It requires at least one value and forbids any others, so an individual with none contradicts it",
+        "It applies only to the values asserted at the time the reasoner ran, so a value added afterwards cannot violate it"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "owl-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement `infer(types, props, subclass, defined)` \u2014 the two inference steps a reasoner performs, run together to a fixpoint. `types` maps an individual to the set of classes asserted for it; `props` maps an individual to a dict of property name to the set of individuals it links to; `subclass` is a set of `(narrower, broader)` pairs, a one-way condition; `defined` maps a class name to a triple `(base, property, filler)` meaning membership is exactly 'in base, and linked by property to at least one individual in filler'. Return a dict with one entry per individual in `types`, holding the classes that follow but were not asserted. Keep applying both steps until nothing changes, since each can feed the other, and terminate even if the pair set loops. Standard library only.",
+      "explanation": "The one-way pairs only ever push an individual UP a hierarchy; the two-way definitions are what pull an individual INTO a class it was never declared to be in. That asymmetry is the whole distinction between the two kinds of axiom, and the fixpoint is why it matters that they interleave: one individual's derived class is what makes a second individual's definition apply.",
+      "grade_id": "owl-8031210c2beebe80",
+      "starter": "def infer(types, props, subclass, defined):\n    \"\"\"Per individual, the classes that follow but were never asserted.\"\"\"\n    ...",
+      "solution": "def infer(types, props, subclass, defined):\n    known = {ind: set(classes) for ind, classes in types.items()}\n    changed = True\n    while changed:\n        changed = False\n        for ind in list(known):\n            for cls in list(known[ind]):\n                for sub, sup in subclass:\n                    if sub == cls and sup not in known[ind]:\n                        known[ind].add(sup)\n                        changed = True\n            for name, (base, prop, filler) in defined.items():\n                if name in known[ind] or base not in known[ind]:\n                    continue\n                for other in props.get(ind, {}).get(prop, ()):\n                    if filler in known.get(other, set()):\n                        known[ind].add(name)\n                        changed = True\n                        break\n    return {ind: known[ind] - set(types[ind]) for ind in types}",
+      "test": "types = {\"john\": {\"Person\"}, \"mary\": {\"Female\"}, \"rex\": {\"Dog\"}, \"zoe\": {\"Person\"}}\nprops = {\"john\": {\"has_child\": {\"mary\"}}}\nsubclass = {(\"Female\", \"Person\"), (\"Dog\", \"Pet\"), (\"Pet\", \"Animal\")}\ndefined = {\"Parent\": (\"Person\", \"has_child\", \"Person\")}\n\nout = infer(types, props, subclass, defined)\nassert out[\"mary\"] == {\"Person\"}, out[\"mary\"]\nassert out[\"rex\"] == {\"Pet\", \"Animal\"}, out[\"rex\"]\nassert out[\"john\"] == {\"Parent\"}, \"mary must be recognised as a Person first\"\nassert out[\"zoe\"] == set(), \"no child asserted concludes nothing either way\"\n\nnecessary_only = infer(types, props, subclass | {(\"Parent\", \"Person\")}, {})\nassert necessary_only[\"john\"] == set(), \"a one-way axiom classifies nobody into the class\"\n\nassert infer({\"a\": {\"X\"}}, {}, {(\"X\", \"Y\"), (\"Y\", \"X\")}, {}) == {\"a\": {\"Y\"}}\nassert infer({}, {}, set(), {}) == {}\nassert infer({\"a\": {\"X\"}}, {}, set(), {}) == {\"a\": set()}\n\nchildless = infer({\"kim\": {\"Person\"}}, {\"kim\": {\"has_child\": set()}}, set(), defined)\nassert childless[\"kim\"] == set(), \"an empty property set is not evidence of membership\""
+    },
+    {
+      "id": "owl-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "An ontology asserts exactly one child for John, and the reasoner will not conclude that he has no others. Nothing is broken. What has to be added before that conclusion becomes available?",
+      "explanation": "Negative conclusions have to be earned by closing the world explicitly, and distinctness is the half people forget \u2014 a bound of one is satisfiable by merging two names rather than by contradiction. No profile changes this; the profiles trade expressivity for speed, not semantics.",
+      "grade_id": "owl-f28f574f8479eece",
+      "options": [
+        "Axioms that close the possibilities \u2014 a numeric bound on how many values the property may take, or a universal restriction naming the permitted ones, together with a declaration that the named individuals are distinct \u2014 since an assertion that was never made reads as unknown rather than as absent",
+        "Nothing: the reasoner simply has to be run a second time, so that the first run's assertions are materialised before negative conclusions are attempted",
+        "A disjointness axiom between the classes involved, which is what switches the reasoner into a closed world for the whole ontology",
+        "A switch to one of the lightweight profiles, since those evaluate negation classically while the full language does not"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "owl-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "A team maintaining a clinical terminology of roughly three hundred thousand terms asks whether they should adopt reasoning over the full language. What do you need to establish before answering, and what is the recommendation you would expect to end up giving?",
+      "explanation": "Scale questions here are answered by expressivity, not by hardware. The profiles exist precisely so that a large, simple terminology does not have to pay for language features it never uses.",
+      "grade_id": "owl-f6ed50af17ea6d82",
+      "expected": "A correct answer must first ask WHICH INFERENCE they need, because the recommendation turns on it \u2014 subsumption and classification over a largely taxonomic vocabulary is a different requirement from cardinality, negation, disjunction or reasoning over instance data. The recommendation must be to target a PROFILE rather than the full language: a terminology of that size built from conjunctions and existential restrictions sits in the lightweight profile whose classification is polynomial and for which dedicated reasoners handle exactly this scale, whereas the full language is worst-case doubly exponential and will not classify reliably at three hundred thousand terms. It must add the discipline that follows: check that the axioms actually stay inside the profile, since one axiom outside it forfeits the guarantee. Noting that if the real requirement turns out to be recursive rules over instance data or any arithmetic, this family of languages is the wrong tool entirely \u2014 a deductive query engine or a constraint solver is \u2014 is a plus."
+    }
+  ]
+}

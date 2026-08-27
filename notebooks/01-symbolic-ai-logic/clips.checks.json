@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "clips",
+  "title": "CLIPS Expert System",
+  "domain": "01-symbolic-ai-logic",
+  "runnable": true,
+  "generated": "2026-08-27T05:50:08+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "clips-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A compliance module has grown into two hundred nested branches, and every new regulation means editing branches that already work. A colleague proposes moving it to CLIPS. What genuinely changes, and what stays a cost you have taken on?",
+      "explanation": "Additivity is the win; exhaustive forward derivation is the bill. The last option confuses refraction \u2014 one activation fires once \u2014 with a termination guarantee, and a rule whose action produces facts its own condition matches will loop happily.",
+      "grade_id": "clips-39f0ef36e72824a5",
+      "options": [
+        "Each policy becomes a standalone rule the engine activates from whatever is currently known, so adding one is additive rather than surgery \u2014 but the engine keeps deriving consequences until nothing else applies, which is wasted effort when you only ever wanted the answer to a single question",
+        "Policies are evaluated in the order they were declared, which makes the sequencing explicit where it used to be buried in nesting",
+        "The regulations become a search problem the engine optimises, so it returns the cheapest set of actions consistent with all of them",
+        "The rule base is guaranteed to halt, because a matched rule is only ever allowed to run once"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "clips-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "You build two rules, assert three facts from Python, and get nothing back: no printed output, no derived facts, no exception. Using the recognize-act cycle, describe the state the engine is actually sitting in. Then give a second, quite different call that produces exactly the same silence, and say how you would tell the two apart from a Python prompt.",
+      "explanation": "Silence has two causes here and they sit on opposite sides of the cycle \u2014 one is a queue that was never drained, the other is a fact base that was emptied. Looking at both before changing any rule saves a lot of guessing.",
+      "grade_id": "clips-ccf56d5e7c668dde",
+      "expected": "A correct answer must identify both causes. First: asserting only produces ACTIVATIONS \u2014 the left-hand sides are matched and the matched rules are queued, but nothing executes until the engine is told to run, so it is halfway through the cycle with a populated queue and has never entered the acting half. Second: a reset clears working memory and re-asserts only what was declared in the program itself, so facts pushed in from Python beforehand are gone and there is nothing left to match. The distinguishing observation must be stated: inspect the two structures separately \u2014 in the first case the queue of matched rules is non-empty while nothing has run; in the second both the queue and working memory are empty (or hold only the declared initial facts). Noting that the engine is data-driven, so there is no rule to 'call' directly and the absence of an exception is expected, is a plus."
+    },
+    {
+      "id": "clips-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Two rules are fully matched at the same instant and both are waiting to run. What decides the one that goes first, and what is the danger in leaning on that mechanism to sequence a system?",
+      "explanation": "Priority is a real and useful escape hatch for a handful of cases. Used in bulk it rebuilds imperative control flow out of magic numbers; sequencing is better expressed as facts the rules match on, such as an explicit phase.",
+      "grade_id": "clips-847f86f3531e78e7",
+      "options": [
+        "An explicit priority number decides, and the engine's own recency and specificity heuristics break what is left; leaning on it scatters the system's control flow across a pile of integers, which is the tangle a rule engine was adopted to escape",
+        "The order in which the rules were built decides, which is stable and is therefore the intended way to sequence a rule base",
+        "The order in which the matching facts were asserted decides, so sequencing is controlled by arranging the arrival of data",
+        "Neither runs: the engine reports the ambiguity and waits for the caller to break the tie explicitly"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "clips-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement `run(facts, rules)` \u2014 the engine's recognize-act loop. `facts` is a set of hashable facts. Each rule is a tuple `(name, priority, match, action)`: `match(facts)` returns a list of hashable activation keys, one per way that rule is currently satisfied, and `action(key)` returns the facts to add. Each pass, collect every activation that has not already run, stop if there are none, otherwise run exactly the one with the highest priority \u2014 breaking ties by the rule's position in the list, then by the order its keys were returned \u2014 add its facts, and go round again. A given (rule, key) pair must never run twice. Return `(facts, number_run)`. Standard library only.",
+      "explanation": "Three behaviours fall out of that loop and they are the whole engine: priority reorders what is ready rather than what is matched, so a later rule can pre-empt an earlier one; a rule that ran and then had its condition falsified by the fact its neighbour added simply disappears from the next pass, which is how negated conditions do non-monotonic work; and remembering the pairs that already ran is refraction, without which a rule that re-derives what it matched would spin forever.",
+      "grade_id": "clips-0a4c17256c641b3c",
+      "starter": "def run(facts, rules):\n    \"\"\"Fire activations until the agenda empties. Returns (facts, rules_fired).\"\"\"\n    ...",
+      "solution": "def run(facts, rules):\n    facts = set(facts)\n    fired = set()\n    count = 0\n    while True:\n        agenda = []\n        for order, (name, salience, match, action) in enumerate(rules):\n            for key in match(facts):\n                if (name, key) not in fired:\n                    agenda.append((-salience, order, name, key, action))\n        if not agenda:\n            return facts, count\n        agenda.sort(key=lambda item: item[:2])\n        _, _, name, key, action = agenda[0]\n        fired.add((name, key))\n        facts |= set(action(key))\n        count += 1",
+      "test": "def haired(facts):\n    return [f for f in facts if f[0] == \"animal\" and f[2] == \"has-hair\"]\n\ndef warm(key):\n    return [(\"animal\", key[1], \"warm-blooded\")]\n\nwm, n = run({(\"animal\", \"dog\", \"has-hair\")}, [(\"mammal\", 0, haired, warm)])\nassert n == 1, n\nassert (\"animal\", \"dog\", \"warm-blooded\") in wm, sorted(wm)\n\ndef flu_match(facts):\n    return [(\"flu\",)] if {(\"symptom\", \"fever\"), (\"symptom\", \"aches\")} <= facts else []\n\ndef flu_fire(key):\n    return [(\"diagnosis\", \"flu\")]\n\ndef cold_match(facts):\n    if (\"symptom\", \"runny-nose\") in facts and (\"diagnosis\", \"flu\") not in facts:\n        return [(\"cold\",)]\n    return []\n\ndef cold_fire(key):\n    return [(\"diagnosis\", \"cold\")]\n\nsymptoms = {(\"symptom\", \"fever\"), (\"symptom\", \"aches\"), (\"symptom\", \"runny-nose\")}\ncold_rule = (\"cold\", 0, cold_match, cold_fire)\n\nwm, n = run(symptoms, [cold_rule, (\"flu\", 10, flu_match, flu_fire)])\nassert (\"diagnosis\", \"flu\") in wm and (\"diagnosis\", \"cold\") not in wm, sorted(wm)\nassert n == 1, n\n\nwm, n = run(symptoms, [cold_rule, (\"flu\", 0, flu_match, flu_fire)])\nassert n == 2 and {(\"diagnosis\", \"cold\"), (\"diagnosis\", \"flu\")} <= wm, (n, sorted(wm))\n\ndef tick_match(facts):\n    return [f for f in facts if f[0] == \"tick\"]\n\ndef tick_fire(key):\n    return [(\"tick\", key[1])]\n\nwm, n = run({(\"tick\", 1)}, [(\"echo\", 0, tick_match, tick_fire)])\nassert n == 1, \"the same activation must not fire a second time\"\n\nassert run(set(), []) == (set(), 0)"
+    },
+    {
+      "id": "clips-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A rule whose condition is written with named slots \u2014 binding one variable per slot \u2014 never activates, even though the data is unquestionably in working memory and the values are right. What is the most likely cause?",
+      "explanation": "Sequence-shaped and slot-shaped facts are genuinely different things, and mixing them is the commonest reason a rule stays quiet. The last option is a widespread belief and simply false \u2014 incremental matching brings existing facts into a newly added rule's network.",
+      "grade_id": "clips-79c2e1fa768e77c8",
+      "options": [
+        "The data was asserted as a bare sequence of fields rather than through a declared schema, and a sequence-shaped fact and a slot-shaped one are separate kinds that never match each other \u2014 declare the schema and assert through it",
+        "The values arrived as quoted text while the condition binds bare names, so the comparison fails on type even though the characters agree",
+        "The variables appear only on the condition side and are therefore unbound, so the rule is rejected as unsafe and never joins the match network",
+        "The rule was added after the data was asserted, and only facts asserted while a rule already exists can activate it"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "clips-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Three jobs, all describable as 'rules'. (a) A monitoring service must react as telemetry arrives and keep reacting as its own conclusions change the picture. (b) A web request asks whether one named customer is eligible for one named offer. (c) Pick the cheapest set of parts that satisfies a configuration's constraints. Say for each whether a forward-chaining production engine is the right shape, and justify it by what the engine does rather than by how hard the problem is.",
+      "explanation": "Direction of inference decides (b) and the presence of an objective decides (c). Both are properties of the engine, which is why they settle the question without knowing anything about the problem size.",
+      "grade_id": "clips-221ea238ce02563d",
+      "expected": "A correct answer must accept (a) and reject (b) and (c), for reasons about the mechanism. (a) fits: the engine is DATA-DRIVEN, matching incrementally as facts arrive and re-activating on its own derived conclusions, which is exactly a monitoring loop and is what the recognize-act cycle is for. (b) does not: forward chaining derives every consequence the whole fact base supports, so answering one question about one customer pays for conclusions nobody asked for \u2014 a GOAL-DIRECTED, backward-chaining engine such as Prolog explores only what the query needs. (c) does not: the engine FIRES rules, it does not compare candidate solutions against an objective, so 'cheapest' has nothing to act on; that is a search or optimisation problem for a constraint, SMT or integer-programming solver. Observing that the engine has no termination guarantee and no notion of optimality, so neither could be bolted on cheaply, is a plus."
+    }
+  ]
+}

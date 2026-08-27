@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "perplexity",
+  "title": "Perplexity API",
+  "domain": "07-proprietary-coding-ai",
+  "runnable": true,
+  "generated": "2026-08-27T06:33:57+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "perplexity-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A platform team proposes replacing their internal documentation assistant \u2014 which today crawls the company wiki, embeds it, and retrieves chunks before generating \u2014 with this API, on the grounds that 'it is the same architecture, managed for us'. What is the decisive objection?",
+      "explanation": "This is retrieval-augmented generation delivered as a service, and the corpus is the part you give up: it is the public web. A domain filter narrows what is searched among indexed public pages; it does not grant access to material behind the company's own authentication. Cost and latency are real considerations, but they are not what makes the proposal impossible.",
+      "grade_id": "perplexity-0c85d9b59bbec205",
+      "options": [
+        "The architecture is the same only for public material: the retrieval step here searches the open web, so an assistant over an internal wiki has nothing to retrieve from and the managed pipeline cannot be pointed at a private corpus at all",
+        "It is a valid replacement architecturally, but the per-request charge makes it more expensive than operating their own index at any volume, so the objection is purely financial",
+        "The objection is latency: a live search on every request cannot meet an internal assistant's response-time expectations, though the grounding would otherwise be correct",
+        "There is no decisive objection \u2014 the domain filter can be pointed at the internal wiki's hostname, which restricts retrieval to their own documents"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "perplexity-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "An engineer sets up a monitoring assistant. They put the actual question \u2014 'has this vendor announced a security advisory in the last week?' \u2014 in the instruction message that configures tone and format, and put a bare 'go' in the user message. They then budget the service by multiplying their expected token counts by the published per-token rates. Explain both mistakes and what each one costs them.",
+      "explanation": "Both errors come from reading the endpoint as an ordinary chat completion. The user turn is also the search query, and the price has a per-request component that a per-token model simply does not contain.",
+      "grade_id": "perplexity-78bef40a8ddec8bf",
+      "expected": "A correct answer must catch both. First, retrieval is driven by the user's message, not by the configuring instruction: the instruction shapes how the answer is written \u2014 tone, length, format \u2014 while the searches issued behind the scenes are derived from what the user asked. Putting the real question in the instruction and a placeholder in the user turn means the searches are issued for the placeholder, so the answer is grounded in irrelevant sources or in nothing useful, and the failure is silent because a fluent answer still comes back. Second, the bill has two halves: token counts are only one of them, and every request also incurs a separate search charge whose size depends on how much web context was requested. Budgeting per token alone under-counts, and it under-counts worst exactly where their workload sits \u2014 short questions with short answers, where the fixed per-request charge can be most of the cost of the call. The practical consequence is that a thousand small monitoring checks cost far more than a token estimate predicts, and lowering the amount of context retrieved is the lever that actually moves that number. Noting that this is why a bulk text transformation over material you already hold should not go through this service at all is a plus."
+    },
+    {
+      "id": "perplexity-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A literature-review tool must prefer scholarly sources, exclude one aggregator site the team distrusts, favour work from the past year, and keep the per-call cost down because it makes thousands of calls. Which combination of the retrieval controls does that, and which one of them is the one that actually moves the price?",
+      "explanation": "The four controls are orthogonal: mode selects the kind of corpus, the domain filter allows or denies specific hosts, recency biases toward fresh results, and the context-size control decides how much material is pulled in \u2014 which is the one that scales the per-request charge. Narrowing by date or domain changes what you get, not what you pay.",
+      "grade_id": "perplexity-775b1ec3cabbe849",
+      "options": [
+        "Switch the search mode to the scholarly setting, put a negated entry for the aggregator in the domain filter, set the recency filter to a year, and reduce how much web context is pulled \u2014 that last control is the one tied to the per-request search charge",
+        "Use the domain filter alone with an allow-list of journal hostnames; the other controls are hints the service applies only when the filter is absent, and none of them affects price",
+        "Set the recency filter to a year and rely on it for cost as well, since a narrower time range means fewer pages are fetched and therefore a smaller charge",
+        "Switch to the scholarly search mode and raise the amount of web context, because scholarly sources are billed at a flat rate that ignores context size"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "perplexity-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Show where the money actually goes. Implement `sonar_bill(requests, in_rate, out_rate, search_fees)`. Each request is a dict with `in_tokens`, `out_tokens` and optionally `context_size` (defaulting to `\"medium\"`). `in_rate` and `out_rate` are USD per 1,000,000 tokens; `search_fees` maps a context size to a flat USD charge levied once per request, in addition to tokens. Return `{\"token_usd\": float, \"search_usd\": float, \"usd\": float, \"search_share\": float}`, where `search_share` is the search charge as a fraction of the total, and is `0.0` when the total is zero. Standard library only.",
+      "explanation": "The two halves scale differently, and that is the whole budgeting lesson. Tokens scale with how much is written; the search charge is per call and indifferent to answer length, so a workload of many tiny questions is priced by its request count rather than by its token count. Notice which lever moves which: shrinking the retrieved context cuts the dominant half for short lookups and leaves the token half untouched.",
+      "grade_id": "perplexity-765b95b897379e54",
+      "starter": "def sonar_bill(requests, in_rate, out_rate, search_fees):\n    \"\"\"Split a grounded-answer bill into its token half and its per-request half.\"\"\"\n    ...",
+      "solution": "def sonar_bill(requests, in_rate, out_rate, search_fees):\n    token_usd = 0.0\n    search_usd = 0.0\n    for req in requests:\n        token_usd += (req[\"in_tokens\"] * in_rate + req[\"out_tokens\"] * out_rate) / 1e6\n        search_usd += search_fees[req.get(\"context_size\", \"medium\")]\n    total = token_usd + search_usd\n    return {\n        \"token_usd\": token_usd,\n        \"search_usd\": search_usd,\n        \"usd\": total,\n        \"search_share\": (search_usd / total) if total else 0.0,\n    }",
+      "test": "FEES = {\"low\": 0.005, \"medium\": 0.008, \"high\": 0.012}\n\n# A thousand short lookups: the flat per-request charge is nearly the whole bill.\nshort = sonar_bill([{\"in_tokens\": 200, \"out_tokens\": 400}] * 1000, 1.0, 1.0, FEES)\nassert abs(short[\"search_usd\"] - 8.0) < 1e-9, short\nassert abs(short[\"token_usd\"] - 0.6) < 1e-9, short\nassert short[\"search_share\"] > 0.9, short\n\n# The same number of calls, long answers: tokens take over.\nlong = sonar_bill([{\"in_tokens\": 4000, \"out_tokens\": 20000}] * 1000, 1.0, 1.0, FEES)\nassert long[\"search_usd\"] == short[\"search_usd\"], (long, short)\nassert long[\"search_share\"] < 0.3, long\nassert long[\"usd\"] > short[\"usd\"], (long, short)\n\n# Dropping the amount of context retrieved moves the half that dominates.\ncheap = sonar_bill([{\"in_tokens\": 200, \"out_tokens\": 400, \"context_size\": \"low\"}] * 1000,\n                   1.0, 1.0, FEES)\nassert abs(cheap[\"token_usd\"] - short[\"token_usd\"]) < 1e-12, (cheap, short)\nassert cheap[\"usd\"] < short[\"usd\"] * 0.7, (cheap, short)\n\n# ...and raising it costs more for identical token counts.\nrich = sonar_bill([{\"in_tokens\": 200, \"out_tokens\": 400, \"context_size\": \"high\"}] * 1000,\n                  1.0, 1.0, FEES)\nassert rich[\"usd\"] > short[\"usd\"] > cheap[\"usd\"], (rich, short, cheap)\n\n# Mixed sizes are billed per request, not by the most expensive one.\nmixed = sonar_bill([{\"in_tokens\": 0, \"out_tokens\": 0, \"context_size\": \"low\"},\n                    {\"in_tokens\": 0, \"out_tokens\": 0, \"context_size\": \"high\"}],\n                   5.0, 5.0, FEES)\nassert abs(mixed[\"search_usd\"] - 0.017) < 1e-9, mixed\nassert mixed[\"token_usd\"] == 0.0 and mixed[\"search_share\"] == 1.0, mixed\n\nempty = sonar_bill([], 1.0, 1.0, FEES)\nassert empty == {\"token_usd\": 0.0, \"search_usd\": 0.0, \"usd\": 0.0, \"search_share\": 0.0}"
+    },
+    {
+      "id": "perplexity-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A regression suite asserts that a fixed question returns a specific sentence, and pins the first cited URL. It passed for three weeks and now fails intermittently on both assertions, while manual spot checks show the answers are still correct and well sourced. What is the right conclusion?",
+      "explanation": "The non-determinism is upstream of the model: the world changed, so the retrieved pages changed, so the answer changed. Nothing about pinning a version or removing sampling randomness addresses that, and it is not a defect \u2014 it is what asking for a live-grounded answer means. Tests over this kind of endpoint have to assert properties, not strings.",
+      "grade_id": "perplexity-ed73c2880baaabcd",
+      "options": [
+        "The suite is testing the wrong thing: the corpus is the live web, so the sources available and their ranking change day to day and the wording changes with them \u2014 assert on structural properties such as the presence and shape of the sources, or on a claim being supported, rather than on exact output",
+        "The model was silently upgraded; pinning a dated model version will restore reproducibility of both the wording and the citation order",
+        "The intermittency indicates the retrieval step is being skipped under load, so raising the amount of context retrieved will make the output stable again",
+        "Setting the sampling temperature to zero makes both the answer text and the citation list deterministic, since the variability originates in generation"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "perplexity-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four asks, one afternoon. (1) 'Summarise 30,000 support emails we already have into three-line abstracts.' (2) 'Tell me, with links, whether any of our twelve vendors published a breach notice this week.' (3) 'Answer staff questions about our own internal HR policies.' (4) 'Build an agent that reads a failing test, edits our repository, and opens a pull request.' Assign each and give the deciding property.",
+      "explanation": "Only one of the four is an answer-engine problem. The other three are decided by where the text already is, who owns the corpus, and whether the task is retrieval at all \u2014 which is why the domain this notebook sits in is slightly misleading about what the tool is for.",
+      "grade_id": "perplexity-1da3c9b6bae86883",
+      "expected": "A correct answer must place all four with a decisive property. (1) A plain model API, not this service: the text is already in hand, so there is nothing to retrieve, and every call here would levy a per-request search charge for a search that adds nothing \u2014 the deciding property is that the material is already local. (2) This service is exactly right: the question is about the last week, the answer must carry links a human can open, and there is no index to build \u2014 the deciding property is freshness over public sources with citations returned. A shorter time filter and a modest retrieval depth are sensible refinements. (3) A retrieval pipeline over their own documents, or a model given the relevant policy text directly: the corpus is private and behind their own authentication, so a service that searches the public web cannot see it at all \u2014 the deciding property is corpus ownership, not cost. (4) A general frontier model with tool use, or a self-hosted one: this is an agent that edits code and drives tools, and an answer engine is not a coding or agent model regardless of which domain it is filed under \u2014 the deciding property is that the job is acting on a repository rather than looking something up. Noting that (2) could also be built from a bare search API plus a model of one's own if control over ranking and corpus mattered more than time to value is a plus."
+    }
+  ]
+}

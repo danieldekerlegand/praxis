@@ -18,6 +18,11 @@ __pycache__/
 # notebooks/<NN-domain>/ (the seed library) stays tracked.
 notebooks/subjects/
 
+# An author's working copy of a gate's questions (praxis/authored.py). The gate is
+# <slug>.checks.json, which the shipped write path grades and writes; a tracked draft
+# would be a second copy of the same questions with nothing keeping the two in sync.
+*.checks.draft.json
+
 # Tauri shell build output
 ui/node_modules/
 ui/dist/

@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "pyke",
+  "title": "Pyke (Python Knowledge Engine)",
+  "domain": "01-symbolic-ai-logic",
+  "runnable": true,
+  "generated": "2026-08-27T05:50:11+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "pyke-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "Pyke handles both directions of chaining, but so do a Prolog binding and a production engine used side by side. What is the one capability that is genuinely Pyke's own, and what is the objection that keeps it out of new production work?",
+      "explanation": "Plan assembly is the reason the engine is still worth reading about \u2014 a proof becomes runnable code rather than just an answer. Unification, file-based knowledge bases and documented syntax are all common; a termination guarantee is something it explicitly does not have.",
+      "grade_id": "pyke-b8a1170b894bfbae",
+      "options": [
+        "A successful goal-directed proof can assemble a callable Python function as its by-product, which no maintained alternative offers; against that, the project's last release predates modern Python and it does not install from a package index",
+        "It is the only Python engine implementing real unification; against that, it is slower than the engines written in C",
+        "It guarantees that both chaining directions terminate; against that, its rule syntax is unlike anything else and takes a long time to learn",
+        "It is alone in keeping the knowledge base in files rather than in program code; against that, the file format was never documented"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "pyke-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "An engineer loads a rule base, runs the step that fires the engine, and finds the fact base exactly as it was. They edit the offending rule, run again, and the behaviour is identical to before the edit \u2014 not fixed, not differently broken. Explain both observations in terms of how this engine is put together.",
+      "explanation": "The two symptoms look like one bug and are not. 'Nothing was derived' is about which direction a rule runs in; 'my edit changed nothing' is about the DSL being compiled to disk rather than interpreted.",
+      "grade_id": "pyke-6c7dce944ccdc337",
+      "expected": "A correct answer must give two independent causes. First, the direction of chaining is chosen PER RULE: an eager, data-driven rule runs when the rule base is loaded and stores what it derives, while a goal-directed rule is only ever exercised by asking for a goal \u2014 so loading a rule base of goal-directed rules correctly leaves the fact base untouched. Nothing is broken; the wrong kind of rule was written for the expectation, or no goal was ever posed. Second, the rule and fact files are COMPILED into generated Python in a cache directory on first use and imported from there afterwards, so an edit that changes nothing at all means the stale generated code is still being loaded \u2014 delete the cache directory and let it regenerate. Noting that the fix for the first is to pose a goal (or rewrite the rule as an eager one), and that the second explains why the edit had literally no effect rather than a different one, is a plus."
+    },
+    {
+      "id": "pyke-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A goal-directed proof succeeds and hands back both the variable bindings and a callable, but calling it raises rather than running. What is the likeliest cause, and what does it tell you about what that callable is?",
+      "explanation": "The callable is the proof made concrete: every variable in it was resolved by the proof that produced it. That is exactly why it can be kept and run later without re-running inference \u2014 and why a variable the proof did not reach has nothing to substitute.",
+      "grade_id": "pyke-08bd0d07fe2dfcaf",
+      "options": [
+        "Its body refers to a variable the proof never bound \u2014 the callable is templated code with the proof's bindings substituted into it, so an unbound variable is an error at assembly rather than a parameter left open until call time",
+        "It is rebuilt on every call and the knowledge base changed underneath it, so the goal has to be re-proved immediately before each call",
+        "It may only be called inside the context manager that produced it, because the engine keeps the proof open for the duration",
+        "It is compiled lazily on first call, so the generated cache directory has to still be present on disk when it runs"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "pyke-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement `prove(goal, facts, rules)` \u2014 goal-directed proof that assembles a plan. `facts` is a set of atom names already known. Each rule is a tuple `(head, body, step)`: proving every atom in `body` proves `head`, and `step` is a string of work to record (or None). Return a tuple of the steps in the order the proof finished them \u2014 a rule's own step after the steps of everything its body needed \u2014 with any step that would appear twice kept only the first time, and an empty tuple when the goal was already a fact. Return None when the goal cannot be proved, and treat a goal that reappears while it is still being proved as unprovable on that path so a cyclic rule base terminates. Try rules in the order given and take the first that succeeds. Standard library only.",
+      "explanation": "This is the difference between answering a question and assembling a program: the recursion is ordinary goal-directed search, but what it returns is the sequence of work the proof justified, ready to run later without proving anything again. The cycle guard is doing the job a termination check would \u2014 nothing in the rule format prevents a rule base from being circular, so the prover has to.",
+      "grade_id": "pyke-b9f86eab0baa4603",
+      "starter": "def prove(goal, facts, rules):\n    \"\"\"The plan assembled by a successful proof, or None when the goal fails.\"\"\"\n    ...",
+      "solution": "def prove(goal, facts, rules):\n    def go(goal, active):\n        if goal in facts:\n            return []\n        if goal in active:\n            return None\n        for head, body, step in rules:\n            if head != goal:\n                continue\n            plan, ok = [], True\n            for sub in body:\n                sub_plan = go(sub, active | {goal})\n                if sub_plan is None:\n                    ok = False\n                    break\n                plan += sub_plan\n            if ok:\n                if step is not None:\n                    plan.append(step)\n                return plan\n        return None\n\n    steps = go(goal, frozenset())\n    if steps is None:\n        return None\n    ordered = []\n    for step in steps:\n        if step not in ordered:\n            ordered.append(step)\n    return tuple(ordered)",
+      "test": "facts = {\"has_wheels\", \"has_engine\"}\nrules = [\n    (\"drivable\", [\"has_wheels\", \"has_engine\", \"fueled\"], \"start_engine()\"),\n    (\"fueled\", [\"has_tank\"], \"fill_tank()\"),\n    (\"has_tank\", [], \"install_tank()\"),\n]\n\nassert prove(\"has_wheels\", facts, rules) == (), \"a stored fact needs no steps\"\nassert prove(\"drivable\", facts, rules) == (\n    \"install_tank()\", \"fill_tank()\", \"start_engine()\")\nassert prove(\"flies\", facts, rules) is None\n\nalternatives = [(\"x\", [\"missing\"], \"X1\"), (\"x\", [\"has_wheels\"], \"X2\")]\nassert prove(\"x\", facts, alternatives) == (\"X2\",), \"fall through to the second rule\"\n\nshared = [\n    (\"top\", [\"left\", \"right\"], \"T\"),\n    (\"left\", [\"base\"], \"L\"),\n    (\"right\", [\"base\"], \"R\"),\n    (\"base\", [], \"B\"),\n]\nassert prove(\"top\", set(), shared) == (\"B\", \"L\", \"R\", \"T\"), prove(\"top\", set(), shared)\n\ncyclic = [(\"a\", [\"b\"], \"A\"), (\"b\", [\"a\"], \"B\")]\nassert prove(\"a\", set(), cyclic) is None, \"a goal must not be used to prove itself\"\n\nsilent = [(\"z\", [\"has_wheels\"], None)]\nassert prove(\"z\", facts, silent) == (), \"a rule with no step contributes none\""
+    },
+    {
+      "id": "pyke-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A script pushes a batch of facts in from Python, then clears and reloads the engine before posing its goals, and every goal comes back with no answers at all. What went wrong?",
+      "explanation": "Clear, then load, then assert \u2014 in that order. The clear is a genuine reset of working memory, and it is easy to write the assertions first because that is the order the data arrives in.",
+      "grade_id": "pyke-615a71ed94b6e684",
+      "options": [
+        "Clearing the engine discarded the facts that had been pushed in at runtime \u2014 only the facts declared in the fact-base file, plus whatever the rules go on to derive, survive it, so runtime assertions have to come after the clear rather than before",
+        "The rule base may only be loaded once per engine, so the second load silently did nothing and no rules were available to the goals",
+        "Goals can only see facts that were declared in a file; facts pushed in from Python are visible to the eager, data-driven rules alone",
+        "Clearing the engine also discards the generated cache, so the rule base had to be rebuilt and the goals ran against an empty rule set"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "pyke-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "A teammate proposes adding Pyke to a service running on a current Python, on the grounds that it covers both directions of chaining in one dependency. Give the recommendation you would actually make, cover both directions in it, and state the condition under which their proposal would be the right call after all.",
+      "explanation": "The teammate's argument is about dependency count; the decision is about who fixes it when it breaks. That flips only when the unique capability is the actual requirement.",
+      "grade_id": "pyke-5ba8dfba94fa010a",
+      "expected": "A correct answer must recommend AGAINST it for production and must split the need by direction: a maintained, installable goal-directed engine \u2014 SWI-Prolog through a Python binding \u2014 for querying, and a maintained data-driven engine \u2014 the CLIPS binding, or a pure-Python production engine \u2014 for rules over evolving facts; a Datalog engine if what is actually wanted is terminating recursive deduction. The reason must be MAINTENANCE AND INSTALLABILITY rather than capability: no install from a package index on a current interpreter, a last release from the Python 2 era, documentation written against those idioms \u2014 meaning the team would vendor and patch the source and own it forever. It must then name the condition that flips the decision: if the requirement genuinely is assembling a callable sequence of Python calls as the by-product of a proof, nothing maintained offers that, and vendoring becomes a considered trade rather than an accident. Observing that 'one dependency instead of two' is a weak argument when the one is unmaintained is a plus."
+    }
+  ]
+}

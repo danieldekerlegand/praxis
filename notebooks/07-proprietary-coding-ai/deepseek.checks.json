@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "deepseek",
+  "title": "DeepSeek",
+  "domain": "07-proprietary-coding-ai",
+  "runnable": true,
+  "generated": "2026-08-27T06:33:59+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "deepseek-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A European fintech's architect writes: 'we will adopt this lab's models. Weights are published under a permissive licence, so we can self-host \u2014 which resolves the compliance objection about where prompts go, and it resolves the objection about the model's origin at the same time.' Which sentence of that is doing work it cannot do?",
+      "explanation": "Two different objections are being collapsed into one. Running the weights yourself genuinely fixes data egress, which is the usual concern about a hosted endpoint in another jurisdiction. It does nothing about who trained the model, and organisations that care about provenance are asking the second question, not the first. The licence really is permissive and the weights really are downloadable \u2014 the flaw is only in the conflation.",
+      "grade_id": "deepseek-b5f7eb29d1e69f80",
+      "options": [
+        "The last clause: self-hosting keeps prompts inside their own network and so does settle where data travels, but the model was still trained elsewhere by that lab, and a policy written about provenance rather than about egress is untouched by where inference runs",
+        "The first clause: publishing weights under a permissive licence still forbids commercial redeployment, so the plan fails before compliance is reached",
+        "The middle clause: self-hosting does not change where prompts go, because inference for these models is always brokered through the vendor's endpoint",
+        "All of it: the flagship weights are small enough to run anywhere, so nothing about self-hosting is a meaningful compliance argument"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "deepseek-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A team wires the reasoning model into a multi-turn assistant. They append the whole assistant message \u2014 deliberation field and all \u2014 into the history for the next turn, reasoning that 'the model should see how it got there'. They also cap output at 200 tokens because the answers are short. Explain what is wrong with each decision, and what the deliberation field being separate from the answer is telling them about how this model was built.",
+      "explanation": "Both mistakes come from treating the chain as conversational content. It is generated output \u2014 billed, capped and discarded \u2014 and it is separated in the response exactly because the correct thing to do with it is to look at it and throw it away.",
+      "grade_id": "deepseek-47bb4b4136a12eb0",
+      "expected": "A correct answer must address three things. First, the deliberation must not be replayed: the API returns it in a field of its own precisely so it can be dropped, history is supposed to carry only the final answer, and sending it back is rejected or ignored while costing input tokens either way \u2014 the model re-derives its thinking each turn rather than resuming it. Second, the cap is wrong because the deliberation is generated before the answer and is billed and counted as output, so a short reply can consume a very large output budget; capping at the length of the visible answer truncates the model mid-thought and it may never reach an answer at all. Third, the separation reflects that deliberating is something the model learned to do as behaviour rather than something the caller scripts: it was post-trained by reinforcement learning against outcome rewards until long deliberation emerged, so the chain is an artefact of generation the API exposes for inspection, not an input channel or a prompt-engineering surface. Noting that this also explains why sampling knobs and some structured-output features do not apply to this model is a plus."
+    },
+    {
+      "id": "deepseek-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A blog post reports that 'the 7B reasoning model runs on a laptop and scores within a few points of the flagship on a maths benchmark, so the 671B version is mostly marketing'. A colleague asks whether that is a fair reading. What is the accurate correction?",
+      "explanation": "A distill is a separate small dense model of another lineage trained to imitate the reasoner's behaviour, not a compressed version of it \u2014 so its numbers are its own. The naming invites the confusion, and attributing a distill's score to the model it learned from is the single most common error in reporting on this family. Both are reasoning models, so the last option's premise is wrong too.",
+      "grade_id": "deepseek-3efdf5e86dfe526e",
+      "options": [
+        "The 7B is not a smaller copy of the flagship \u2014 it is a different, dense backbone from another family fine-tuned on the flagship's outputs, so a benchmark result belongs to the distilled model and cannot be attributed to the model it imitates; the two also differ in kind, since the flagship routes each token through a fraction of a very large sparse network while the distill activates all of its comparatively tiny parameter set",
+        "It is fair: the distilled models are the same weights pruned to fewer parameters, so their scores are a lower bound on the flagship's and the comparison is sound",
+        "The correction is only about precision: the laptop model is a quantisation of the flagship, so the few points lost are quantisation error, not a difference in model",
+        "The comparison is meaningless because the small model is a reasoning model and the flagship is a general chat model, so they cannot be evaluated on the same benchmark"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "deepseek-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Show what breaks a prompt-prefix cache. Implement `cache_bill(requests, hit_price, miss_price, out_price)`. Each request is a dict with `prefix` (a string sent at the front of the prompt), `tail_tokens` (the variable part, never cached) and `out_tokens`. A prefix costs `max(1, len(prefix) // 4)` tokens when non-empty and 0 when empty. The first time a given prefix string is seen its tokens are billed at `miss_price` and it is remembered; every later request whose prefix is byte-for-byte identical bills those tokens at `hit_price`. Tail tokens always bill at `miss_price`, output tokens at `out_price`; all three prices are USD per 1,000,000 tokens. Return `{\"hit_tokens\": int, \"miss_tokens\": int, \"out_tokens\": int, \"usd\": float}`. Standard library only.",
+      "explanation": "The discount is keyed on an exact prefix, so it is an ordering discipline rather than a setting: stable content first, variable content last. The second scenario is the one that shows up as an unexplained bill \u2014 a request id, a timestamp or a greeting glued to the front makes every request's prefix unique, so the identical workload pays the full rate on every token while producing exactly the same answers.",
+      "grade_id": "deepseek-a1b25a042717174f",
+      "starter": "def cache_bill(requests, hit_price, miss_price, out_price):\n    \"\"\"What a reused prompt prefix saves \u2014 and what a per-request preamble costs.\"\"\"\n    ...",
+      "solution": "def cache_bill(requests, hit_price, miss_price, out_price):\n    seen = set()\n    hit = miss = out = 0\n    for req in requests:\n        prefix = req.get(\"prefix\", \"\")\n        size = max(1, len(prefix) // 4) if prefix else 0\n        if size:\n            if prefix in seen:\n                hit += size\n            else:\n                miss += size\n                seen.add(prefix)\n        miss += req[\"tail_tokens\"]\n        out += req[\"out_tokens\"]\n    usd = (hit * hit_price + miss * miss_price + out * out_price) / 1e6\n    return {\"hit_tokens\": hit, \"miss_tokens\": miss, \"out_tokens\": out, \"usd\": usd}",
+      "test": "STABLE = \"x\" * 8000          # a 2000-token system + few-shot prefix\nN = 500\n\nwarm = cache_bill([{\"prefix\": STABLE, \"tail_tokens\": 50, \"out_tokens\": 300}] * N,\n                  0.07, 0.27, 1.10)\nassert warm[\"hit_tokens\"] == 2000 * (N - 1), warm\nassert warm[\"miss_tokens\"] == 2000 + 50 * N, warm\nassert warm[\"out_tokens\"] == 300 * N, warm\n\n# The same prefix with a per-request preamble in front of it: never identical,\n# never cached, every token billed at the full rate.\nbusted = cache_bill(\n    [{\"prefix\": f\"[request {i}] \" + STABLE, \"tail_tokens\": 50, \"out_tokens\": 300}\n     for i in range(N)], 0.07, 0.27, 1.10)\nassert busted[\"hit_tokens\"] == 0, busted\nassert busted[\"miss_tokens\"] > warm[\"miss_tokens\"] * 5, (busted, warm)\nassert busted[\"usd\"] > warm[\"usd\"], (busted, warm)\n\n# Same token counts, same answers -- the whole difference is cache eligibility.\nassert busted[\"out_tokens\"] == warm[\"out_tokens\"], (busted, warm)\n\n# No prefix at all: nothing to cache, nothing to save.\nbare = cache_bill([{\"prefix\": \"\", \"tail_tokens\": 100, \"out_tokens\": 10}] * 3,\n                  0.07, 0.27, 1.10)\nassert bare[\"hit_tokens\"] == 0 and bare[\"miss_tokens\"] == 300, bare\nassert abs(bare[\"usd\"] - (300 * 0.27 + 30 * 1.10) / 1e6) < 1e-15, bare\n\n# Two distinct prefixes each pay their own first miss, then hit independently.\nmixed = cache_bill([{\"prefix\": \"aaaa\" * 100, \"tail_tokens\": 0, \"out_tokens\": 0},\n                    {\"prefix\": \"bbbb\" * 100, \"tail_tokens\": 0, \"out_tokens\": 0},\n                    {\"prefix\": \"aaaa\" * 100, \"tail_tokens\": 0, \"out_tokens\": 0},\n                    {\"prefix\": \"bbbb\" * 100, \"tail_tokens\": 0, \"out_tokens\": 0}],\n                   0.07, 0.27, 1.10)\nassert mixed[\"miss_tokens\"] == 200 and mixed[\"hit_tokens\"] == 200, mixed\n\nassert cache_bill([], 1.0, 1.0, 1.0) == {\"hit_tokens\": 0, \"miss_tokens\": 0,\n                                          \"out_tokens\": 0, \"usd\": 0.0}"
+    },
+    {
+      "id": "deepseek-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A service that extracts structured records is ported from the general model to the reasoning model 'because it is smarter'. The team sets temperature to 0 for determinism, asks for JSON-only output through the structured-output setting, and keeps their existing token cap. In staging, costs jump, replies vary between identical runs, and the JSON setting appears to do nothing. Which explanation fits all three symptoms?",
+      "explanation": "Three symptoms, one cause: the two models are not interchangeable. The reasoner is slower, costs more because thinking is billed output, ignores sampling knobs, and lacks some of the general model's structured features. Extraction wants exactly the features the reasoner drops, which is why 'smarter' is the wrong axis to port on.",
+      "grade_id": "deepseek-99dcee0919e0fe35",
+      "options": [
+        "This model is the wrong tool for the job: it deliberates before answering and those deliberation tokens are billed as output, it disregards the sampling parameters so setting temperature buys no determinism, and it does not offer the structured-output feature the general model does \u2014 the extraction workload belongs on the general model",
+        "The port is fine but the token cap is too low, and every symptom follows from truncation \u2014 raising the cap restores determinism, structured output and the original cost",
+        "Structured output and sampling controls require the compatible SDK rather than raw requests; using the SDK fixes all three without changing models",
+        "The reasoning model runs on different hardware whose non-determinism explains the variance, and the extra cost is the premium for that hardware"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "deepseek-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Place four workloads and give the deciding property for each. (1) A tool that answers 'what changed in this vendor's terms of service this week', with links. (2) Grading 200,000 student maths proofs a month, where showing the working matters to the graders. (3) A conference demo that must run offline on a laptop and still do a bit of step-by-step reasoning. (4) A product that must read screenshots users paste in.",
+      "explanation": "Only one of the four is decided by reasoning quality per dollar. The others are decided by whether the answer must be fresh, whether there is a network at all, and whether the input is text \u2014 and two of them the family cannot serve at any price.",
+      "grade_id": "deepseek-2395e9ac8102296b",
+      "expected": "A correct answer must place all four with a decisive property. (1) Not this family at all: these models answer from their trained weights and do not search the live web, so a question about this week's change needs a search-native answer engine or a retrieval pipeline in front of a model \u2014 the deciding property is freshness plus citations, which is a retrieval problem rather than a reasoning one. (2) The hosted reasoning model: high volume of genuine reasoning where cost per token dominates the bill is exactly the case it is priced for, and the deliberation being returned in its own field means the graders can read the working \u2014 noting that those thinking tokens are billed as output and must be budgeted for is part of a good answer. (3) A distilled small reasoning model run locally: the constraint is that there is no network, which rules out every hosted option and also the flagship, whose sparse weights need multiple accelerators; a distill trades a lot of quality for actually fitting, and that trade is forced rather than chosen. (4) Not this family either, because these mainline models are text-only, so an image-capable model from another vendor is required \u2014 the deciding property is input modality, which no amount of price advantage substitutes for. Recognising that (1) and (4) are cases where the family's strengths are simply irrelevant, rather than merely weaker, earns full credit."
+    }
+  ]
+}

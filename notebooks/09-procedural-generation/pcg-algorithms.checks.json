@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "pcg-algorithms",
+  "title": "PCG Algorithms (overview)",
+  "domain": "09-procedural-generation",
+  "runnable": true,
+  "generated": "2026-08-27T07:19:55+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "pcg-algorithms-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A studio ships a generator producing eighteen quintillion distinct planets. Playtesters report the game feels repetitive after two hours. The lead proposes adding more random parameters to increase the number of distinct planets. What does this notebook's framing say?",
+      "explanation": "Numerical variety and perceptual variety are different quantities and only the second is what a player experiences. A generator can have an enormous seed space while its output occupies a narrow band along every axis anyone notices, which is exactly what plotting the expressive range is for.",
+      "grade_id": "pcg-algorithms-37022da991c36496",
+      "options": [
+        "More parameters raise the numerical count, which is already astronomically larger than any player will see, while doing nothing about the complaint. What players perceive is variety in structure and pacing, not in the digits of a seed \u2014 the classic warning about ten thousand technically unique bowls of oatmeal that all look the same. The fix is to vary the things a player can actually notice, and to plot the generator's expressive range to see which axes it really moves along",
+        "The lead is right: perceived repetition is always a symptom of insufficient parameter count, and adding dimensions to the seed space resolves it",
+        "The complaint indicates a validity problem rather than a variety one: the planets are probably duds that fail a solvability check",
+        "The complaint cannot be addressed procedurally \u2014 perceived variety requires hand-authored content, so the generator should be replaced with a curated set"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "pcg-algorithms-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "State the general shape of a generator in this field and the loop that usually wraps it. Then explain the two things a seed buys you, and why one of them is more fragile in practice than people assume.",
+      "explanation": "The seed is simultaneously the debugging handle and the compression scheme, which is why logging it costs nothing and saves a great deal. Its fragility is environmental rather than logical: the same code, a different platform, a different world.",
+      "grade_id": "pcg-algorithms-7211eba7bcca90c8",
+      "expected": "A correct answer must give the function-plus-loop shape and both properties of the seed. The general shape is a function from a seed and a set of parameters to a piece of content, optionally wrapped in a generate-and-test loop: produce a candidate, check it against validity constraints, and if it fails, discard it and generate again \u2014 with a budget on the number of attempts, since a sufficiently tight constraint may reject almost everything. Two things the seed buys. First, reproducibility for debugging: a stochastic system that fails intermittently is very hard to work on unless the artifact can be regenerated, which is why the seed should be logged with every artifact produced. Second, compression: if the content is a deterministic function of the seed, the artifact need not be stored at all \u2014 an entire world can be regenerated from a single integer, which is what makes effectively unbounded worlds shippable. Why the second is fragile: determinism holds only if everything the generator depends on is identical, and in practice that includes the specific random number generator and its version, the library versions, and the floating-point behaviour of the hardware. Using a language's built-in hashing is a particular trap where it is randomised per process. So a seed travels reliably only within a pinned environment, and a seed that is expected to travel \u2014 between platforms, or across a version upgrade \u2014 needs an explicitly constructed generator, integer arithmetic where possible, and pinned dependencies. Noting that a generator meant to run during play cannot afford a reject-and-retry loop and should instead be made valid by construction, is a plus."
+    },
+    {
+      "id": "pcg-algorithms-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A generator is producing unsolvable mazes about one time in three. Three responses are proposed: add a validity check and regenerate on failure; restructure the algorithm so that an unsolvable maze cannot be produced at all; use a solver that only ever makes moves consistent with the constraints. How do these relate, and when does each apply?",
+      "explanation": "All three are legitimate and the choice is driven by the rejection rate and by when the generation happens. Rejection sampling is cheapest to write and gets worse as acceptance gets rarer; validity by construction is the requirement for anything generated live; and a constraint solver is the option that neither rejects blindly nor requires you to redesign the algorithm.",
+      "grade_id": "pcg-algorithms-f9a83023aac89e03",
+      "options": [
+        "They are the three standard strategies and they trade compute against design effort. Checking and regenerating is easiest to add and fine while the rejection rate is low, but becomes expensive as constraints tighten. Making the algorithm valid by construction removes the rejection entirely and is what content generated during play requires, since it cannot pause to retry. A constraint solver is the middle path \u2014 it never makes an invalid move, at the cost of a heavier algorithm that can still fail globally and need to back up",
+        "They are three names for the same technique; the choice between them is stylistic",
+        "Only the first is generally applicable; the other two are specific to tile-based content and cannot be used for mazes",
+        "Only the second is acceptable, since checking and regenerating is non-deterministic and a constraint solver may not terminate"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "pcg-algorithms-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement the loop and the diagnostic. Write `generate_and_test(seed, generate, validate, attempts=100)`: for offsets 0 upward, call `generate(seed + offset)` and then `validate(candidate)`, which returns a list of failure reasons and an empty list for a valid artifact. On the first valid candidate return `{\"content\": ..., \"seed\": the seed that produced it, \"attempts\": how many candidates were tried, \"accepted\": True, \"reasons\": a count per rejection reason so far}`. If `attempts` candidates are all rejected, return the same shape with `content` and `seed` as `None` and `accepted` false. Also write `expressive_range(seeds, generate, measures)`, where `measures` maps a name to a function of the content: generate the content for every seed and return, per measure, `{\"min\": ..., \"max\": ..., \"distinct\": number of distinct values}`. Raise `ValueError` for `attempts` below 1 and for an empty seed list. Standard library only.",
+      "explanation": "Three assertions carry the discipline. The accepted seed is returned and regenerating from it reproduces the artifact exactly \u2014 that is both the debugging handle and the compression argument, and it is why the seed rather than the content is the thing to log. The tight constraint takes visibly more attempts than the loose one, which is the point at which rejection sampling should be abandoned for something valid by construction. And the last block is the oatmeal problem made measurable: every seed produces a distinct artifact, yet along one axis the generator only ever emits three values \u2014 a fact invisible in the count of distinct outputs and obvious the moment you measure the range.",
+      "grade_id": "pcg-algorithms-fed2a5078fb2b861",
+      "starter": "def generate_and_test(seed, generate, validate, attempts=100):\n    ...\n\n\ndef expressive_range(seeds, generate, measures):\n    ...",
+      "solution": "def generate_and_test(seed, generate, validate, attempts=100):\n    if attempts < 1:\n        raise ValueError(\"attempts must be at least 1\")\n    tried = 0\n    reasons = {}\n    for offset in range(attempts):\n        tried += 1\n        candidate = generate(seed + offset)\n        failures = validate(candidate)\n        if not failures:\n            return {\"content\": candidate, \"seed\": seed + offset,\n                    \"attempts\": tried, \"accepted\": True, \"reasons\": reasons}\n        for reason in failures:\n            reasons[reason] = reasons.get(reason, 0) + 1\n    return {\"content\": None, \"seed\": None, \"attempts\": tried,\n            \"accepted\": False, \"reasons\": reasons}\n\n\ndef expressive_range(seeds, generate, measures):\n    if not seeds:\n        raise ValueError(\"no seeds\")\n    rows = []\n    for seed in seeds:\n        content = generate(seed)\n        rows.append({name: measure(content) for name, measure in measures.items()})\n    summary = {}\n    for name in measures:\n        values = [row[name] for row in rows]\n        summary[name] = {\"min\": min(values), \"max\": max(values),\n                         \"distinct\": len(set(values))}\n    return summary",
+      "test": "def level(seed):\n    \"\"\"A deterministic 'generator': the seed alone decides the artifact.\"\"\"\n    return {\"rooms\": seed % 7, \"exits\": seed % 3, \"difficulty\": (seed * 37) % 11}\n\n\ndef rules(content):\n    out = []\n    if content[\"rooms\"] < 3:\n        out.append(\"too few rooms\")\n    if content[\"exits\"] == 0:\n        out.append(\"no exit\")\n    return out\n\n\n# The loop keeps trying until something valid appears, and reports what it cost.\nfound = generate_and_test(0, level, rules)\nassert found[\"accepted\"], found\nassert rules(found[\"content\"]) == [], found\nassert found[\"attempts\"] > 1, \"the first seeds were duds\"\n\n# The accepted seed is returned, so the artifact can be regenerated from an integer\n# rather than stored -- which is the whole compression argument.\nassert level(found[\"seed\"]) == found[\"content\"]\n\n# Rejections are counted by reason, so a generator that is failing one constraint\n# constantly is visible rather than merely slow.\nassert sum(found[\"reasons\"].values()) >= found[\"attempts\"] - 1, found[\"reasons\"]\nassert \"too few rooms\" in found[\"reasons\"], found[\"reasons\"]\n\n# A constraint nothing can satisfy exhausts the budget and says so, rather than\n# looping for ever or returning something invalid.\nimpossible = generate_and_test(0, level, lambda c: [\"never\"], attempts=12)\nassert not impossible[\"accepted\"] and impossible[\"content\"] is None, impossible\nassert impossible[\"attempts\"] == 12 and impossible[\"reasons\"] == {\"never\": 12}\n\n# Tight constraints cost attempts: the tighter the rule, the more candidates are\n# thrown away, which is when generate-and-test stops being the right approach.\nloose = generate_and_test(0, level, lambda c: [] if c[\"rooms\"] >= 1 else [\"x\"])\ntight = generate_and_test(0, level, lambda c: [] if c[\"rooms\"] == 6 else [\"x\"])\nassert tight[\"attempts\"] > loose[\"attempts\"], (loose[\"attempts\"], tight[\"attempts\"])\n\n# Numerical variety is not perceptual variety: every seed gives a different artifact,\n# yet along one axis the generator only ever produces three values.\nreport = expressive_range(range(200), level, {\n    \"rooms\": lambda c: c[\"rooms\"],\n    \"exits\": lambda c: c[\"exits\"],\n})\nassert len({tuple(sorted(level(s).items())) for s in range(200)}) > 50\nassert report[\"exits\"][\"distinct\"] == 3, report\nassert report[\"rooms\"][\"min\"] == 0 and report[\"rooms\"][\"max\"] == 6, report\n\nfor bad in (lambda: generate_and_test(0, level, rules, attempts=0),\n            lambda: expressive_range([], level, {})):\n    try:\n        bad()\n    except ValueError:\n        continue\n    raise AssertionError(\"must be rejected\")"
+    },
+    {
+      "id": "pcg-algorithms-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A world is streamed chunk by chunk while the player walks. The generator currently produces a chunk, checks it for connectivity, and regenerates when the check fails \u2014 about one time in eight. Players report intermittent stutters. What is the diagnosis?",
+      "explanation": "A rejection loop makes generation cost a random variable with a long tail, which is fine offline and fatal on a frame budget. The distinction between offline and online generation is exactly this: offline can afford search and curation, online must be fast and always valid, which usually means designing the algorithm so invalid output is impossible rather than filtering it afterwards.",
+      "grade_id": "pcg-algorithms-d67bd3025f9d8ba0",
+      "options": [
+        "Content generated during play cannot afford a reject-and-retry loop: the cost of producing a chunk is now unbounded and occasionally several times the budget, which is exactly what a stutter is. Online generation needs to be valid by construction \u2014 or to use a method that never makes an invalid move \u2014 while reject-and-retry belongs in offline generation, where an expensive search and curation are affordable",
+        "The stutter is unrelated to the retry loop and comes from the connectivity check itself, which should be replaced with a cheaper heuristic",
+        "One rejection in eight is negligible; the stutter must come from an unseeded generator producing different results on each call",
+        "The retry loop is correct and the fix is to raise the retry budget, which reduces the chance of a chunk taking unusually long"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "pcg-algorithms-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four pieces of content for one game. (a) The final boss arena, central to the story. (b) Terrain for an effectively endless world. (c) Twenty thousand item names. (d) A weekly challenge level that must be solvable and identical for every player. Assign each to hand authoring or generation, and give the deciding property; for anything generated, say what the generation must guarantee.",
+      "explanation": "Volume and replayability push toward generation; authored meaning pushes away from it. And the two generated cases need different guarantees \u2014 valid by construction when it runs during play, validated and reproducible when it ships as a shared artifact.",
+      "grade_id": "pcg-algorithms-8f7d92ae08ba2045",
+      "expected": "A correct answer must place all four. (a) Hand authored: content that is narratively load bearing is where this field is weakest \u2014 it excels at breadth and texture and struggles with intentional, meaningful structure, and a boss arena is a designed experience rather than a sample from a distribution. The deciding property is that the content carries authored meaning. (b) Generated: an endless world cannot be stored or authored, and regenerating from a seed is what makes it shippable at all \u2014 the deciding property is volume beyond any art budget or disk. The guarantee needed is that it be valid by construction, since it is produced during play and cannot pause to retry. (c) Generated: twenty thousand names are far past hand authoring, and the risk here is not validity but sameness \u2014 the deciding property is volume again, and what must be watched is perceptual variety rather than the count of distinct outputs. (d) Generated, but with two guarantees: it must be validated as solvable before release, which is affordable because it is produced offline and can be searched and curated, and it must be reproducible for every player, which means a fixed seed with a pinned generator and pinned library versions so the same integer yields the same level everywhere. The deciding property is that determinism is a requirement rather than a convenience. Noting that the last case is exactly where cross-environment seed fragility stops being theoretical is a plus."
+    }
+  ]
+}

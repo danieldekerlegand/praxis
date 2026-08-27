@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "slug": "lme4",
+  "title": "lme4 (mixed models)",
+  "domain": "10-data-analysis-research",
+  "runnable": false,
+  "generated": "2026-08-27T06:54:59+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "lme4-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A researcher has reaction times from 30 participants, 10 trials each, and reports a significant effect from an ordinary regression over all 300 rows. A reviewer objects. Which statement of the problem, and of why the two obvious repairs are inadequate, is correct?",
+      "explanation": "The failure is a dependence problem, not a sample-size or variance problem, and its direction is specific: correlated observations mean less independent information than the row count suggests, so uncertainty is understated. The two naive repairs sit at opposite extremes \u2014 one throws the structure away, the other estimates it without any restraint \u2014 which is precisely the gap the method is designed to fill.",
+      "grade_id": "lme4-e3c7d3fe6209dcbb",
+      "options": [
+        "Rows from the same participant are not independent, so the analysis behaves as if it had far more information than it does and reports standard errors that are too small \u2014 inflating false positives. Ignoring the participants entirely discards real structure, and fitting each participant separately (or giving each one their own coefficient) fits noise in small or noisy participants and yields nothing that generalises beyond the 30 people tested",
+        "The problem is only the sample size: 30 participants is too few for the asymptotics to hold, and either repair works once more participants are recruited",
+        "The problem is that trials within a participant have different variances, so the standard errors are too large rather than too small, and fitting a separate regression per participant is the correct fix",
+        "The problem is that the effect was tested on 300 rows rather than on 30 participant means; averaging each participant down to one row is exactly equivalent to a mixed model and is the recommended repair"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "lme4-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Two participants are in the same study. One contributed ten clean, consistent trials; the other contributed two noisy ones. Describe how the estimated line for each of them relates to the population line, explain what determines the difference between the two cases, and say why this behaviour is presented as the method's central benefit rather than as a compromise.",
+      "explanation": "The pull is the mechanism, and the fact that its strength is estimated rather than chosen is what makes it more than a hedge: the data decides how much a group's own evidence should be trusted.",
+      "grade_id": "lme4-b0605a8e20551802",
+      "expected": "A correct answer must describe pulling toward the population estimate and what governs its strength. Each participant's own line is not fit freely; it is expressed as the population line plus a deviation, and those deviations are themselves assumed to come from a distribution whose spread is estimated from the data. The consequence is that each participant's estimate is drawn back toward the population estimate by an amount that depends on how much evidence that participant supplies and how noisy it is: the participant with ten consistent trials moves very little, because their own data is informative enough to overrule the pull, while the participant with two noisy trials is pulled most of the way back, because almost all of the apparent difference is plausibly noise. Why it is a benefit rather than a compromise: it is not a fudge between the two extremes chosen by the analyst but the estimate implied by the model, with the amount of pooling determined by the ratio of between-group to within-group variability that the data itself supplies \u2014 so it produces better estimates for sparse groups than fitting them independently would, and it retains the group structure that ignoring groups would discard, all without a tuning decision. Noting that the amount of pooling is a consequence of the estimated variance components, so a grouping factor that genuinely does not matter is pooled almost completely away, is a plus."
+    },
+    {
+      "id": "lme4-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "Three designs land on your desk. (i) Pupils sampled within classrooms, each classroom belonging to exactly one school. (ii) Every participant responds to every one of the same 50 stimuli. (iii) A trial with two treatment arms whose specific effects are the point of the study. How should each grouping enter the model?",
+      "explanation": "The distinction is whether an inner label means anything outside its outer group: a classroom labelled '1' in two different schools is two different classrooms, whereas the same stimulus shown to two participants is genuinely the same stimulus. And a factor whose two levels are the scientific question, with no population of levels to generalise to and no spread estimable from two points, belongs among the population-level terms.",
+      "grade_id": "lme4-dd7c94e8cd78ad3c",
+      "options": [
+        "(i) as a hierarchy where the inner grouping is only meaningful inside the outer one, so it must be specified as nested \u2014 or given identifiers unique across schools; (ii) as two separate, non-hierarchical grouping factors that both apply to every observation; (iii) not as a grouping factor at all, but as an ordinary population-level term, because two levels cannot support estimating a spread and the levels themselves are what is being estimated",
+        "(i) and (ii) identically, since two grouping factors always combine the same way; (iii) as a grouping factor with two levels, which is the standard way to represent an experimental arm",
+        "(i) as two independent grouping factors, since classrooms are distinguishable from schools; (ii) as a hierarchy with stimuli inside participants, since each participant produced their own responses; (iii) as a population-level term",
+        "All three as grouping factors, with the number of levels being irrelevant because the spread is estimated from the observations rather than from the level count"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "lme4-04",
+      "section": "Worked Examples",
+      "kind": "short",
+      "prompt": "An analyst fits a model, then fits a second one that removes one population-level predictor while leaving the grouping structure alone, and compares the two with a likelihood-based test using each fit exactly as produced by the defaults. A colleague says the comparison is invalid. Explain why, what has to change, and why the default exists at all if it causes this problem.",
+      "explanation": "The default is chosen for the job it does best \u2014 estimating variance components with less bias \u2014 and the restriction follows directly from how it achieves that. Which is why the safe habit is to let the comparison helper do the refitting rather than to compare fits by hand.",
+      "grade_id": "lme4-9b7710035bd35ae5",
+      "expected": "A correct answer must name the estimation criterion. By default the fit maximises a restricted likelihood, which removes the influence of the population-level coefficients in order to estimate the variance components with less bias \u2014 that is why it is the default and why it is the right choice for reporting variance estimates. The cost is that the restricted likelihood is computed with respect to a particular set of population-level terms, so two fits with different population-level structure are not evaluating comparable quantities and their likelihoods cannot be differenced; the resulting test statistic is meaningless. The fix is to refit both models under the ordinary likelihood before comparing, which is what the standard comparison helper does automatically for you. A correct answer must also observe that this restriction applies specifically to comparisons that change the population-level terms \u2014 a comparison that changes only the grouping structure while holding the population-level terms fixed does not have the problem \u2014 and, as a plus, that a test of whether a variance component is needed sits at the boundary of the allowed parameter space, so the usual reference distribution is conservative and a purpose-built test should be used instead."
+    },
+    {
+      "id": "lme4-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A model fits, but warns about a boundary or singular result; inspection shows one estimated variance at zero and one correlation at exactly one. The analyst proposes to note the warning in a footnote and report the model as is. What is the right response?",
+      "explanation": "A variance pinned at zero and a correlation pinned at its extreme are the model telling you it cannot identify those parameters from this data. It is not noise to be optimised away or a scaling issue: the remedy is a structure the data supports, either by removing the group-varying term that is not estimable or by not asking for the correlation between them.",
+      "grade_id": "lme4-621863f5c3692c31",
+      "options": [
+        "The warning says the grouping structure is richer than the data can support, so those estimates sit on the edge of what is even admissible and the corresponding uncertainty statements should not be trusted \u2014 simplify, by dropping the group-varying effect that is not identified or by removing the correlation between the group-varying terms, and report the model that the data can actually estimate",
+        "It is a numerical artefact of the optimiser; re-running with a different optimiser or more iterations makes it disappear without any change to the model",
+        "It is expected whenever a grouping factor has more than a handful of levels, and it is safely ignored as long as the population-level estimates are stable",
+        "It means the response needs rescaling; standardising the outcome removes the boundary estimate and the model can then be reported unchanged"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "lme4-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Recommend a tool for each and give the deciding property. (1) Counts of a rare event with far more zeros than any standard count distribution predicts, grouped by site. (2) Measurements taken every week on the same patients, where residuals are clearly correlated in time. (3) A standard experiment with participants crossed with items, where speed and a large existing literature matter. (4) A small, unusual hierarchical model where the team needs full uncertainty and wants to encode prior knowledge.",
+      "explanation": "Three of the four are chosen because of something the standard package cannot express \u2014 a response distribution, a residual correlation structure, or a full posterior \u2014 and the fourth because of what it is best at. None is chosen on accuracy of the point estimates.",
+      "grade_id": "lme4-c71a4d8803d31351",
+      "expected": "A correct answer must give four distinct recommendations, each justified by a property of the model rather than by preference. (1) A package that supports zero-inflation and additional response distributions: the deciding property is that the response distribution itself is outside what the standard package offers, and no amount of restructuring the grouping fixes a distributional mismatch. (2) A tool that can model correlation among the residuals themselves \u2014 an autoregressive or otherwise structured residual covariance \u2014 because grouping-level terms capture that observations share a group, not that observations close in time are more alike; the deciding property is a residual structure the standard package cannot express. (3) The standard package: this is the case it is fastest and most established for, in particular because it handles two non-hierarchical grouping factors applying to every observation efficiently, which is the specific weakness of the older alternative; the deciding property is crossed grouping at speed with the field's tooling around it. (4) A Bayesian implementation: the deciding property is that they want genuine uncertainty intervals and a way to state prior information, and are willing to pay in fitting time and in the obligation to check that the sampler converged. Noting that a Python-native mixed-model implementation exists but is markedly less capable \u2014 weak crossed-effect support and no generalised families \u2014 so staying in one language is rarely a good enough reason to choose it, is a plus."
+    }
+  ]
+}

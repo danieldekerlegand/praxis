@@ -145,8 +145,23 @@ both halves are on disk — `gated` (the answer key, folded in by `module_gates(
 is `backfill.is_gated()` restated on the view model, so the batch that writes gates and the
 report that counts them agree by construction. The **per-domain fraction is the primary
 figure** for the same reason breadth is the batch's default; the overall one is their sum,
-never a separate count. `python3 -m praxis.coverage` prints it: 24/245 in 8 of 14 domains
-as the seed library ships.
+never a separate count. `python3 -m praxis.coverage` prints it: the seed library shipped at
+24/245 in 8 of 14 domains, and the six domains that had none at all were taken to 100% by
+runs of the shipped batch — 117/245 in 14 of 14 — see
+`docs/explanation/gating-backfill-cost.md` for what they cost.
+
+The **complement** of `gated` is split rather than left as one number, because "no gate"
+was hiding two situations. `praxis/ungated.py` is the tracked register of decisions to
+leave a notebook for later (`notebooks/ungated.json`, an entry per domain or per notebook
+carrying a `reason` and a `decided` date); coverage folds it in, so every row it covers is
+**deferred** and what remains is **omitted** — ungated with nothing on record. Omitted is
+the number to watch, and it is 0. Two rules keep the register honest. It is **graded
+against the live rows**, never against itself (`register_failures`), so an entry naming a
+domain that no longer has an ungated notebook, or a `rel` overtaken by a gate, is reported
+as stale rather than believed — and a corrupt register degrades toward *omitted*, never
+toward deferred. And it is a **record, not a rule**: nothing in it is excluded from
+`backfill_targets()`, because a register that quietly shrank the queue would turn "we
+decided to wait" back into "we forgot", which is the confusion it exists to remove.
 
 In the app it is a field, not an endpoint: `build_model()` folds the report onto
 `/api/library` as `coverage` and each domain's own fraction onto its row as `covered`, so
@@ -154,6 +169,24 @@ a resumed backfill's new gates arrive on the next library refetch — no second 
 second poll, and `library_report()` reads that same key rather than counting again. Both
 UIs render what the launcher counted (`ui/src/App.tsx`, `launcher/templates/index.html`)
 and neither holds coverage logic, the same rule `KnowledgeChecks.tsx` follows for locks.
+
+`praxis/gatefloor.py` is the **ratchet**, and it exists because a number nobody records is a
+number nobody notices moving: the library sat at 24/245 for a fortnight after the machinery
+to raise it had merged. It records exactly one thing — the coverage already reached, in
+`notebooks/coverage-floor.json` beside `ungated.json` — and what keeps `coverage.py`'s "no
+number here is ever stored" rule intact is that the recorded figure is **never read as
+coverage**: coverage is always measured (`measure()`, a fold over `backfill.coverage()`, so
+`is_gated()` stays the one definition and no launch extra is needed), the floor is always
+loaded, and `regressions()` compares them **in one direction only**. Per domain first, for
+the reason breadth is the batch's default — five gates moving from one domain to another
+leaves the headline flat. A rise never fails it. A missing or corrupt floor **fails**,
+because deleting the record is the one edit that would switch the check off. It also owns
+the reader-facing half: `README.md` states the figure in prose, `claim()` reads it back out
+of that sentence, and `record()` rewrites the floor and the sentence from one measurement —
+the only supported way to raise the ratchet, so the number a reader meets and the number the
+gate enforces cannot drift. `python3 -m praxis.gatefloor` runs in `.chief/verify.sh` and CI
+beside `validate_nbgrader.py`; change one and change the other, as with every other check in
+that pair.
 
 `praxis/gateaudit.py` asks the question the two write-path gates cannot: `nbgrader
 validate` proves a graded cell is well-formed and that its hidden tests run, and
@@ -166,9 +199,11 @@ the Praxis-owned cells first, because a question is not evidence for itself), a 
 check whose `test` still passes an empty submission or the starter stub (the shipped
 `run_code_check()` subprocess pointed the other way — generation proves the reference
 solution passes, the audit proves nothing else does), and two near-identical prompts in
-one set. Every threshold is set against the 24 hand-built seed gates, which is the bar a
-backfilled gate has to hold: `python3 -m praxis.gateaudit` flags 0 of them, and a test
-pins that. Tighten a threshold only with that measurement in hand.
+one set. Every threshold was measured against the 24 hand-built seed gates, which is the bar
+a backfilled gate has to hold: `python3 -m praxis.gateaudit` flags 0 of the gates on disk,
+and a test pins that — as a floor over a growing corpus, since the backfill's job is to add
+gates. Tighten a threshold only with that measurement in hand, and re-measure it against the
+24 rather than against whatever a batch has since written.
 
 Those four rules are also **the write path's**, not a report run after the fact:
 `checkset_failures(doc, quality=…, notebook=…)` calls `quality_failures` /
@@ -197,8 +232,29 @@ is the whole safety argument for regeneration: the shipped write path grades and
 `nbgrader validate`s before it writes, so a candidate that fails the tightened bar leaves
 the existing gate byte-identical rather than stripping the notebook of one. A gate that
 holds is never a regeneration target even with `force=True`, so an unattended re-audit
-costs no model call. `python3 -m praxis.regate` prints it; the 24 seed gates, all written
-before the bar, hold it, and a test pins that.
+costs no model call. `python3 -m praxis.regate` prints it; the gates on disk, every one of
+them written before the bar, hold it, and a test pins that — as a floor, not a count, because
+the backfill's whole job is to raise the count and a suite that fails when coverage rises
+punishes the tool for working.
+
+`praxis/authored.py` is the seam that lets the batch run with an **author** where the model
+goes, and it is the reason the shipped batches could sit unrun: `backfill_domain` →
+`construct_each` → `generate_checks` is a grader wrapped around one HTTP call, so with no key
+configured the grading — the part that is actually the product — is unreachable too.
+`generate_checks` reads exactly two things off its client (`complete()` and `config.model`),
+so `AuthoredClient` serving a reply from `<slug>.checks.draft.json` beside the notebook is a
+complete substitute for a provider, and `backfill_domain(domain, client=…, attempts=1)` is
+the whole integration. It owns **no gating rule**: normalization, `checkset_failures` with
+the subprocess run and the measured triviality rules, `publish_graded_cells` and `nbgrader
+validate` all run unchanged, and a draft that fails any of them is not written while the
+notebook stays byte-identical — `tests/test_authored.py` pins each refusal against a file
+rather than a model. One attempt, deliberately: `_repair_prompt` handed back to a file gets
+the same file. The one coupling is that a draft is found by the topic title `build_prompt`
+quotes in its `<topic>` tag, and a test pins that round trip so a change to the prompt's
+shape fails rather than selecting the wrong draft. Drafts are git-ignored: the accepted
+`<slug>.checks.json` is the durable artifact, and a tracked draft would be a second copy of
+the same questions with nothing keeping the two in sync.
+`docs/explanation/gating-backfill-cost.md` is what the first measured domain cost.
 
 ## Driving the batch unattended: Chief tasklists
 
@@ -450,7 +506,9 @@ Same reason `launcher.app.library_path()` exists for `/render`.
 
 `python3 -m pytest -q tests/` (notebook core + launcher API), `npm run build` in `ui/`,
 `cargo build` in `src-tauri/`. `.chief/verify.sh` runs them path-scoped, plus
-`scripts/validate_nbgrader.py notebooks` — the authoritative graded-cell gate. The launcher tests
+`scripts/validate_nbgrader.py notebooks` — the authoritative graded-cell gate — and
+`python3 -m praxis.gatefloor`, the coverage ratchet (a drop below `notebooks/coverage-floor.json`,
+or a README figure that disagrees with it, fails the merge; a rise never does). The launcher tests
 skip themselves without the launch extra: `uv pip install --python .venv/bin/python -e '.[launch]'`.
 
 `nbgrader` is a pinned **core** dependency, not an extra, so an environment without it does not

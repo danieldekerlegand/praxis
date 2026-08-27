@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "cellular-automata",
+  "title": "Cellular Automata",
+  "domain": "09-procedural-generation",
+  "runnable": true,
+  "generated": "2026-08-27T07:19:50+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "cellular-automata-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A roguelike needs cave interiors that look eroded rather than laid out, and it must be guaranteed that the player can walk from the entrance to the exit. A developer proposes generating with this technique and tuning the rule until disconnected caves stop appearing. Assess the plan.",
+      "explanation": "The strength and the limitation are the same fact \u2014 the rule sees only a neighbourhood. That is what makes the output look grown, and it is exactly why a global property like reachability is outside what any amount of tuning can promise. The composition \u2014 grow the shape here, then fix the topology with a separate flood-fill or tunnelling pass \u2014 is the standard production recipe.",
+      "grade_id": "cellular-automata-5df2ded11e0d9a8a",
+      "options": [
+        "The first half is right and the second is not achievable by tuning. Local neighbour rules produce shape, not topology: nothing in a rule that speaks only of a cell and its immediate neighbours can express 'the whole open region is one piece', so isolated pockets will keep appearing at some rate. The standard answer is to generate the shape this way and then guarantee reachability with a separate pass \u2014 flood-fill to find the regions and either discard the strays or tunnel between them",
+        "The plan is sound: connectivity is a property of the smoothing rule, and a rule with a high enough neighbour threshold makes disconnected pockets impossible",
+        "The first half is wrong: this technique produces rectangular, laid-out interiors, so an eroded look requires a noise-based approach instead",
+        "Both halves are wrong: reachability is guaranteed automatically by any rule applied for enough passes, and the eroded look requires a constraint-solving tile approach"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "cellular-automata-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "A programmer implements the update by looping over the grid and writing each cell's new value straight back into the same array. Their oscillating test pattern collapses instead of oscillating. Explain the discipline they broke, why it corrupts the result rather than merely reordering it, and what it has to do with the model itself.",
+      "explanation": "Reading old and writing new is the correctness rule, and it is inherited from the model rather than imposed on it. An in-place update silently defines a different automaton whose behaviour depends on the order you happened to walk the grid.",
+      "grade_id": "cellular-automata-9e9387bf6653efd3",
+      "expected": "A correct answer must name simultaneous update and explain the corruption. Every cell is supposed to decide its next state from the state of the grid before this tick \u2014 its own old value and its neighbours' old values \u2014 and all cells decide from that same snapshot. Writing results back into the array being read breaks that: a cell that has already been updated is read as a neighbour by cells later in the scan, so those cells are counting a mixture of the previous generation and the one being built, and which cells are affected depends on the scan order. That is why the oscillating pattern collapses \u2014 the first cell updated changes the neighbour count seen by the cell beside it, and the pattern that should have shifted instead destroys itself. The fix is to compute the entire next generation into a fresh array from the old one and then swap, which is why implementations are written around two buffers. This is not merely an implementation convention: simultaneity is part of the definition of the model, the whole point being that every cell applies the same rule at the same instant with no coordination beyond looking at its neighbours, and the emergent global behaviour is a consequence of that. An in-place update is a different, order-dependent system that happens to share the rule. Noting that this is also what makes the model naturally parallel \u2014 every cell's next value is independent given the old grid \u2014 is a plus."
+    },
+    {
+      "id": "cellular-automata-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A cave generator is ported from one engine to another and the maps come out subtly wrong: the borders are no longer solid and patterns drift off one edge and reappear on the other. Nothing about the rule was changed. What was, and why does it matter so much?",
+      "explanation": "What lies beyond the edge is a design decision that the rule itself never mentions, and it changes the output completely. Treating the outside as solid frames the map, treating it as empty lets structures die at the border, and wrapping makes the grid a torus \u2014 which is precisely the drifting-off-one-edge symptom described.",
+      "grade_id": "cellular-automata-ea0fd28df19ec35e",
+      "options": [
+        "The treatment of positions outside the grid. A neighbour count near an edge has to decide what lies beyond it, and the usual options \u2014 count the outside as solid, count it as empty, or wrap around so opposite edges are adjacent \u2014 produce very different maps. Caves normally want the outside counted as solid so the map keeps a solid frame; the symptoms described are what wrapping does",
+        "The neighbourhood shape changed from the eight surrounding cells to the four orthogonal ones, which is what removes the solid border",
+        "The update stopped being simultaneous, which manifests first at the edges because that is where the scan begins and ends",
+        "The initial fill density changed, and border effects are the first place a density change becomes visible"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "cellular-automata-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement one synchronous update. Write `step(grid, birth, survive, outside=\"wall\")`. `grid` is a rectangular list of rows of 0 and 1. A cell's neighbourhood is the eight surrounding positions, excluding itself. `birth` and `survive` are collections of neighbour counts: a 0 cell becomes 1 when its count is in `birth`, and a 1 cell stays 1 when its count is in `survive`; otherwise the cell is 0. Every cell must decide from the ORIGINAL grid, and the input must not be modified \u2014 return a new grid. `outside` says what a position beyond the edge counts as: `\"wall\"` counts it as 1, `\"open\"` counts it as 0, and `\"wrap\"` takes the cell from the opposite edge. Raise `ValueError` for an empty or ragged grid and for an unknown `outside`. Standard library only.",
+      "explanation": "The oscillating three-cell row is the smallest pattern that catches an in-place update: done correctly the row becomes a column, because all three cells decide from the same starting grid; done in place, the first cell's new value changes what the second one counts and the pattern degrades. The boundary assertions are the other lesson \u2014 the identical grid and the identical rule produce three different results depending only on what is assumed to lie outside, which is why that choice belongs in the generator's parameters rather than in a hard-coded edge case. The two cave-rule assertions show what the smoothing actually does: an isolated cell is eroded away and a nearly enclosed gap fills in, which is how random noise rounds into chambers over a few passes.",
+      "grade_id": "cellular-automata-35c540868cd1c77d",
+      "starter": "def step(grid, birth, survive, outside=\"wall\"):\n    \"\"\"One synchronous generation: read the old grid, write a new one.\"\"\"\n    ...",
+      "solution": "def step(grid, birth, survive, outside=\"wall\"):\n    if not grid or not grid[0]:\n        raise ValueError(\"the grid is empty\")\n    height = len(grid)\n    width = len(grid[0])\n    if any(len(row) != width for row in grid):\n        raise ValueError(\"the grid is ragged\")\n    if outside not in (\"wall\", \"open\", \"wrap\"):\n        raise ValueError(f\"unknown boundary {outside!r}\")\n    birth = set(birth)\n    survive = set(survive)\n\n    def at(x, y):\n        if 0 <= x < width and 0 <= y < height:\n            return grid[y][x]\n        if outside == \"wall\":\n            return 1\n        if outside == \"open\":\n            return 0\n        return grid[y % height][x % width]\n\n    out = []\n    for y in range(height):\n        row = []\n        for x in range(width):\n            count = 0\n            for dy in (-1, 0, 1):\n                for dx in (-1, 0, 1):\n                    if dx or dy:\n                        count += at(x + dx, y + dy)\n            if grid[y][x]:\n                row.append(1 if count in survive else 0)\n            else:\n                row.append(1 if count in birth else 0)\n        out.append(row)\n    return out",
+      "test": "def show(grid):\n    return [\"\".join(\"#\" if c else \".\" for c in row) for row in grid]\n\n\ndef parse(rows):\n    return [[1 if c == \"#\" else 0 for c in row] for row in rows]\n\n\nLIFE_B, LIFE_S = {3}, {2, 3}\n\n# A blinker oscillates with period two -- the standard hand-checkable case.\nblinker = parse([\".....\", \".....\", \".###.\", \".....\", \".....\"])\nonce = step(blinker, LIFE_B, LIFE_S, outside=\"open\")\nassert show(once) == [\".....\", \"..#..\", \"..#..\", \"..#..\", \".....\"], show(once)\nassert show(step(once, LIFE_B, LIFE_S, outside=\"open\")) == show(blinker)\n\n# A block is still life.\nblock = parse([\"....\", \".##.\", \".##.\", \"....\"])\nassert step(block, LIFE_B, LIFE_S, outside=\"open\") == block\n\n# Simultaneity: computed in place, the leftmost cell of the blinker would die first\n# and change its neighbour's count. Done correctly, all three decide from the same\n# starting grid, so the row becomes a column rather than emptying.\nassert sum(sum(r) for r in once) == 3, once\n\n# The input grid is never modified.\nbefore = [row[:] for row in blinker]\nstep(blinker, LIFE_B, LIFE_S, outside=\"open\")\nassert blinker == before, \"step must not mutate its input\"\n\n# Boundary treatment changes the outcome, not merely the edges. A lone diagonal pair\n# in the corner is born into a block when the outside counts as walls...\ncorner = parse([\"##.\", \"...\", \"...\"])\nwalled = step(corner, {5, 6, 7, 8}, {4, 5, 6, 7, 8}, outside=\"wall\")\nopened = step(corner, {5, 6, 7, 8}, {4, 5, 6, 7, 8}, outside=\"open\")\nassert walled != opened, (show(walled), show(opened))\nassert show(walled)[0] == \"###\", show(walled)\nassert show(opened) == [\"...\", \"...\", \"...\"], show(opened)\n\n# Wrapping makes the grid a torus, which is a third distinct answer: the same stripe\n# survives when the outside is solid and dies when opposite edges are made adjacent,\n# because its neighbours through the wrap are the empty rows.\nstripe = parse([\"###\", \"...\", \"...\"])\nsolid = step(stripe, {5, 6, 7, 8}, {4, 5, 6, 7, 8}, outside=\"wall\")\ntorus = step(stripe, {5, 6, 7, 8}, {4, 5, 6, 7, 8}, outside=\"wrap\")\nassert show(solid)[0] == \"###\", show(solid)\nassert show(torus)[0] == \"...\", show(torus)\n\n# The cave rule smooths noise toward blobs: an isolated wall cell is eroded away,\n# and a nearly enclosed gap fills in.\nlonely = parse([\".....\", \".....\", \"..#..\", \".....\", \".....\"])\nassert step(lonely, {5, 6, 7, 8}, {4, 5, 6, 7, 8}, outside=\"open\") == parse(\n    [\".....\", \".....\", \".....\", \".....\", \".....\"])\ngap = parse([\"###\", \"#.#\", \"###\"])\nassert show(step(gap, {5, 6, 7, 8}, {4, 5, 6, 7, 8}, outside=\"wall\")) == [\n    \"###\", \"###\", \"###\"], show(step(gap, {5, 6, 7, 8}, {4, 5, 6, 7, 8}))\n\n# Counting excludes the cell itself: a lone live cell with no neighbours dies under\n# any rule whose survive set omits zero.\nassert step(parse([\"...\", \".#.\", \"...\"]), LIFE_B, LIFE_S, outside=\"open\") == parse(\n    [\"...\", \"...\", \"...\"])\n\nfor bad in (lambda: step([], LIFE_B, LIFE_S),\n            lambda: step([[]], LIFE_B, LIFE_S),\n            lambda: step([[0, 0], [0]], LIFE_B, LIFE_S),\n            lambda: step(block, LIFE_B, LIFE_S, outside=\"reflect\")):\n    try:\n        bad()\n    except ValueError:\n        continue\n    raise AssertionError(\"must be rejected\")"
+    },
+    {
+      "id": "cellular-automata-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "Two cave generators are producing bad output. The first yields maps that are almost entirely solid rock; the second yields maps that still look like random static. Both use the same smoothing rule. What are the two knobs and which way should each be turned?",
+      "explanation": "The entire tuning surface for this generator is two numbers, and they do different things. The starting density decides which way the smoothing tips \u2014 too solid and it closes everything, too sparse and nothing ever closes up. The pass count decides how far the organisation goes, from still-noisy at one end to featureless at the other. Sweeping the pair is the standard way to find the look you want.",
+      "grade_id": "cellular-automata-a4746efcc6b822d4",
+      "options": [
+        "The two knobs are the proportion of the initial random fill that is solid and the number of smoothing passes. The first generator's fill is too high \u2014 above roughly half, the smoothing tips toward filling everything in \u2014 so lower it. The second has not run enough passes for the noise to organise, so raise the pass count; run too many and the map becomes featureless blobs instead",
+        "The two knobs are the neighbourhood shape and the boundary treatment; the first generator should switch to the four orthogonal neighbours and the second should switch to wrapping",
+        "Both symptoms come from the pass count alone: too many passes fills the map solid and too few leaves it noisy, so the initial fill is irrelevant",
+        "Both symptoms indicate an incorrect rule; the neighbour threshold should be lowered for the first and raised for the second, with the fill and pass count left alone"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "cellular-automata-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four jobs on one map. (a) The interior of a cavern that should look eroded. (b) A keep with rectangular rooms and corridors where every room must be reachable. (c) The elevation of the valley the map sits in. (d) A guarantee that the cavern's entrance connects to its exit. Assign each and say what the assignment illustrates about combining these techniques.",
+      "explanation": "The fourth item is the one that changes how the first is used: because a local rule can give shape but not topology, the practical recipe is always this technique plus a connectivity pass, rather than this technique tuned harder.",
+      "grade_id": "cellular-automata-874863da04c80f86",
+      "expected": "A correct answer must assign all four. (a) This technique: an eroded, grown look is exactly what a local smoothing rule over random noise produces, and it is cheap and tunable by two numbers \u2014 the deciding property is that the look is organic rather than laid out. (b) A recursive spatial subdivision into rooms joined by corridors: it produces obviously built, rectangular layouts and, more importantly, it produces them with the connections constructed rather than hoped for \u2014 the deciding property is that structure and guaranteed connectivity are both required. (c) A continuous noise field: elevation varies smoothly and has no cells or neighbour rules \u2014 the deciding property is that the output is a height at every position. (d) Not a generation technique at all but a post-processing pass: flood-fill the open cells to identify the separate regions, then either discard the strays or carve a tunnel between them, using something as simple as a random walk between two points. What this illustrates is that these techniques compose rather than compete \u2014 one supplies the shape, another supplies the topology, a third supplies the terrain around it \u2014 and the summary is that this technique is for things that grow, subdivision is for things that are built, and noise is for things that flow."
+    }
+  ]
+}

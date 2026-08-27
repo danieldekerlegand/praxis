@@ -71,6 +71,14 @@ if echo "$changed" | grep -qE '\.(py|ipynb)$|^notebooks/|^tests/|^scripts/|^pypr
   fi
   if [ -n "$py" ]; then
     run "$py" scripts/validate_nbgrader.py notebooks
+    # The coverage ratchet. Gate coverage IS the product claim, and it sat at 24/245 for a
+    # fortnight after the machinery to raise it had merged, because no check ever looked.
+    # This one is cheap and offline (a fold over the notebooks and their answer keys, no
+    # model, no launch extra) and it fails in one direction only: a domain, or the library,
+    # gating fewer notebooks than notebooks/coverage-floor.json already recorded. A rise
+    # never fails it. It also holds the README's stated figure to the recorded one, so the
+    # number a reader meets cannot drift from the number the gate enforces.
+    run "$py" -m praxis.gatefloor
     run "$py" -m pytest -q tests/
   else
     echo "skip: pytest/nbformat/nbgrader not installed (create .venv: uv venv .venv && uv pip install --python .venv/bin/python -e '.[launch,dev]')"

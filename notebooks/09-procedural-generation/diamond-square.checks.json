@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "diamond-square",
+  "title": "Diamond-Square (heightmaps)",
+  "domain": "09-procedural-generation",
+  "runnable": true,
+  "generated": "2026-08-27T07:20:07+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "diamond-square-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A developer needs terrain that looks natural. Their first attempt fills the grid with independent random heights and looks like static; their second uses a smooth analytic function and looks artificial. What property do real landscapes have that both attempts lack, and how does this algorithm supply it?",
+      "explanation": "Independent draws have detail at one scale only \u2014 the finest \u2014 and a smooth function has none. Real terrain has structure at every scale at once, and the recursive subdivision with a shrinking displacement budget produces exactly that: each round adds finer detail at a smaller amplitude than the round before.",
+      "grade_id": "diamond-square-a7ef59a1e3f644f8",
+      "options": [
+        "Detail at every scale, statistically self-similar \u2014 zooming in reveals structure resembling the view from further out. The algorithm supplies it by recursively subdividing the grid and adding a random displacement whose magnitude shrinks with each level of subdivision, so large features come from the early, large displacements and small ones from the later, small ones",
+        "A bell-shaped distribution of heights, which neither attempt produces; the algorithm supplies it by averaging groups of independent draws, which by the central limit theorem gives the right distribution",
+        "Continuity of the first derivative; the algorithm supplies it by interpolating between the corner heights with a smooth easing curve rather than linearly",
+        "Erosion patterns; the algorithm supplies them by simulating water flow across the surface as it subdivides"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "diamond-square-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Describe the two alternating steps by name and by what each one computes, explain why they must alternate rather than being run one after the other in bulk, and say what happens to the result if the displacement magnitude is left constant across rounds.",
+      "explanation": "The alternation is a data dependency, not a stylistic choice, and the shrinking displacement is the entire fractal mechanism. Remove the decay and the same code produces static.",
+      "grade_id": "diamond-square-00191c0c1017de3c",
+      "expected": "A correct answer must describe both steps, the dependency, and the decay. The first step sets the centre of each square from the average of that square's four corners plus a random nudge; the sampled points form diamond shapes, which is where its name comes from. The second step sets each edge midpoint from the average of the four already-known points around it \u2014 up, down, left and right at half the current spacing \u2014 plus a nudge, and those sampled points form squares. They must alternate at each level of subdivision because the second step reads the points the first step has just written: the centres created by the first step are among the four neighbours the second step averages. Running one to completion over the whole grid before the other, or skipping the alternation, leaves cells whose inputs do not yet exist, which shows up as holes or as garbage where a missing value was treated as zero. It also matters that the second step's positions are staggered \u2014 offset by half a step on alternate rows \u2014 because that is what makes it land on exactly the cells still empty. On the decay: the displacement magnitude must shrink each round, and that shrinking is the algorithm rather than a refinement of it. If the magnitude stays constant, the finest subdivisions are displaced as violently as the coarsest, so the large-scale shape is drowned in small-scale noise and the result is white noise rather than terrain \u2014 the self-similar appearance comes precisely from finer detail being proportionally smaller. Noting that the rate of decay is the roughness parameter, and that it is what distinguishes rolling hills from jagged mountains, is a plus."
+    },
+    {
+      "id": "diamond-square-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A generator is written for a 512 by 512 map and the recursion never lines up \u2014 indices land between cells and the map has holes. Separately, the heights it does produce range from about minus forty to plus sixty, and the colour mapping assumes zero to one. What are the two issues?",
+      "explanation": "The grid size is a hard requirement of the subdivision scheme \u2014 you keep halving intervals, so you need a fencepost at each end and a midpoint between them, which is what the plus-one provides. And nothing in the construction normalises anything, so mapping the output to colours or a sea level requires rescaling from the values actually produced.",
+      "grade_id": "diamond-square-e0d5e89cea545b20",
+      "options": [
+        "The side length must be one more than a power of two, because every subdivision halves an interval and needs both endpoints to exist \u2014 a power of two on a side leaves the midpoint indices off by one and the recursion never aligns; 513 works where 512 does not. And the output range is unbounded by construction, since heights are accumulated averages plus displacements, so the map must be rescaled from its own minimum and maximum before being mapped to colours or thresholds",
+        "The side length is fine and the misalignment comes from starting the subdivision at the wrong step size; the range problem is a sign that the displacement magnitude is not decaying",
+        "The side must be a power of two exactly, and the reported symptoms indicate an off-by-one in the loop bounds; the range is correct and the colour mapping should be widened instead",
+        "Both come from the edge handling: averaging three neighbours at the border rather than four shifts every index and inflates the range"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "diamond-square-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement the algorithm. Write `diamond_square(n, corners, jitter, roughness=1.0)`, producing a grid of side `2 ** n + 1` as a list of rows. `corners` is `(top_left, top_right, bottom_left, bottom_right)`, written into the four corner cells. `jitter(x, y)` supplies the random nudge for the cell at that position, passed in so the result is deterministic. Starting with a step equal to the full side and an amplitude of 1, repeat until the step is 1: in the diamond step, set the centre of every square of that step size to the average of its four corners plus the amplitude times the jitter at that cell; in the square step, set every remaining cell on the half-step lattice to the average of its up, down, left and right neighbours at half-step distance \u2014 skipping any neighbour that falls outside the grid \u2014 plus the amplitude times the jitter; then multiply the amplitude by `0.5 ** roughness` and halve the step. Return the completed grid, with every cell filled. Raise `ValueError` for `n` below 1 and if a cell has no known neighbours to average. Standard library only.",
+      "explanation": "Two assertions state what the algorithm is. With the nudge switched off entirely, four equal corners give a perfectly flat sheet \u2014 every cell is an average of averages \u2014 which shows that the randomness is the only source of relief and the subdivision merely decides at which scale it is applied. And comparing a decaying amplitude against a constant one shows the decay is the algorithm rather than a tuning knob: with no decay the finest subdivisions are displaced as hard as the coarsest, and the surface's total relief is far larger and far noisier. Note also that nothing normalises the output, which is why the range assertion passes with values nowhere near zero to one.",
+      "grade_id": "diamond-square-8115593e40acc022",
+      "starter": "def diamond_square(n, corners, jitter, roughness=1.0):\n    \"\"\"A fractal heightmap by recursive subdivision with a shrinking displacement.\"\"\"\n    ...",
+      "solution": "def diamond_square(n, corners, jitter, roughness=1.0):\n    if n < 1:\n        raise ValueError(\"n must be at least 1\")\n    size = 2 ** n + 1\n    grid = [[None] * size for _ in range(size)]\n    last = size - 1\n    tl, tr, bl, br = corners\n    grid[0][0] = tl\n    grid[0][last] = tr\n    grid[last][0] = bl\n    grid[last][last] = br\n\n    def average(values):\n        present = [v for v in values if v is not None]\n        if not present:\n            raise ValueError(\"no known neighbours to average\")\n        return sum(present) / len(present)\n\n    step = last\n    amplitude = 1.0\n    while step > 1:\n        half = step // 2\n        for y in range(half, last, step):\n            for x in range(half, last, step):\n                grid[y][x] = average([\n                    grid[y - half][x - half], grid[y - half][x + half],\n                    grid[y + half][x - half], grid[y + half][x + half],\n                ]) + amplitude * jitter(x, y)\n        for y in range(0, last + 1, half):\n            start = half if (y // half) % 2 == 0 else 0\n            for x in range(start, last + 1, step):\n                grid[y][x] = average([\n                    grid[y - half][x] if y >= half else None,\n                    grid[y + half][x] if y + half <= last else None,\n                    grid[y][x - half] if x >= half else None,\n                    grid[y][x + half] if x + half <= last else None,\n                ]) + amplitude * jitter(x, y)\n        amplitude *= 0.5 ** roughness\n        step = half\n    return grid",
+      "test": "# The grid is always one more than a power of two on a side.\nfor n in (1, 2, 3, 5):\n    g = diamond_square(n, (0.0, 0.0, 0.0, 0.0), lambda x, y: 0.0)\n    assert len(g) == 2 ** n + 1 and all(len(row) == 2 ** n + 1 for row in g), n\n\n# With no jitter at all, everything is an average of the corners, so four equal\n# corners give a perfectly flat sheet -- the randomness is the only source of relief.\nflat = diamond_square(4, (7.0, 7.0, 7.0, 7.0), lambda x, y: 0.0)\nassert all(abs(v - 7.0) < 1e-9 for row in flat for v in row), \"no jitter, no terrain\"\n\n# The corners are the given values and are never overwritten.\ntilt = diamond_square(3, (0.0, 10.0, 20.0, 30.0), lambda x, y: 0.0)\nlast = len(tilt) - 1\nassert (tilt[0][0], tilt[0][last], tilt[last][0], tilt[last][last]) == (0.0, 10.0, 20.0, 30.0)\n\n# Every cell is filled -- no holes, which is what the alternation of the two steps\n# is for.\nassert all(v is not None for row in tilt for v in row)\n\n# The centre with no jitter is the mean of the four corners.\nmid = last // 2\nassert abs(tilt[mid][mid] - 15.0) < 1e-9, tilt[mid][mid]\n\n# The decay is the algorithm. With a constant nudge, a roughness that halves the\n# amplitude each round gives bounded relief; no decay at all gives a much rougher\n# surface, because coarse and fine detail are displaced by the same amount.\ndef flat_range(grid):\n    values = [v for row in grid for v in row]\n    return max(values) - min(values)\n\n\ndecayed = diamond_square(6, (0.0,) * 4, lambda x, y: 1.0, roughness=1.0)\nundecayed = diamond_square(6, (0.0,) * 4, lambda x, y: 1.0, roughness=0.0)\nassert flat_range(undecayed) > flat_range(decayed), (flat_range(undecayed),\n                                                     flat_range(decayed))\n\n# A larger roughness exponent decays faster, so the surface is smoother still.\nsmoother = diamond_square(6, (0.0,) * 4, lambda x, y: 1.0, roughness=2.0)\nassert flat_range(smoother) < flat_range(decayed)\n\n# Output is not normalised: nothing constrains it to any particular range.\nwild = diamond_square(5, (0.0,) * 4, lambda x, y: 100.0)\nassert flat_range(wild) > 1.0, flat_range(wild)\n\n# Deterministic in its inputs: the same jitter function gives the same map.\na = diamond_square(4, (1.0, 2.0, 3.0, 4.0), lambda x, y: (x * 7 + y * 13) % 5 - 2)\nb = diamond_square(4, (1.0, 2.0, 3.0, 4.0), lambda x, y: (x * 7 + y * 13) % 5 - 2)\nassert a == b\n\ntry:\n    diamond_square(0, (0.0,) * 4, lambda x, y: 0.0)\nexcept ValueError:\n    pass\nelse:\n    raise AssertionError(\"n below 1 must be rejected\")"
+    },
+    {
+      "id": "diamond-square-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A finished heightmap shows faint regular ridges running along the grid axes and along the boundaries of the largest subdivisions. A developer proposes lowering the roughness until they disappear. Assess, and say what the alternative is.",
+      "explanation": "This is the algorithm's best-known limitation, and it is structural: the subdivision proceeds along a fixed square lattice, so the largest square boundaries and the axes are treated differently from everything else. Turning the roughness down trades the artefact for a featureless map, which is not a fix \u2014 and it is precisely the reason production terrain usually uses a noise function instead.",
+      "grade_id": "diamond-square-a0630d3720d2e006",
+      "options": [
+        "Lowering the roughness smooths everything, so the ridges fade only because all relief fades \u2014 the artefact is inherent to the fixed subdivision pattern, which treats axis-aligned directions specially, and it does not go away with tuning. Mitigations are extra jitter at the coarse levels or a post-smoothing pass, but if the artefact matters the honest answer is a gradient-noise scheme, which has no subdivision lattice to leave a mark",
+        "The ridges indicate the two steps were run in the wrong order and are removed entirely by correcting the alternation; roughness is unrelated",
+        "The ridges are a display artefact of the colour mapping and disappear once the output is normalised from its own extremes",
+        "The ridges come from the edge handling averaging three neighbours instead of four at the border; wrapping the edges removes them completely"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "diamond-square-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Four terrain jobs. (a) A quick standalone heightmap for a prototype this afternoon. (b) An infinite streaming world where a chunk must be generated from its coordinates alone. (c) A seamless tiling texture of rolling hills. (d) A map that must match a real mountain range. Assign each and give the deciding property.",
+      "explanation": "The honest summary is that this is the simplest thing that produces fractal terrain, which makes it excellent for a prototype and for teaching. Streaming, tiling and fine control all point at a noise function, and fidelity to a real place points outside procedural generation entirely.",
+      "grade_id": "diamond-square-b8ba73e32b737307",
+      "expected": "A correct answer must place all four. (a) This algorithm: it is very little code, it runs immediately, and it produces fractal structure out of the box \u2014 the deciding property is expedience, with the fixed grid size and the axis-aligned artefact accepted as the price. (b) A gradient-noise scheme with octaves: the requirement is to evaluate the height at an arbitrary coordinate without materialising or storing the whole map, and this algorithm cannot do that because it fills a fixed grid by subdivision from its corners, so a chunk has no meaning independent of the whole \u2014 the deciding property is that the output must be a function of position rather than an array. (c) A noise scheme again, sampled over a periodic coordinate range: this algorithm is not naturally tileable, and making its edges match would tie the four corners together and constrain the whole map \u2014 the deciding property is seamlessness, which is arranged in the sampling rather than patched afterwards. (d) Real elevation data: nothing procedural will match an actual mountain range, and the trade-offs there are storage, licensing and the loss of procedural variation rather than anything about the algorithm \u2014 the deciding property is that the requirement is fidelity to a real place. Recognising that the first case is the only one this algorithm wins, and that it wins on effort rather than on quality, earns full credit."
+    }
+  ]
+}

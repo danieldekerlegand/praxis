@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "slug": "description-logic-reasoners",
+  "title": "Description-Logic Reasoners (HermiT/Pellet)",
+  "domain": "01-symbolic-ai-logic",
+  "runnable": false,
+  "generated": "2026-08-27T05:50:39+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "description-logic-reasoners-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A colleague argues that the inferred hierarchy could be computed once by forward-chaining rules over the triples, letting you drop the model-building engine entirely. Where does that argument hold, and where does it break?",
+      "explanation": "Materialisation is a real and widely used strategy \u2014 it is what you reach for at billions of triples \u2014 and the price is completeness. Knowing which of the two you have is the point: an incomplete answer looks exactly like a complete one.",
+      "grade_id": "description-logic-reasoners-232934c75d97d47a",
+      "options": [
+        "It holds for the rule-shaped profile, which exists precisely so that consequences can be materialised by forward chaining at very large scale \u2014 but it is incomplete for the full language, so any subsumption resting on disjunction, cardinality or negation is simply never derived, and contradictory class definitions go undetected",
+        "It holds in general: forward chaining reaches the same consequences, only in a different order and with different memory behaviour",
+        "It breaks because forward chaining cannot follow transitive properties, and those are where most of the interesting subsumptions come from",
+        "It breaks because rule engines reason under an open world while the model-building engines assume a closed one, so the two disagree on every negative conclusion"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "description-logic-reasoners-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "These engines never search for a proof, yet they establish that every instance of one class must be an instance of another. Explain the manoeuvre that makes that possible. Then say what the same machinery is doing when it reports that a class can have no members at all, and when it reports that the whole ontology is broken.",
+      "explanation": "Every service the engine offers is the same procedure aimed at a different target, which is why they cost the same kind of effort and why a single contradiction anywhere invalidates all of them at once.",
+      "grade_id": "description-logic-reasoners-327a11431c1cdc65",
+      "expected": "A correct answer must describe REFUTATION by attempted model construction: to establish that one class falls under another, the engine tries to build a model containing something that is in the first and NOT in the second \u2014 that is, it tries to satisfy the first together with the complement of the second \u2014 and if every attempt collapses into a contradiction, with some individual forced both into and out of the same class, then no counterexample can exist in any model and the relationship holds necessarily. The second service is the same move with a simpler target: try to build any individual at all belonging to the class, and if every branch clashes the class can have no members and is equivalent to the empty class \u2014 which in practice is a modelling bug rather than a discovery. The third is the move applied to everything at once: try to build any model of the axioms and assertions together, and failure means they are jointly contradictory. It must add the consequence of that last case: a contradictory ontology entails EVERYTHING, so every answer taken from it afterwards is worthless and it has to be repaired before any other result is read. Distinguishing an empty class, which is harmless until something is asserted into it, from the ontology-wide failure it then causes, is a plus."
+    },
+    {
+      "id": "description-logic-reasoners-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "A terminology of several hundred thousand classes is classified in minutes by one engine and not at all by another, and both are correct implementations of what they claim. What distinguishes them, and what has to be checked before the fast one can be relied on?",
+      "explanation": "Expressivity against tractability is the whole selection game, and the check is not optional \u2014 silently discarding an out-of-profile axiom produces a hierarchy that looks complete and is not. Validate the profile in the same pipeline that classifies.",
+      "grade_id": "description-logic-reasoners-e2cbc579af5ae0b1",
+      "options": [
+        "The fast one implements only a restricted sub-language whose classification is polynomial, computing consequences by saturation rather than by building models; before relying on it you must confirm the ontology genuinely stays inside that sub-language, since axioms outside it are dropped or refused and the results are then incomplete",
+        "The fast one keeps previously computed results between runs, so the first run costs the same and only later ones are quick",
+        "The fast one works over the assertions about individuals while the slow one works over the terminology, so they are answering different questions entirely",
+        "The fast one is parallel and the other is not, so the gap closes on a single core"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "description-logic-reasoners-04",
+      "section": "Worked Examples",
+      "kind": "short",
+      "prompt": "An ontology defines a class as 'a pizza, none of whose toppings is meat', asserts a particular pizza with one cheese topping, and the engine declines to place that pizza in the class. Nothing is misspelled and no axiom is missing from the definition. Explain why, state exactly what has to be added, and say what you would give up by reaching for a closed-world validation tool instead.",
+      "explanation": "The closure axiom is the single most common missing piece in a real ontology, and writing it feels redundant right up until you notice that 'what we recorded' and 'what is true' are different claims. Everything surprising about these engines follows from taking that distinction seriously.",
+      "grade_id": "description-logic-reasoners-0336f93ed73342e8",
+      "expected": "A correct answer must explain the failure by the OPEN WORLD reading: asserting that the pizza HAS a cheese topping says nothing about whether it also has others, so a model in which it additionally carries a meat topping remains possible \u2014 and the definition demands that no topping is meat in EVERY model, not merely in the recorded facts. The repair must be named as a CLOSURE axiom on that individual: a universal restriction on the topping property naming exactly the kinds of topping it actually has (or an equivalent maximum-cardinality bound), which rules out the unrecorded extra topping and lets the classification fire. The trade must be stated: a shapes-based validation tool would give the intuitive 'nothing recorded, so it passes' behaviour for free along with readable violation reports, but it performs no INFERENCE \u2014 no derived hierarchy, no placing of individuals into defined classes, no detection of contradictory definitions \u2014 because it checks data against expected shapes rather than deriving consequences. Observing that the two answer different questions and are often used together is a plus."
+    },
+    {
+      "id": "description-logic-reasoners-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A property is declared with a domain, and a colleague expects that loading data which uses it on the wrong sort of subject will be rejected. What actually happens?",
+      "explanation": "A declaration here adds knowledge; it does not police it. That single misunderstanding produces some of the strangest inferred hierarchies people ever see \u2014 an unrelated class quietly becoming a subclass of something absurd.",
+      "grade_id": "description-logic-reasoners-108c39e5917a82e4",
+      "options": [
+        "Nothing is rejected: the declaration is an axiom licensing an inference, so the offending subject is simply concluded to belong to that class too \u2014 which may cascade into a contradiction somewhere else, or may quietly pass unnoticed. Rejecting bad data is a job for a closed-world shapes language",
+        "The load fails with a type error, which is the intended behaviour and the main reason domains are declared in the first place",
+        "The offending statement is silently discarded and never enters the ontology, so the data is lost rather than reported",
+        "The engine reports the ontology as contradictory whenever a domain is violated, which is how such mistakes are meant to surface"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "description-logic-reasoners-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "Three teams ask for help in one week. (a) A biomedical terminology of about 350,000 classes has to have its hierarchy recomputed on every commit. (b) An ontology group cannot work out why one of their classes has become impossible to instantiate. (c) A data platform must confirm that every record carries exactly one identifier, and report the ones that do not. Recommend an approach for each and name the property that decides it.",
+      "explanation": "Two of these are engine-selection questions and the third is a tool-category question wearing the same clothes. Spotting the third is the harder skill, and getting it wrong produces a validation system that silently concludes your duplicates are the same record.",
+      "grade_id": "description-logic-reasoners-7b316309d70a534a",
+      "expected": "A correct answer must handle all three and decide each on a property. (a) calls for the saturation-based engine for the restricted profile, whose classification is polynomial and parallelisable and is the only thing that makes a terminology of that size feasible on every commit; the deciding property is that the ontology fits the profile, and the recommendation should include validating that in the same pipeline, since out-of-profile axioms are dropped rather than honoured. (b) calls for an engine that produces JUSTIFICATIONS \u2014 a minimal set of axioms responsible for the entailment \u2014 because knowing a class is empty is useless without knowing which axioms conspired to make it so; explanation support is the deciding property and not every engine has it. (c) is NOT a reasoning problem at all: it is closed-world validation with violation reports, which belongs to a shapes language \u2014 stating the cardinality as an ontology axiom would instead be read as something to infer from, and in the absence of distinctness assertions the engine would conclude that two identifiers denote the same thing rather than flagging anything. The three deciding axes must be recognisable: profile-and-scale, explanation, and inference versus validation."
+    }
+  ]
+}

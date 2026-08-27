@@ -246,9 +246,16 @@ def test_reaudit_gates_walks_a_tree_and_counts_both_outcomes(gated):
 
 
 def test_every_shipped_seed_gate_still_holds_the_tightened_bar():
+    """Every gate on disk would be accepted by today's write path.
+
+    A floor rather than an equality, for the reason test_gateaudit gives: the backfill
+    adds gates, and a suite that fails when coverage rises punishes the tool for
+    working. What stays exact is that every gate holds — none flagged, holds equal to
+    gates — which is the claim the count was standing in for.
+    """
     report = reaudit_gates(ROOT / "notebooks")
 
-    assert report["gates"] == 24
+    assert report["gates"] >= 24
     flagged = {r.checks: list(r.failures) for r in report["results"] if r.outcome != HOLDS}
     assert flagged == {}
-    assert report["holds"] == 24
+    assert report["holds"] == report["gates"]

@@ -104,7 +104,8 @@ def test_the_overall_fraction_is_the_sum_of_the_per_domain_ones():
 def test_a_domain_with_no_notebooks_is_a_zero_not_a_divide_by_zero():
     assert domain_coverage({"dir": "x", "title": "X"}) == {
         "dir": "x", "name": "X", "title": "X",
-        "gated": 0, "total": 0, "complete": 0, "pct": 0}
+        "gated": 0, "total": 0, "complete": 0,
+        "deferred": 0, "omitted": 0, "pct": 0}
 
 
 # --- the same arithmetic over a real library on disk ------------------------

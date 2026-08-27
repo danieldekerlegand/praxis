@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "recorded": "2026-08-27",
+  "gated": 117,
+  "total": 245,
+  "domainsGated": 14,
+  "domainsTotal": 14,
+  "domains": [
+    {
+      "dir": "01-symbolic-ai-logic",
+      "gated": 15,
+      "total": 15
+    },
+    {
+      "dir": "02-ai-ml-tooling",
+      "gated": 1,
+      "total": 15
+    },
+    {
+      "dir": "03-llm-inference-training-optimization",
+      "gated": 5,
+      "total": 33
+    },
+    {
+      "dir": "04-agentic-ai",
+      "gated": 16,
+      "total": 16
+    },
+    {
+      "dir": "05-speech-audio",
+      "gated": 22,
+      "total": 22
+    },
+    {
+      "dir": "07-proprietary-coding-ai",
+      "gated": 9,
+      "total": 9
+    },
+    {
+      "dir": "08-architectures",
+      "gated": 1,
+      "total": 23
+    },
+    {
+      "dir": "09-procedural-generation",
+      "gated": 16,
+      "total": 16
+    },
+    {
+      "dir": "10-data-analysis-research",
+      "gated": 15,
+      "total": 15
+    },
+    {
+      "dir": "11-devops-mlops-infra",
+      "gated": 1,
+      "total": 65
+    },
+    {
+      "dir": "12-model-evaluation",
+      "gated": 4,
+      "total": 4
+    },
+    {
+      "dir": "13-interpretability",
+      "gated": 3,
+      "total": 3
+    },
+    {
+      "dir": "14-pretraining",
+      "gated": 4,
+      "total": 4
+    },
+    {
+      "dir": "15-rl-and-training-dynamics",
+      "gated": 5,
+      "total": 5
+    }
+  ]
+}

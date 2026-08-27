@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "slug": "babyagi",
+  "title": "BabyAGI",
+  "domain": "04-agentic-ai",
+  "runnable": true,
+  "generated": "2026-08-27T08:07:25+00:00",
+  "generated_by": "hand-authored:claude-opus-5",
+  "sections": [
+    "What & Why",
+    "Mental Model",
+    "Key Concepts",
+    "Worked Examples",
+    "Gotchas",
+    "When to Use"
+  ],
+  "praxis": {
+    "extension": "checks",
+    "version": 1,
+    "kinds": [
+      "choice",
+      "short"
+    ]
+  },
+  "checks": [
+    {
+      "id": "babyagi-01",
+      "section": "What & Why",
+      "kind": "choice",
+      "prompt": "A team wants an assistant that takes a vague goal \u2014 'work out whether we should support a new database backend' \u2014 and figures out the steps itself. Somebody proposes basing it on this project because it does exactly that. What is the accurate assessment of that proposal?",
+      "explanation": "Two separate judgements. The idea is genuinely the right one \u2014 this is the smallest machinery that turns a goal into an agent that generates and works its own tasks, and the task-list-as-memory pattern underlies most autonomous agents. The implementation is a demo: no convergence test, no budget, no tools, no persistence or observability, and results that can be confidently wrong and then become context for later tasks. Keep it as the mental model and build the shipped thing on something with guardrails. (The later reboot under the same name is a different project, but the original loop is still the durable idea.)",
+      "grade_id": "babyagi-bebb29dbf85e85c4",
+      "options": [
+        "The pattern is right and the code is not. This is the clearest illustration of the plan-act-reflect-re-plan loop and a fine scaffold for sketching an open-ended goal, but it has no stopping criterion, no cost ceiling, no tools and weak grounding \u2014 so it should shape the design while the shipped thing is built on a framework with state, tools and guardrails",
+        "It is the right choice: the loop was designed for open-ended goals and its task-creation step is what supplies the missing steps, so the only work left is supplying a model key",
+        "It is the wrong pattern entirely: decomposing a vague goal into steps requires several agents in dialogue, and a single agent managing a list cannot do it",
+        "It is the wrong choice because the project was rebooted into something different, so the task-loop idea no longer exists and a modern equivalent must be used instead"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "babyagi-02",
+      "section": "Mental Model",
+      "kind": "short",
+      "prompt": "Describe this system with the intern-and-sticky-notes analogy, mapping every element onto what it corresponds to. Name the three model-backed skills and say what each one is given and what it returns. Then explain why the memory is retrieval-based rather than simply 'pass the previous result along', and what goes wrong when a result stored in it is wrong.",
+      "explanation": "",
+      "grade_id": "babyagi-998d3599a49c4b3b",
+      "expected": "A correct answer must carry the analogy through. The standing instruction the intern is working toward is the objective \u2014 one fixed goal string threaded into every prompt, against which everything is judged. The pile of sticky notes is an ordered task queue, and the intern always works the top note. The notebook of what has been learnt is the memory of completed results. Skimming the notebook before starting a note is context retrieval. Writing new notes after finishing one is task creation, and re-ordering the pile is prioritisation. The three skills must be named with their inputs and outputs: execution takes the objective, the one task and the retrieved context and returns free text; creation takes the objective, the latest result, the task just finished and the still-pending tasks, and returns new tasks to append, de-duplicated against what is pending; prioritisation takes the objective and the whole queue and returns it re-ordered so the most objective-relevant task is next. The loop is pop, execute with retrieved context, store, create, re-prioritise, repeat. The retrieval question must be answered on relevance rather than recency: results are embedded and the most similar ones to the current task are fetched, so the note that matters surfaces even when it is several steps old, while an unrelated recent result is left out \u2014 passing only the previous result would both miss relevant older findings and drag in irrelevant recent ones. The failure mode must be named: there is no verification, so a wrong result is stored as if it were a finding and is then retrieved as context for later tasks, propagating the error \u2014 which is why outputs should be treated as drafts and grounded with tools or retrieval. Noting that prioritisation is what keeps an ever-growing list from drifting away from the objective is a plus."
+    },
+    {
+      "id": "babyagi-03",
+      "section": "Key Concepts",
+      "kind": "choice",
+      "prompt": "An engineer instruments a run and finds the queue is longer after twenty iterations than it was after five, several tasks are near-duplicates of each other, and the per-iteration cost is climbing. They propose removing the prioritisation step, reasoning that it is 'just re-sorting and costs a call'. Evaluate the diagnosis and the proposal.",
+      "explanation": "Task explosion is a property of the design, not a misconfiguration: one result can imply several follow-ups, so the queue can outgrow the rate at which it drains, and near-duplicates accumulate unless new tasks are checked against what is already pending. The cost shape follows from the loop \u2014 an execution, a creation and a prioritisation call per iteration, each over a growing context. Prioritisation is the one thing pushing the list back toward the objective; dropping it saves a call and buys drift. The effective controls are de-duplication, a hard iteration cap and a budget.",
+      "grade_id": "babyagi-d2e824049e181b3f",
+      "options": [
+        "The growth is inherent: each completed task can spawn several new ones, so the list can grow faster than it drains, and without de-duplication near-identical tasks accumulate. Cost climbs because every iteration is three model calls over a context that keeps growing. Removing prioritisation saves one call per iteration but removes the only pressure keeping the list pointed at the objective, so the queue drifts as well as grows \u2014 the real answers are de-duplication, an iteration cap and a budget",
+        "The growth means the creation step is misconfigured; with a correct prompt the queue always shrinks, and prioritisation can safely be removed because ordering does not affect which tasks exist",
+        "The growth is caused by prioritisation re-adding tasks it has already seen, so removing it fixes both the growth and the cost; de-duplication is unnecessary once it is gone",
+        "The cost climbs only because of the memory store's retrieval calls; prioritisation is cheap and removing it would make no measurable difference either way"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "babyagi-04",
+      "section": "Worked Examples",
+      "kind": "code",
+      "prompt": "Implement the loop and its memory. First `relevant(query, texts, k=2)`: score each text against the query by cosine similarity of their lowercase whitespace-split word-count vectors, and return the `k` highest-scoring texts, most similar first, dropping any whose score is zero and breaking ties by original order; an empty corpus, a `k` of zero or a query sharing no words returns an empty list. Then `run_agent(objective, seed, execute, create, prioritize, max_steps=10, k=2)`: start a queue holding the single task `seed` and empty memory; while the queue is non-empty and fewer than `max_steps` iterations have run, take the front task, build its context by calling `relevant(objective, <every stored result, in order>, k)`, call `execute(objective, task, context)`, append `{\"task\": task, \"result\": result}` to memory, then call `create(objective, result, task, <the still-pending tasks as a list>)` and append each returned task to the queue UNLESS it is already pending or has already been run, then replace the queue with `prioritize(objective, <pending tasks as a list>)`. Return `{\"memory\": [...], \"steps\": <iterations run>, \"remaining\": [<pending tasks>], \"stopped\": \"empty\" if the queue drained and \"cap\" otherwise}`. Standard library only.",
+      "explanation": "Three things are being demonstrated. The retrieval assertions show why memory is a similarity search rather than 'use the last result': the matching note wins even though a more recent one exists, and the unrelated note is excluded \u2014 which is exactly what stops irrelevant material from crowding the prompt. The middle block is the loop itself, and note the ordering: reprioritisation runs after the new tasks have been added, which is what lets a freshly invented task jump ahead. And the last third is the warning that matters most. A creation step that always invents work never terminates \u2014 the run ends on the cap, with a queue that is still growing \u2014 so the cap is not a safety net, it is the stopping criterion. The de-duplication assertions are the other half of that: without checking new tasks against both what is pending and what has already been run, mutually-suggesting tasks churn indefinitely.",
+      "grade_id": "babyagi-36f872755c6b860b",
+      "starter": "def relevant(query, texts, k=2):\n    ...\n\n\ndef run_agent(objective, seed, execute, create, prioritize, max_steps=10, k=2):\n    ...",
+      "solution": "import math\nfrom collections import Counter, deque\n\n\ndef relevant(query, texts, k=2):\n    def embed(text):\n        return Counter(text.lower().split())\n\n    def cosine(a, b):\n        dot = sum(a[token] * b.get(token, 0) for token in a)\n        na = math.sqrt(sum(v * v for v in a.values()))\n        nb = math.sqrt(sum(v * v for v in b.values()))\n        return dot / (na * nb) if na and nb else 0.0\n\n    q = embed(query)\n    scored = [(cosine(q, embed(text)), index, text)\n              for index, text in enumerate(texts)]\n    scored.sort(key=lambda row: (-row[0], row[1]))\n    return [text for score, _, text in scored[:max(0, k)] if score > 0]\n\n\ndef run_agent(objective, seed, execute, create, prioritize, max_steps=10, k=2):\n    queue = deque([seed])\n    memory = []\n    done = []\n    steps = 0\n    while queue and steps < max_steps:\n        steps += 1\n        task = queue.popleft()\n        context = relevant(objective, [item[\"result\"] for item in memory], k)\n        result = execute(objective, task, context)\n        memory.append({\"task\": task, \"result\": result})\n        done.append(task)\n        pending = list(queue)\n        for candidate in create(objective, result, task, pending):\n            if candidate not in pending and candidate not in done \\\n                    and candidate not in queue:\n                queue.append(candidate)\n        queue = deque(prioritize(objective, list(queue)))\n    return {\n        \"memory\": memory,\n        \"steps\": steps,\n        \"remaining\": list(queue),\n        \"stopped\": \"empty\" if not queue else \"cap\",\n    }",
+      "test": "# Retrieval, not recency: the note that matches the question surfaces even though\n# it is not the most recent, and the unrelated one is left out entirely.\nnotes = [\n    \"morning walks increase blood flow improving focus and attention\",\n    \"the recommended daily water intake is about two liters\",\n    \"sunlight in the morning helps regulate the circadian rhythm and alertness\",\n]\ntop = relevant(\"how do morning walks improve focus\", notes, k=2)\nassert top[0] == notes[0], top\nassert notes[1] not in top, top\nassert len(top) == 2, top\nassert relevant(\"morning\", notes, k=99) == [notes[0], notes[2]], relevant(\"morning\", notes, 99)\nassert relevant(\"quantum chromodynamics\", notes, k=2) == []\nassert relevant(\"anything\", [], k=2) == []\nassert relevant(\"morning\", notes, k=0) == []\n\n\ndef echo(objective, task, context):\n    return f\"did {task} using {len(context)} note(s)\"\n\n\ndef fixed(followups):\n    def create(objective, result, task, pending):\n        return list(followups.get(task, []))\n    return create\n\n\ndef alphabetical(objective, tasks):\n    return sorted(tasks)\n\n\n# The signature loop: a result invents follow-ups, the queue is reordered, and the\n# run ends when the work genuinely runs out.\nrun = run_agent(\n    \"write a brief\", \"plan\",\n    echo,\n    fixed({\"plan\": [\"research\", \"draft\"], \"research\": [\"cite\"], \"draft\": [\"proofread\"]}),\n    alphabetical, max_steps=20)\nassert run[\"stopped\"] == \"empty\", run\nassert run[\"steps\"] == 5, run\nassert [item[\"task\"] for item in run[\"memory\"]] == \\\n    [\"plan\", \"draft\", \"proofread\", \"research\", \"cite\"], run[\"memory\"]\nassert run[\"remaining\"] == [], run\n\n# Reordering happens AFTER the new tasks land, so a follow-up can jump the queue.\nrun = run_agent(\"obj\", \"plan\", echo, fixed({\"plan\": [\"aaa\"]}), alphabetical, max_steps=3)\nassert [item[\"task\"] for item in run[\"memory\"]] == [\"plan\", \"aaa\"], run[\"memory\"]\n\n# It does NOT stop on its own: a creation step that always invents work runs until\n# the cap, and leaves a queue behind that is still growing.\ndef forever(objective, result, task, pending):\n    return [f\"{task}-a\", f\"{task}-b\"]\n\n\nrun = run_agent(\"obj\", \"seed\", echo, forever, lambda o, ts: ts, max_steps=6)\nassert run[\"stopped\"] == \"cap\", run\nassert run[\"steps\"] == 6, run\nassert len(run[\"remaining\"]) > 6, run[\"remaining\"]\n\n# Duplicates are refused against BOTH the pending queue and what is already done,\n# so a loop of mutually-suggesting tasks cannot churn forever.\ndef repeat(objective, result, task, pending):\n    return [\"research\", \"research\", \"plan\"]\n\n\nrun = run_agent(\"obj\", \"plan\", echo, repeat, lambda o, ts: ts, max_steps=9)\nassert [item[\"task\"] for item in run[\"memory\"]] == [\"plan\", \"research\"], run[\"memory\"]\nassert run[\"stopped\"] == \"empty\", run\n\n# Each execution is handed context retrieved from what has already been learnt --\n# nothing on the first task, and the accumulated notes after that.\nrun = run_agent(\"morning walks focus\", \"morning walks focus\",\n                echo, fixed({\"morning walks focus\": [\"morning walks attention\"]}),\n                lambda o, ts: ts, max_steps=4)\nassert run[\"memory\"][0][\"result\"] == \"did morning walks focus using 0 note(s)\", run\nassert \"using 1 note(s)\" in run[\"memory\"][1][\"result\"], run\n\n# A cap of zero does nothing at all, and the seed is still waiting.\nidle = run_agent(\"obj\", \"plan\", echo, fixed({}), lambda o, ts: ts, max_steps=0)\nassert idle == {\"memory\": [], \"steps\": 0, \"remaining\": [\"plan\"], \"stopped\": \"cap\"}, idle\n\n# The creation step sees what is still pending, so it can decide for itself.\nseen = []\n\n\ndef watchful(objective, result, task, pending):\n    seen.append(list(pending))\n    return [\"b\", \"c\"] if task == \"a\" else []\n\n\nrun_agent(\"obj\", \"a\", echo, watchful, lambda o, ts: ts, max_steps=9)\nassert seen[0] == [], seen\nassert seen[1] == [\"c\"], seen"
+    },
+    {
+      "id": "babyagi-05",
+      "section": "Gotchas",
+      "kind": "choice",
+      "prompt": "A first live run against a real provider is started with a broad objective and left alone. It is still running an hour later, having produced a long list of plausible-sounding findings, several of which are wrong, and a bill much larger than expected. Which explanation and set of fixes is correct?",
+      "explanation": "This is the single most important thing to know about this design: there is no convergence test at all. The queue empties or you stop it, and a creation step doing its job means the queue keeps refilling. The cost shape compounds because each iteration is several calls over a context that keeps growing. And the third symptom is separate and just as important \u2014 the executing step is a bare model call with no tools and no verification, so a confident wrong answer is stored as a finding and later retrieved as context, poisoning downstream tasks. Caps and budgets, de-duplication, and grounding are the answers; a bigger model does not supply a stopping criterion.",
+      "grade_id": "babyagi-2c4a8b612a96ddbe",
+      "options": [
+        "The loop has no convergence test, so it runs until the queue empties \u2014 which a creation step that keeps inventing work never lets happen. Every iteration is three model calls over growing context, so cost compounds. And the executing step is an unaided model call with no tools or verification, so a wrong result is stored and then retrieved as context for later tasks. The fixes are a hard iteration cap and a budget, de-duplication, and grounding the execution step with tools or retrieval while treating output as drafts",
+        "The run continued because the objective was too broad for the prioritisation step to order the queue; narrowing the objective is the fix, and the wrong findings will resolve themselves once the ordering is correct",
+        "The cost is dominated by the memory store's embedding calls rather than the loop, so the fix is a smaller retrieval count; correctness is a model-quality problem best fixed by a larger model",
+        "The loop does stop on its own once the objective is judged met, so the run must have crashed into a retry cycle; adding retries with backoff and a larger context window resolves all three symptoms"
+      ],
+      "answer": 0
+    },
+    {
+      "id": "babyagi-06",
+      "section": "When to Use",
+      "kind": "short",
+      "prompt": "A colleague says: 'we prototyped with this loop and it worked, so we will harden it in place \u2014 add retries, a database, logging, tools, and a human approval step.' Argue for or against hardening it in place versus rebuilding on a framework, name what each candidate framework would give them, and say what genuinely transfers from the prototype.",
+      "explanation": "",
+      "grade_id": "babyagi-de96787645e2c301",
+      "expected": "A correct answer must argue against hardening the demo in place, and the argument must be about what is missing rather than about code quality: the original is a demonstration with no stopping criterion, no cost ceiling, no persistence, no retries, no observability, no tool ecosystem and no human-in-the-loop, so 'hardening' it means building all of those \u2014 which is to say building a framework. The candidates must be characterised. A state-graph runtime gives explicit state, branching, cycles, persistence and resume, and human-in-the-loop pauses, so termination, recovery and approval become things you control rather than things you bolt on; the cost is wiring the graph yourself. A role-and-task framework gives structured pipelines described in plain language, bounded by design \u2014 which is a poor match if inventing its own tasks is the point, and a good one if the steps are actually knowable. A conversational multi-agent framework fits when the work is a dialogue such as write-code-run-it-fix-it, rather than one self-directed task list. A single tool-using reasoning agent is worth naming too: it is goal-directed, tool-grounded and much easier to bound, with no separate queue or prioritisation machinery, and is often what the prototype actually needed. What transfers must be stated clearly: the loop shape \u2014 decompose, act with retrieved context, reflect on the result, re-plan \u2014 plus the prompts and the specific decomposition learnt during prototyping, and the knowledge of where the agent drifted. Noting the rule of thumb that the moment cost, correctness, tools or shipping matter you graduate to a framework and keep this as the mental model of what it is doing underneath is a plus."
+    }
+  ]
+}
