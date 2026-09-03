@@ -64,3 +64,54 @@ deliberately removes nothing.
 - **US-2 should be several commits, one subsystem each** (AC: "reviewable steps rather than one
   sweep"): symbols+imports · legacy generators · sync_curriculum · ralph. Removing `ralph/` will
   touch `Makefile` and `README.md`, which pulls the FULL python gate in — budget for the pytest run.
+
+---
+
+## US-2 — Removal, with the tree still green and the reason recorded (2026-09-03)
+
+**Five commits, one subsystem each** (AC: "reviewable steps rather than one sweep"):
+
+| Commit | Removed |
+| --- | --- |
+| `0051526` | A1–A4 (`all_manifest_topics`, `NBGRADER_METADATA_KEYS`, `delete_jd`, `s3.walk_files`) + Class D (8 imports) |
+| `b8858f5` | A5 — `generate_notebooks.py` (691) + `enhance_notebooks.py` (205) |
+| `58cecd3` | A6 — `sync_curriculum.py` (141) |
+| `942ed91` | A7/B3 — `ralph/` + `.ralphy/` (24 files, 4,330 lines) + every stranded reference |
+| `6793c59` | The record, appended to `docs/explanation/dead-code-inventory.md` (250 → 335 lines) |
+
+**Gate:** `chief verify` → `doc-links: 0 dead vs 0 on main`, `coverage HOLDS`, `1205 passed, 1 skipped`, `verify: PASS`, exit 0.
+
+**Measured:** 27 files removed, 545 tracked (was 571), 5,455 deletions vs 35 insertions
+outside `.chief/`. `python3 -m pytest -q tests/` after **every** step: **1205 passed, 1
+skipped**, identical each time. No test deleted, skipped or adjusted at any step.
+
+**Second-order check re-run:** pass 1 over the reduced tree returns **0 candidates** (was 4).
+Nothing was kept alive only by the removed code.
+
+**Not removed, recorded with why** (the inventory's new "What looked dead and was NOT
+removed" table): B1/B2 — the mirror walk and `SyncResult` duplicated across
+`cloud.py`/`share.py` are live in *both* copies, and collapsing them couples the S3 backend to
+the WebDAV one, which is a refactor with behaviour risk rather than a removal. B4. And
+`technologies.md`, which is a document — the tasklist's scope is code.
+
+### Learnings for future iterations
+
+- **The stranded-reference set was bigger than the inventory predicted.** US-1 listed six
+  sites for `ralph/`; the actual grep after deletion found **eleven** — the extra five are
+  docstrings that say "Ralph" without saying `ralph/` (`nbstatus.py:2,9`,
+  `tests/test_notebooks.py:1,13`, `pyproject.toml:17`,
+  `docs/explanation/notebook-rubric.md:6`). After any file removal, grep the *concept* name
+  case-insensitively, not just the path. The inventory's A7 list is otherwise accurate.
+- **`docs/explanation/gap-analysis.md` is generated, so its prose edits belong in
+  `generate_docs.py` too** — edit both or the next `make docs` reverts you. Diff the file
+  against a fresh `gen_gap_analysis()` before editing either.
+- **Two live `generate_docs.py` defects found and deliberately NOT fixed** (behaviour
+  changes, so they belong to 901): `main()` writes `docs/gap-analysis.md` while the tracked
+  file is `docs/explanation/gap-analysis.md`, and `gen_gap_analysis()` omits the
+  `> **Status:** …` banner the tracked file carries. Both recorded in the inventory.
+- **The `.venv` does not exist in this worktree** — `python3` on PATH has the deps. `verify.sh`
+  handles it; a bare `.venv/bin/python -m pytest` fails with "no such file or directory".
+- **US-3 is a report, not a change.** Its raw material is already here: the undecidable class
+  is what a static grep over *this* tree cannot see — a cross-repo consumer of `praxis/`
+  (agora, chief), the `_RESOLVERS`/`_AVAILABLE` dispatch tables, `register_backend()`'s
+  external seam, and names reached only through `getattr`/`importlib`/route decorators.
