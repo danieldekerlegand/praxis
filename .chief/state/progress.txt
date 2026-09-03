@@ -104,3 +104,88 @@ directories under `docs/`.
   `notebooks/coverage-floor.json`.
 - Editing `README.md` or anything under `scripts/` pulls in the full python job (~7 min of
   pytest). Budget for it.
+
+---
+
+## US-2 — Content that describes a tree that moved  (commit 86c175e)
+
+**Method.** Read every tracked `.md` outside `notebooks/`/`tasks/` against the tree, then
+machine-checked what could be: every backticked path resolved, every ``symbol()`` cited in
+prose grepped for a definition, every route in README's API table matched against
+`launcher/app.py`'s 26 decorators, and every count re-measured by running the command that
+produces it. 10 files carried drift.
+
+**Corrections, in the portfolio's corrections-of-record style** — `**[CORRECTED
+2026-09-03 — what was wrong]**`, the same inline form `ROADMAP.md` uses. A silently fixed
+doc teaches nobody why it drifted, and every one of these drifted the same way: a number or
+a list restated in a second place.
+
+*Counts the batch moved and the docs did not*
+- `docs/reference/chief-powered-construction.md` — "**221 ungated notebooks**", present
+  tense. `chief/87` ran; the backlog is 128. The page now states **no count** and defers to
+  `python3 -m praxis.coverage`. Its console sample's trailing line updated 221→128 (the two
+  per-unit rows above it are still exact — verified against a live run).
+- `docs/reference/gate-authority.md` — "the 24 gated seed notebooks carry 168 graded cells"
+  read as the present library; it was the size of the leak when the filter landed. Dated.
+- `docs/explanation/jupyterquiz-assessment.md` — "as it ships: 24 checksets, 144 checks".
+  **Re-measured rather than assumed**, because the DECLINE rests on the *proportions*:
+  `python3 -m praxis.gateaudit` → 117 gates / 702 checks / 0 flagged, 354 `choice` + 236
+  `short` + 112 `code` = 50/34/16% against the 50/33/17% the argument was made from. The
+  conclusion stands and the decision's own figures are left at the sizes it was taken on.
+
+*Claims the code no longer supports*
+- `docs/explanation/notebook-rubric.md` — progress "default `.praxis/`". That default died
+  with storage backends (`progress.progress_dir()` is a one-line delegate to
+  `praxis.storage`). It now names no path and points at `docs/reference/storage.md`.
+- `README.md` — "**Three** backends ship", listing three. `webdav` shipped as the fourth
+  through `register_backend()`; `docs/reference/storage.md` has had four all along.
+- `README.md` — the launcher API table calls itself "the whole product over HTTP" and was
+  missing **seven** JD-suggestion routes and `/healthz`.
+- `README.md` + `docs/reference/storage.md` — `POST /api/storage/sync` documented as the
+  *cloud* mirror's; `webdav` registers a `_SYNC` too.
+- `curriculum.py` docstring — "the 11 hand-written study domains" (measured:
+  `len(DOMAINS)==14`, 180 manifest topics, 245 notebooks), "Domains 1-10" (01–10 + 12–15,
+  06 reserved), and `notebooks/subjects/` for generated subjects. That last path was stale
+  in three more docstrings: `praxis/curriculum_gen.py`, `praxis/construct.py`'s CLI
+  example, `scaffold_notebooks.py`.
+
+*Duplication reduced to one home*
+- The merge gate's list of checks was stated in `README.md`, `docs/reference/packaging.md`
+  **and** `.github/workflows/ci.yml`'s own header — all three as "**three** checks". It has
+  been six since the doc gates landed. README's **The gate** section now holds the full
+  table (check × scope) and packaging.md, ci.yml and `CLAUDE.md` point at it.
+
+**Verified current and deliberately left alone** — `docs/reference/jupyterlite.md`'s
+101/144/245 (`python3 -m praxis.lite plan` prints exactly that), `docs/explanation/
+gating-backfill-cost.md` (117/245 · 702 checks · 128 remaining, all re-measured), the two
+generated docs (`python3 generate_docs.py` → zero-byte diff), and
+`docs/explanation/dead-code-inventory.md`'s symbols, which are *named as removed*.
+
+**Out of scope, so reported rather than fixed:** `ROADMAP.md` says "the three storage
+backends" and is wrong the same way README was. The tasklist puts roadmaps out of scope;
+US-3 should carry it in its "what was left alone" report.
+
+**What this did NOT verify** — link resolution and structure are machine-checked; **prose
+correctness is not**. Every count, path, module name, command and route was executed or
+grepped. That the *remaining* prose is true is not something this method establishes, and
+US-3's honesty criterion should say so.
+
+**Gate** — `chief verify` → `doc-links: 0 dead vs 0 on main` · `docs-structure: OK` ·
+`nbgrader validate: 117 notebooks, 0 failures` · `coverage HOLDS` (117/245, 14 of 14) ·
+`1205 passed, 1 skipped` · `verify: PASS`, exit 0. Identical counts to US-1's.
+
+**Learnings for future iterations**
+- **A count in prose is a second implementation.** Every stale figure here was a number
+  restated somewhere a command already prints. The fix that holds is deleting the restated
+  copy and naming the command, not updating the number.
+- **`.github/workflows/ci.yml`'s header comment is documentation and it drifts.** US-1
+  added two CI jobs and left the header saying "same three checks". When you add a gate,
+  the file's own comment is part of "change one and change the other".
+- **The corrections style this portfolio uses is inline:** `**[CORRECTED YYYY-MM-DD — …]**`
+  (see `ROADMAP.md:80`). Keep the marker's inner text free of `**bold**` — nested bold does
+  not render.
+- Grep `launcher/app.py` for `@app.(get|post|put|patch|delete)` before trusting README's
+  route table; it had drifted by seven routes.
+- `python3 -m praxis.tasklist` / `praxis.lite plan` / `praxis.gateaudit` / `praxis.coverage`
+  all run offline with no key, so any doc figure they produce is cheap to re-verify. Do it
+  rather than believing the page.
