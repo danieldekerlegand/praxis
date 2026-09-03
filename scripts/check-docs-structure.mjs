@@ -18,19 +18,27 @@
  *          > **Status:** Current · **Updated:** YYYY-MM-DD · **Owner:** <repo>
  *      `Status` is Current | Superseded | Archived | Draft and describes THE DOCUMENT, never
  *      the work it documents. Superseded and Archived must name what replaced them (or say
- *      plainly that nothing did) — checked here as "the banner line, or the two lines under
- *      it, say more than the bare status".
+ *      plainly that nothing did) — checked here as "the three lines FOLLOWING the banner are
+ *      not all blank". [CORRECTED 2026-09-03 — this clause was vacuous as first written: it
+ *      stripped `BANNER` from the joined lines, but `BANNER` is `^…$`-anchored with no `m`
+ *      flag, so it never matched a multi-line join, the banner's own text was always left
+ *      behind, and the emptiness test could not fail. The rule US-3 relies on to archive a
+ *      document was the one rule not actually held.]
  *
  * R3 — THE DIRECTORY SET IS CLOSED. Seven, and no others:
  *          tutorials · guides · reference · explanation · decisions · runbooks · archive
- *      A ceiling, not a quota: praxis has two of them and that is compliant. A directory
+ *      A ceiling, not a quota: praxis has three of them and that is compliant. A directory
  *      outside the set must be declared, one per line, in `docs/.structure-exceptions` —
  *      which makes an exception a written decision instead of an accident.
  *
- * NOT CHECKED HERE, and stated so it is a gap rather than a silence: the standard's Tier-1
- * rule that the repo root carries only README.md / CLAUDE.md / ROADMAP.md / CHANGELOG.md /
- * LICENSE. `technologies.md` is still at the root pending its archival, and a gate that is
- * red on the day it lands is a gate someone switches off.
+ * R4 — THE ROOT IS TIER 1 ONLY. The repo root carries README.md, CLAUDE.md, ROADMAP.md,
+ *      CHANGELOG.md and LICENSE, and no other markdown. A ceiling again: praxis has no
+ *      CHANGELOG.md and that is compliant. Enforced only over `*.md`, which is what the rule
+ *      is actually about and what `.chief/verify.sh` / CI select this guard on. Added
+ *      2026-09-03, once `technologies.md` had been archived to `docs/archive/` — US-1 left
+ *      this rule out deliberately, because a gate that is red on the day it lands is a gate
+ *      someone switches off. A root document that is not one of the five belongs under
+ *      `docs/` if it is current and under `docs/archive/` if it is not.
  *
  * Usage: node scripts/check-docs-structure.mjs [--json]
  * Exit 0 clean, 1 on a violation.
@@ -62,6 +70,14 @@ function walk(dir) {
 }
 
 const problems = [];
+
+// R4 — the root is Tier 1 only
+const TIER1 = ['README.md', 'CLAUDE.md', 'ROADMAP.md', 'CHANGELOG.md', 'LICENSE'];
+for (const name of readdirSync('.')) {
+  if (!name.endsWith('.md') || TIER1.includes(name)) continue;
+  if (statSync(name).isDirectory()) continue;
+  problems.push(`${name} is at the repo root, which carries only ${TIER1.join(' / ')} — move it under docs/ (or docs/archive/ if it is not current)`);
+}
 
 if (!existsSync('docs/README.md')) {
   problems.push('docs/README.md is missing — there is no map');
@@ -100,7 +116,7 @@ if (!existsSync('docs/README.md')) {
       problems.push(`${rel} banner Status is '${m[1]}' — must be one of ${STATUSES.join(' | ')}`);
     }
     if ((m[1] === 'Superseded' || m[1] === 'Archived')
-        && !lines.slice(first, first + 3).join(' ').replace(BANNER, '').trim()) {
+        && !lines.slice(first + 1, first + 4).join(' ').trim()) {
       problems.push(`${rel} is ${m[1]} but does not say what replaced it (or that nothing did)`);
     }
   }

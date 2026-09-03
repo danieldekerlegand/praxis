@@ -521,9 +521,13 @@ Two more run on any `.md`/`docs/` change, and they are a pair on purpose:
 `scripts/check-doc-links.mjs --ratchet --base <base>` (every *local* reference resolves; a
 **ratchet**, so pre-existing rot is retired deliberately and only a regression blocks) and
 `scripts/check-docs-structure.mjs` (every `docs/` file linked from `docs/README.md` and
-opening with a `Status · Updated · Owner` banner, and no directory outside the standard's
-seven that is not declared in `docs/.structure-exceptions`). The second is a **wall**, not a
-ratchet: the tree was brought to 14/14 on 2026-09-03, so there is nothing to grandfather.
+opening with a `Status · Updated · Owner` banner, no directory outside the standard's
+seven that is not declared in `docs/.structure-exceptions`, and no markdown at the repo
+root but the Tier-1 five). The second is a **wall**, not a ratchet: the tree was brought
+to 16/16 banner-stamped on 2026-09-03 (14 live subdocs linked, plus the index and one
+archived document), so there is nothing to grandfather. `docs/archive/` is exempt from
+the index rule and from being a link *citer* — an archived document describes the tree as
+it was, and repointing it would falsify what it recorded.
 Structure is the reader-facing half of `docs/README.md` — *a document not linked there does
 not exist* — and both generated documents (`docs/reference/curriculum.md`,
 `docs/explanation/gap-analysis.md`) get their banner from `generate_docs.py`, so `make docs`

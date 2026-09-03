@@ -541,7 +541,7 @@ only when the diff touches what it covers:
 | check | scope |
 |---|---|
 | `node scripts/check-doc-links.mjs --ratchet --base <base>` | any `.md` — every local reference resolves; a **ratchet**, so only a regression blocks |
-| `node scripts/check-docs-structure.mjs` | any `.md` — every `docs/` file linked from [`docs/README.md`](docs/README.md) and banner-stamped; a **wall** |
+| `node scripts/check-docs-structure.mjs` | any `.md` — every `docs/` file linked from [`docs/README.md`](docs/README.md) and banner-stamped, the directory set closed, and the repo root Tier-1 only; a **wall** |
 | `npm run build` in `ui/` | `ui/` |
 | `cargo build` in `src-tauri/` | `src-tauri/` (the frontend builds first — `src-tauri` embeds `ui/dist` at compile time) |
 | `python scripts/validate_nbgrader.py notebooks` · `python -m praxis.gatefloor` · `python -m pytest -q tests/` | any Python, notebook, `scripts/`, the three version manifests, `Makefile`, this file, and `docs/reference/gate-authority.md` |
@@ -608,4 +608,8 @@ fallback so externally-authored legacy notebooks keep working.
 The legacy generators `generate_notebooks.py` and `enhance_notebooks.py` were removed
 by the hygiene sweep — `curriculum.py` + `scaffold_notebooks.py` superseded them, nothing
 imported or invoked them, and git holds them if they are ever wanted again
-(`docs/explanation/dead-code-inventory.md`, A5). `technologies.md` is kept for history.
+(`docs/explanation/dead-code-inventory.md`, A5). The original study list praxis was built
+from is kept for history at `docs/archive/technologies.md` **[CORRECTED 2026-09-03 — it
+was at the repo root and banner-stamped `Current`; it is neither current nor a Tier-1
+root file, and 6 of its 145 hand-maintained "notebook not yet written" entries had a
+notebook. The generated `docs/reference/curriculum.md` is the live catalog]**.

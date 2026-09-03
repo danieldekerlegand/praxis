@@ -55,8 +55,9 @@ jobs:
   # never ran verify.sh merged it anyway.
   #
   # check-doc-links is a RATCHET against the PR base (pre-existing rot is retired
-  # deliberately, never in one forced sweep); check-docs-structure is a WALL, because the
-  # tree was brought fully compliant on 2026-09-03 and has no rot left to grandfather.
+  # deliberately, never in one forced sweep); check-docs-structure is a WALL (index coverage,
+  # banners, the closed directory set, and the Tier-1 repo root), because the tree was brought
+  # fully compliant on 2026-09-03 and has no rot left to grandfather.
   docs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
