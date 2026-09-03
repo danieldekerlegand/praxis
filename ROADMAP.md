@@ -114,11 +114,11 @@ product — none of it blocking, none of it a new program. All rows below are no
 
 | Status | Milestone | Tasklist |
 |---|---|---|
-| ⬜ | **Signed / notarized release builds** — bundles ship unsigned today (macOS Gatekeeper needs a right-click → Open; [`docs/reference/packaging.md`](docs/reference/packaging.md)); wire a signing identity + notarization when a distribution channel is chosen, keeping `version` in step across `tauri.conf.json` / `pyproject.toml` / `ui/package.json` · S/M | `chief/70-signed-notarized-builds` *(proposed)* |
-| ⬜ | **Embed the Python interpreter** — a shipped `.app` currently needs the checkout + launch-extra venv beside it (the shell discovers the core at runtime; nothing is embedded, `src-tauri/src/library.rs`); embedding an interpreter makes a truly standalone bundle · M | `chief/71-embed-python-interpreter` *(proposed)* |
-| ⬜ | **Deeper opt-in agora integration** — richer provider-router use behind `AGORA_BASE_URL`, beyond the BYO-key + optional routing that ships, without ever becoming a hard dependency · S/M | `chief/72-deeper-agora-integration` *(proposed)* |
-| ⬜ | **Additional storage backends** — the resolver design (`_RESOLVERS` + `_AVAILABLE` in `praxis/storage.py`) makes a new backend a resolver + availability check with no change to any caller; add on demand · S | `chief/73-additional-storage-backends` *(proposed)* |
-| ⬜ | **Seed-library refresh** — steady-state ownership of the 245-seed corpus: a rot audit (URL liveness + `compile()` re-check, report-only), a refresh policy (flagged-for-human by default; force-regenerate only explicitly, through the shipped grader — a ✅ seed is never silently rewritten), a promotion path for the [`docs/explanation/gap-analysis.md`](docs/explanation/gap-analysis.md) §2 additions, and a domain-addition policy (numbering appends 16+; the `06` hole is never reused) · M | `chief/83-seed-library-refresh` *(proposed)* |
+| ✅ | **Signed / notarized release builds** — bundles ship unsigned today (macOS Gatekeeper needs a right-click → Open; [`docs/reference/packaging.md`](docs/reference/packaging.md)); wire a signing identity + notarization when a distribution channel is chosen, keeping `version` in step across `tauri.conf.json` / `pyproject.toml` / `ui/package.json` · S/M | `chief/70-signed-notarized-builds` *(proposed)* |
+| ✅ | **Embed the Python interpreter** — a shipped `.app` currently needs the checkout + launch-extra venv beside it (the shell discovers the core at runtime; nothing is embedded, `src-tauri/src/library.rs`); embedding an interpreter makes a truly standalone bundle · M | `chief/71-embed-python-interpreter` *(proposed)* |
+| ✅ | **Deeper opt-in agora integration** — richer provider-router use behind `AGORA_BASE_URL`, beyond the BYO-key + optional routing that ships, without ever becoming a hard dependency · S/M | `chief/72-deeper-agora-integration` *(proposed)* |
+| ✅ | **Additional storage backends** — the resolver design (`_RESOLVERS` + `_AVAILABLE` in `praxis/storage.py`) makes a new backend a resolver + availability check with no change to any caller; add on demand · S | `chief/73-additional-storage-backends` *(proposed)* |
+| ✅ | **Seed-library refresh** — steady-state ownership of the 245-seed corpus: a rot audit (URL liveness + `compile()` re-check, report-only), a refresh policy (flagged-for-human by default; force-regenerate only explicitly, through the shipped grader — a ✅ seed is never silently rewritten), a promotion path for the [`docs/explanation/gap-analysis.md`](docs/explanation/gap-analysis.md) §2 additions, and a domain-addition policy (numbering appends 16+; the `06` hole is never reused) · M | `chief/83-seed-library-refresh` *(proposed)* |
 
 ### Loose wishlist — ⬜ / 🚧 ongoing
 
@@ -147,11 +147,11 @@ existing scaffolder); [`docs/explanation/gap-analysis.md`](docs/explanation/gap-
 
 | Status | Milestone | Tasklist |
 |---|---|---|
-| ⬜ | **JD ingest** — import a job description by **copy-paste or file upload** (parse `.txt`/`.md`/`.pdf`/`.docx` to plain text), normalize to one canonical JD document; a BYO-key-optional read path (plain text needs no model) | `chief/74-jd-ingest` *(proposed)* |
-| ⬜ | **Requirement & skill extraction** — model-backed pass turning a JD into a structured list of required skills / tools / competencies, normalized leniently and graded strictly in the `curriculum_gen.py` house style (ask JSON, normalize, validate before use) | `chief/75-jd-requirement-extraction` *(proposed)* |
-| ⬜ | **Gap analysis vs the library** — match extracted requirements against the existing 245 notebooks (14 domains) + the `recommended` neighbours, classifying each requirement as *covered* / *partially covered* / *missing*, reusing the `docs/explanation/gap-analysis.md` coverage model | `chief/76-jd-library-gap-analysis` *(proposed)* |
-| ⬜ | **Suggestion + dedup engine** — turn *missing* / *partial* requirements into proposed subjects, deduplicated against existing topics and domains so no suggestion re-tutorials shipped material; each suggestion carries its source requirement and its gap rationale | `chief/77-jd-suggestion-dedup-engine` *(proposed)* |
-| ⬜ | **Review / accept surface** — an in-app view to review, edit, drop, or accept suggestions; an accepted one becomes a subject handed to the shipped `POST /api/subjects` → scaffold → construct flow (no new constructor, just a new entry point) | `chief/78-jd-suggestion-review-surface` *(proposed)* |
+| ✅ | **JD ingest** — import a job description by **copy-paste or file upload** (parse `.txt`/`.md`/`.pdf`/`.docx` to plain text), normalize to one canonical JD document; a BYO-key-optional read path (plain text needs no model) | `chief/74-jd-ingest` *(proposed)* |
+| ✅ | **Requirement & skill extraction** — model-backed pass turning a JD into a structured list of required skills / tools / competencies, normalized leniently and graded strictly in the `curriculum_gen.py` house style (ask JSON, normalize, validate before use) | `chief/75-jd-requirement-extraction` *(proposed)* |
+| ✅ | **Gap analysis vs the library** — match extracted requirements against the existing 245 notebooks (14 domains) + the `recommended` neighbours, classifying each requirement as *covered* / *partially covered* / *missing*, reusing the `docs/explanation/gap-analysis.md` coverage model | `chief/76-jd-library-gap-analysis` *(proposed)* |
+| ✅ | **Suggestion + dedup engine** — turn *missing* / *partial* requirements into proposed subjects, deduplicated against existing topics and domains so no suggestion re-tutorials shipped material; each suggestion carries its source requirement and its gap rationale | `chief/77-jd-suggestion-dedup-engine` *(proposed)* |
+| ✅ | **Review / accept surface** — an in-app view to review, edit, drop, or accept suggestions; an accepted one becomes a subject handed to the shipped `POST /api/subjects` → scaffold → construct flow (no new constructor, just a new entry point) | `chief/78-jd-suggestion-review-surface` *(proposed)* |
 
 ### Adopt the Jupyter grading ecosystem — ⬜ proposed, **runs before the gating backfill**
 
@@ -185,8 +185,8 @@ needs the Python core and a key, and the docs draw that line.
 
 | Status | Milestone | Tasklist |
 |---|---|---|
-| ⬜ | **nbgrader cell schema + hidden-test mechanics** — emit `metadata.nbgrader` graded cells with stable `grade_id`s, adopt nbgrader's solution/hidden-test delimiters and release mechanics (deleting the reimplementation), carry `choice`/`short` as a namespaced extension, and make `nbgrader validate` the authoritative gate; the 24 already-gated seeds migrate by an idempotent pass · M/L | `chief/84-nbgrader-cell-schema-adoption` *(proposed)* |
-| ⬜ | **JupyterLite delivery** — bundle a pinned JupyterLite site in the Tauri app so a learner reaches a running tutorial with zero terminals, zero `pip install` and zero kernel registration; serve only *released* (stripped) notebooks; keep the gate's authority out of the browser; report honestly when a tutorial's deps are not Pyodide-resolvable · M/L | `chief/85-jupyterlite-delivery` *(proposed)* |
+| ✅ | **nbgrader cell schema + hidden-test mechanics** — emit `metadata.nbgrader` graded cells with stable `grade_id`s, adopt nbgrader's solution/hidden-test delimiters and release mechanics (deleting the reimplementation), carry `choice`/`short` as a namespaced extension, and make `nbgrader validate` the authoritative gate; the 24 already-gated seeds migrate by an idempotent pass · M/L | `chief/84-nbgrader-cell-schema-adoption` *(proposed)* |
+| ✅ | **JupyterLite delivery** — bundle a pinned JupyterLite site in the Tauri app so a learner reaches a running tutorial with zero terminals, zero `pip install` and zero kernel registration; serve only *released* (stripped) notebooks; keep the gate's authority out of the browser; report honestly when a tutorial's deps are not Pyodide-resolvable · M/L | `chief/85-jupyterlite-delivery` *(proposed)* |
 
 ### Gating backfill program — ✅ shipped and run (2026-08-27)
 
@@ -250,7 +250,7 @@ cross-repo dependency (`chief:80-headless-programmatic-invocation`, bands `80`�
 
 | Status | Milestone | Tasklist |
 |---|---|---|
-| ⬜ | **Chief-driven construction + gating** — run `construct_each` / `checks.py` batches as Chief tasklists on OpenCode + local inference (headless, resumable via the existing skip-if-✅ contract), so gating backfill and JD-suggested subjects build unattended and cheaply · depends on `chief:embeddable-engine` | `chief/82-chief-powered-construction` *(proposed)* |
+| ✅ | **Chief-driven construction + gating** — run `construct_each` / `checks.py` batches as Chief tasklists on OpenCode + local inference (headless, resumable via the existing skip-if-✅ contract), so gating backfill and JD-suggested subjects build unattended and cheaply · depends on `chief:embeddable-engine` | `chief/82-chief-powered-construction` *(proposed)* |
 
 ---
 
