@@ -24,6 +24,9 @@ everywhere is what the gate is worth to a learner — and `python3 -m praxis.gat
 fails the merge gate if coverage ever drops below the number stated above, so the claim
 cannot go stale the way it did while the library sat at 24/245.
 
+**[`docs/`](docs/README.md) is the map** — every document this repo keeps is linked from
+there, and one that is not linked there does not exist.
+
 ## Install
 
 ### If you are here to learn: open the app
@@ -120,7 +123,7 @@ replace it.
 | [`praxis/llm.py`](praxis/llm.py) | **The BYO-key LLM client** every construction step calls through (see below). |
 | [`launcher/`](launcher/) | The FastAPI browse/launch/render UI. The desktop shell wraps this. |
 | [`notebooks/`](notebooks/) | **245 seed notebooks across 14 domains** (including the legacy DevOps/MLOps library). |
-| [`CURRICULUM.md`](CURRICULUM.md) | Generated human index with live status badges. |
+| [`docs/reference/curriculum.md`](docs/reference/curriculum.md) | Generated human index with live status badges. |
 | [`src-tauri/`](src-tauri/) + [`ui/`](ui/) | The desktop/web shell — Rust backend, TS/React frontend. |
 
 Notebooks live under `notebooks/<NN-domain>/<topic>.ipynb` and carry their Praxis state

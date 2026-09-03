@@ -1,5 +1,7 @@
 # Seed Domain Addition Policy
 
+> **Status:** Current · **Updated:** 2026-08-21 · **Owner:** praxis
+
 Seed domains are numbered in order from `01` through `15`, with `06` permanently
 reserved as a historical hole. A new seed domain appends the next free number (`16`
 or higher); it must never reuse `06` or renumber an existing domain.

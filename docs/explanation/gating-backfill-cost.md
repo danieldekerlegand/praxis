@@ -1,5 +1,7 @@
 # What a gated domain costs
 
+> **Status:** Current · **Updated:** 2026-08-27 · **Owner:** praxis
+
 The gating machinery — `praxis/backfill.py`, `praxis/coverage.py`, `praxis/gateaudit.py`,
 `praxis/regate.py` — shipped weeks before any batch was run with it. This document is the
 measurement of actually running it, end to end, so that the remaining scope is a decision

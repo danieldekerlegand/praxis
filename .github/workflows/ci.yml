@@ -23,6 +23,7 @@ jobs:
       ui: ${{ steps.scope.outputs.ui }}
       rust: ${{ steps.scope.outputs.rust }}
       python: ${{ steps.scope.outputs.python }}
+      docs: ${{ steps.scope.outputs.docs }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,7 +41,33 @@ jobs:
             echo "ui=$(has '^ui/')"
             echo "rust=$(has '^src-tauri/')"
             echo "python=$(has '\.(py|ipynb)$|^notebooks/|^tests/|^scripts/|^pyproject\.toml$|^ui/package\.json$|^src-tauri/tauri\.conf\.json$|^Makefile$|^README\.md$|^docs/reference/gate-authority\.md$')"
+            echo "docs=$(has '\.md$|^docs/')"
           } >> "$GITHUB_OUTPUT"
+
+  # Documentation gates — the pair verify.sh runs, mirrored here. CI carried NEITHER of
+  # them until 2026-09-03, which is exactly the drift the "change one and change the
+  # other" rule exists to stop: verify.sh blocked a doc regression locally and a PR that
+  # never ran verify.sh merged it anyway.
+  #
+  # check-doc-links is a RATCHET against the PR base (pre-existing rot is retired
+  # deliberately, never in one forced sweep); check-docs-structure is a WALL, because the
+  # tree was brought fully compliant on 2026-09-03 and has no rot left to grandfather.
+  docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: doc links (ratchet vs base)
+        run: |
+          base="${{ github.event.pull_request.base.sha || 'HEAD' }}"
+          node scripts/check-doc-links.mjs --ratchet --base "$base"
+      - run: node scripts/check-docs-structure.mjs
 
   frontend:
     needs: changes

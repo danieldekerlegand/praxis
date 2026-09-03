@@ -517,6 +517,20 @@ repairs a `.venv` predating the pin with the same editable install CI runs, beca
 `praxis.checks` resolves nbgrader's console script beside the *running* interpreter: the
 interpreter that runs the tests must be the one that has it.
 
+Two more run on any `.md`/`docs/` change, and they are a pair on purpose:
+`scripts/check-doc-links.mjs --ratchet --base <base>` (every *local* reference resolves; a
+**ratchet**, so pre-existing rot is retired deliberately and only a regression blocks) and
+`scripts/check-docs-structure.mjs` (every `docs/` file linked from `docs/README.md` and
+opening with a `Status · Updated · Owner` banner, and no directory outside the standard's
+seven that is not declared in `docs/.structure-exceptions`). The second is a **wall**, not a
+ratchet: the tree was brought to 14/14 on 2026-09-03, so there is nothing to grandfather.
+Structure is the reader-facing half of `docs/README.md` — *a document not linked there does
+not exist* — and both generated documents (`docs/reference/curriculum.md`,
+`docs/explanation/gap-analysis.md`) get their banner from `generate_docs.py`, so `make docs`
+keeps them compliant instead of demoting them. The rules' home of record is
+`rosetta/docs/reference/documentation-standard.md`; a path into a private repo is written as
+backticked prose, never a relative link that would be broken for every outside reader.
+
 `.github/workflows/ci.yml` is the same three checks on every PR to `main`, with the same
 path predicates — change one and change the other. Its Rust job builds the frontend first
 for the reason in **Build order** above.

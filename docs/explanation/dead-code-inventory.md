@@ -1,5 +1,7 @@
 # Dead-code inventory
 
+> **Status:** Current · **Updated:** 2026-09-03 · **Owner:** praxis
+
 The measured candidate list for the hygiene sweep, produced **before** anything was removed.
 Every candidate below names the search that found it, so the list can be re-run rather than
 believed. A candidate list without its method is unreviewable.

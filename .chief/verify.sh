@@ -20,6 +20,20 @@ if [ "${CHIEF_VERIFY_DOCLINKS:-1}" = 1 ] \
     || { echo "verify: doc-link regression (see above)"; exit 1; }
 fi
 
+# --- documentation structure gate --------------------------------------------
+# The shape of docs/: every file linked from docs/README.md, every file banner-stamped,
+# no directory outside the standard's seven that isn't declared in docs/.structure-exceptions.
+# A WALL, not a ratchet, unlike the link gate above — the tree was brought fully compliant
+# on 2026-09-03 (14/14 banners, 14/14 linked, 0 undeclared directories), so there is no
+# pre-existing rot to retire and the cheapest moment to reject a violation is the one that
+# introduces it. See scripts/check-docs-structure.mjs's header for the rules it restates.
+if [ "${CHIEF_VERIFY_DOCLINKS:-1}" = 1 ] \
+   && echo "$changed" | grep -qE '\.md$|^docs/' \
+   && [ -f scripts/check-docs-structure.mjs ] && command -v node >/dev/null 2>&1; then
+  node scripts/check-docs-structure.mjs \
+    || { echo "verify: docs structure violation (see above)"; exit 1; }
+fi
+
 
 fail=0
 run(){ echo "== $* =="; "$@" || { echo "FAIL: $*"; fail=1; }; }
