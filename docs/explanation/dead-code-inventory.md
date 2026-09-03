@@ -333,3 +333,96 @@ Both are why step 4's three prose lines were applied to
 `docs/explanation/gap-analysis.md` directly after diffing it against a fresh
 `gen_gap_analysis()` — that diff is exactly these two findings plus the three intended lines,
 and nothing else.
+
+---
+
+## Class E — what the sweep could not decide
+
+Everything below was reached by the three passes and **left in place**, not because it was
+shown to be live but because this method cannot show it either way. An honest undecidable
+list is a legitimate result of a sweep; a candidate promoted to Class A on the absence of
+evidence is how a portfolio deletes a Prolog corpus reached by a path nobody found.
+
+The rule applied to every row: **a static search over this tree returning nothing is not a
+proof when the caller is not in this tree.** Each row names what would have to be checked
+elsewhere to decide it.
+
+| Undecidable | Why the search cannot settle it | What would decide it |
+| --- | --- | --- |
+| The 145 public symbols reachable only inside their own module (table below) | `pyproject.toml` ships `praxis` and `launcher` as installable packages, so any of them is `import`able by a consumer outside this repo. Pass 1 correctly did **not** flag them — each has in-file references — but "used only by its own module" and "published API" are the same shape from in here. | A search of every consumer of the distribution, which is not this repo. |
+| `launcher.app:main` / `launcher.app:launch_lab` (`[project.scripts]`, `pyproject.toml:34–35`) | Reached through an **installed console script**, not a call site. `main` has no Python caller at all; `launch_lab`'s only in-tree caller is `Makefile:68`. A caller-count of zero here means "nobody in this repo shells out to it", which is expected of an entry point. | Whether anyone runs `praxis-launch` / `praxis-lab`. `src-tauri/src/library.rs` spawns the launcher, but by module path, not by console script. |
+| The four `#[tauri::command]` functions — `app_info`, `launcher_status`, `lite_status`, `pick_folder` (`src-tauri/src/lib.rs:28–66`) | The only callers are **string literals across the FFI**: `invoke<AppInfo>("app_info")` in `ui/src/tauri.ts:22`, and three more in `tauri.ts:34,55` and `lite.ts:63`. `cargo` sees them referenced via `generate_handler!` and emits no `dead_code`; `tsc` sees a string. Neither compiler links the two ends, so neither would notice a rename on the other side. | A runtime check, or a test that drives the webview. Both compilers are green on a broken pair. |
+| Every key of `build_model()`'s view model read only by `launcher/templates/index.html` | The Jinja template reaches 30 distinct names by string — `{{ d.covered }}`, `{{ cov['pct'] }}`, `{{ coverage['domainsGated'] }}`, `{{ t.status }}`, … — so a Python-side rename is invisible to `ast` and to `tsc` alike. The same keys reach `ui/src` through JSON, which is the second string boundary on the same data. | Rendering the page. `tests/test_launcher_api.py` covers the JSON half; the template half is a browser. |
+| `scaffold_notebooks.reorg()` + `LEGACY_DOMAIN` / `LEGACY_ROOT_NOTEBOOKS` / `LEGACY_SECTION_DIRS` (`scaffold_notebooks.py:48–98`, ~50 lines) | Live by every static measure — `main()` calls it unless `--no-reorg` — but its **trigger no longer exists in this tree**: `python3 -c 'import scaffold_notebooks as s; …'` reports **0** of `LEGACY_ROOT_NOTEBOOKS` present and **0** of `LEGACY_SECTION_DIRS` present, so every run moves 0 items. No test names `reorg`. It is a completed one-shot migration whose remaining purpose is a *user's* older checkout. | The state of a disk this repo cannot see. Left in place: the cost is one no-op loop per scaffold run, and the failure mode of removing it is a silently un-migrated library. |
+| The `x-agora-*` wire vocabulary (`praxis/llm.py:94–101`) | Four of the six constants — `AGORA_SERVED_MODEL_HEADERS`, `AGORA_PROVIDER_HEADERS`, `AGORA_ROUTE_HEADERS`, `AGORA_REQUEST_ID_HEADERS` — are read only inside `llm.py`, and every one is a **best-effort read of a reply another service writes**. A router that sends none of them leaves the client behaving exactly like a plain base-URL swap, so absence of traffic proves nothing about whether the header exists. | agora's own emitted headers. Consumed by reference on purpose (CLAUDE.md: "a URL in an env var, never an import"). |
+| The chief record vocabulary (`praxis/headless.py:78–101`) — `RECORD_PREFIX`, `RUN_KEYS`, the `run-id`/`outcome`/`exit`/`summary` keys | The producer is `chief run --headless`, a different program. `tests/test_headless.py` drives a **fake** chief built from `FAKE_CHIEF_STDOUT` / `FAKE_CHIEF_EXIT` / `FAKE_CHIEF_RECORD` / `FAKE_CHIEF_STDERR`, so the tests pin what praxis does with a stream, never that chief still prints one. A key chief stopped emitting would look identical from here. | chief's own output. Same by-reference contract; `docs/reference/chief-powered-construction.md` is the prose half. |
+| Code behind an env var nothing in-tree sets | `PRAXIS_NO_EMBED` is read only by `src-tauri/src/library.rs` and named nowhere but `CLAUDE.md` and `docs/reference/packaging.md`. `CHIEF_LOCAL_ENDPOINT` / `CHIEF_LOCAL_MODEL` are read by `praxis/headless.py` and set by no tracked file. `PRAXIS_ROOT` and `PRAXIS_PYTHON` are read by the shell. These are **operator switches**; a repo-wide grep finding only the reader is their normal state, not evidence. | Whether an operator sets them. Each is documented, which is the only in-tree evidence available. |
+| The on-disk schemas — `storage.json`, `.praxis-sync.json`, `<slug>.checks.json`, `notebooks/coverage-floor.json`, `notebooks/ungated.json`, `progress/<learner>.json` | Every reader here also writes, so a field could be dead in the code and still be **live on a user's disk**, written by a shipped version. `storage.json` in particular lives outside the storage root it selects, so it survives every other reset. | A migration audit against released versions, not a search. |
+| `praxis/s3.py` / `praxis/webdav.py` request shapes | `tests/mocks3.py` and `tests/mockdav.py` serve the real protocols on loopback, which pins the bytes praxis sends — but a header AWS or Nextcloud requires and the fakes tolerate is invisible from here, in both directions. | The real services. |
+
+### The 145 shipped public symbols with no reference outside their own file
+
+Reproduce with pass 1 modified to count **external** references only, over `praxis/`,
+`launcher/`, `curriculum.py`, `nbstatus.py` and `scaffold_notebooks.py`, skipping `_`-prefixed
+names:
+
+```
+public shipped symbols with ZERO references outside their defining file: 145
+  praxis/jd.py: 15   praxis/jd_extract.py: 14   praxis/storage.py: 13   praxis/checks.py: 10
+  praxis/llm.py: 9   praxis/suggest.py: 9   praxis/rubric.py: 8   praxis/lite.py: 7
+  praxis/gateaudit.py: 6   praxis/headless.py: 5   nbstatus.py: 4   praxis/gap.py: 4
+  praxis/s3.py: 4   praxis/tasklist.py: 4   scaffold_notebooks.py: 4   launcher/app.py: 3
+  praxis/curriculum_gen.py: 3   praxis/library_index.py: 3   … and 13 more with 1–2 each
+```
+
+Most are tuning constants a module reads once (`MIN_PROMPT_CHARS`, `GIVEAWAY_MARGIN`,
+`TARGET_CHARS`) — named rather than inlined so the threshold is reviewable, which is a reason
+to keep them regardless of who imports them. The rest are functions with one in-file caller
+(`save_jd`, `construction_targets`, `write_each`, `path_for`). **None is dead**: pass 1 flagged
+none of them, because each is referenced inside its file. They are listed here because they are
+the population an external consumer would be drawn from, and the honest statement is that this
+sweep sized that population rather than cleared it.
+
+## What a static search over this tree cannot see
+
+The limits of the method, stated so the next sweep starts from them rather than rediscovering
+them. Each is measured, not asserted.
+
+1. **Cross-repo consumers.** The largest blind spot, and the one this portfolio has already
+   been bitten by. `pyproject.toml` publishes `praxis` and `launcher`; `git ls-files` stops at
+   the repo boundary. Every "0 references" in this document means *0 in this tree*.
+2. **Nested definitions.** Pass 1's corpus is **module-level** defs, classes and `UPPER_CASE`
+   assignments. Over the reduced tree that is 1,230 definitions — but `ast.walk` finds
+   **1,489**, so **259 definitions were never candidates at all**. The whole of
+   `launcher/app.py`'s route layer is in that gap: 27 handlers across 18 paths, every one
+   defined inside `create_app()`. They are reachable by URL, never by name, and a handler
+   deleted along with its client would leave no trace in pass 1 either way.
+3. **String boundaries between languages.** Three in this repo, none of which any compiler
+   spans: TS → Rust (`invoke("app_info")`), Python → Jinja (`{{ d.covered }}`), and
+   Python ↔ TS over JSON (`/api/library`'s topic rows). Green `cargo build` + green
+   `npm run build` + green `pytest` is compatible with a broken pair on any of the three.
+4. **Reflection, and its absence.** Measured, and this one is good news: every `getattr` in
+   the tree takes a **literal** attribute name (16 sites, all `getattr(x, "literal", default)`),
+   and there is **no** `importlib`, `__import__`, `globals()`, `eval()` or `exec()` in any
+   tracked `.py` outside `notebooks/`. The one dispatch table, `storage._RESOLVERS` /
+   `_AVAILABLE` / `_WRITABLE` / `_ON_SELECT` / `_SYNC`, is keyed by a `kind` string that
+   arrives from `storage.json` or the settings form — so its *values* are visibly referenced,
+   but a `kind` no caller can produce would look identical to one in daily use.
+   `register_backend()` widens that seam deliberately, for a caller who is by definition
+   not in these tables.
+5. **Generated and templated artifacts.** Measured negative for the largest one: **0 of the
+   245 seed notebooks** import `curriculum`, `praxis`, `nbstatus` or `scaffold_notebooks`
+   (`git ls-files 'notebooks/*.ipynb' | xargs grep -l …` → 0), so the notebook corpus keeps
+   no Python symbol alive. What it *does* keep alive is metadata **keys** —
+   `metadata.nbgrader.*` and `metadata.praxis.extension` — read by `praxis/checks.py` and
+   written into files a user already has. `ui/dist` is build output and untracked, so nothing
+   in it can be searched; `docs/explanation/gap-analysis.md` is generated by
+   `generate_docs.py`, which is why editing one without the other reverts on the next
+   `make docs`.
+6. **Time.** Every count here is `chief/900-dead-code-paydown` at the commit named at the top.
+   A search is a photograph; it is not a warranty, and it does not cover the branch that lands
+   next week.
+
+The one thing this sweep can say without qualification is what it *did* check, which is why
+the Class C and Class E tables are the part worth keeping. Class A is 27 files that are gone;
+these two are the reason the next sweep does not have to start over.
