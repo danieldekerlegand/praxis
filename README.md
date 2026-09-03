@@ -570,6 +570,7 @@ fallback so externally-authored legacy notebooks keep working.
 
 ## History
 
-The legacy generators (`generate_notebooks.py`, `enhance_notebooks.py`,
-`technologies.md`) are kept for history but are superseded by `curriculum.py` +
-`scaffold_notebooks.py`.
+The legacy generators `generate_notebooks.py` and `enhance_notebooks.py` were removed
+by the hygiene sweep — `curriculum.py` + `scaffold_notebooks.py` superseded them, nothing
+imported or invoked them, and git holds them if they are ever wanted again
+(`docs/explanation/dead-code-inventory.md`, A5). `technologies.md` is kept for history.
