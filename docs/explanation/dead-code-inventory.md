@@ -260,3 +260,76 @@ is excluded (it has no name to reference).
 Deletion is irreversible in effect even when git remembers, because nobody re-reads a deleted
 file. The Class-C table above is worth more than the Class-A list: it is the record of what was
 checked and survived, so the next sweep starts from evidence instead of from suspicion.
+
+---
+
+## What the sweep removed, in four steps
+
+Recorded after the fact, so the list above stays the *pre-removal* measurement it claims to
+be. Four commits, one subsystem each, because a single commit deleting thousands of lines
+across unrelated subsystems cannot be reviewed and cannot be partially reverted.
+
+| Step | Commit | Removed | Gate |
+| --- | --- | --- | --- |
+| 1 | `0051526` | A1–A4 (the four symbols) + Class D (8 imports) | `pytest -q tests/` 1205 passed, 1 skipped |
+| 2 | `b8858f5` | A5 — `generate_notebooks.py` + `enhance_notebooks.py`, 896 lines | 1205 passed, 1 skipped |
+| 3 | `58cecd3` | A6 — `sync_curriculum.py`, 141 lines | 1205 passed, 1 skipped |
+| 4 | `942ed91` | A7 / B3 — `ralph/` + `.ralphy/`, 24 files, 4,330 lines | 1205 passed, 1 skipped |
+
+27 files gone, 545 tracked where there were 571; 5,455 deletions against 35 insertions
+outside `.chief/`. **The suite count did not move at any step, and no test was deleted,
+skipped or adjusted** — which is the sweep's own bar: a removal that needs a test edited to
+stay green is a removal of something live.
+
+Re-running pass 1 over the reduced tree returns **0 candidates** (excluding `tests/`, whose
+`test_*` functions are referenced by the runner rather than by a caller). The four are gone
+and nothing new was orphaned by their going.
+
+### What a removal stranded, and was fixed in the same commit
+
+A reference to deleted code is not a docs defect for the next sweep to find — it is part of
+the removal. Step 4 carried the most: `Makefile`'s `ralph`/`tasklists` targets and their
+`.PHONY` entries · `README.md`'s `ralph/` table row, the `generate_tasklists.py` line in the
+seed-curriculum recipe, and the ralphy block (repointed at `praxis/tasklist.py` +
+`praxis/headless.py`, the shipped unattended path) · `curriculum.py`'s "Drives:" list ·
+`generate_docs.py`'s three prose strings **and** the matching lines of its output,
+`docs/explanation/gap-analysis.md` · `ROADMAP.md:282` · and the "Ralph" docstrings in
+`nbstatus.py`, `tests/test_notebooks.py`, `pyproject.toml` and
+`docs/explanation/notebook-rubric.md`. Step 2 carried `README.md`'s History paragraph and
+`scaffold_notebooks.py`'s "Supersedes …" line.
+
+`tasks/chief/completed/86-adopt-minio-nbformat-and-delete-legacy.json` was **not** edited.
+Its story claimed the A5 deletion and did not perform it; that is the historical record and
+rewriting it would erase the evidence for why this tasklist exists.
+
+## What looked dead and was NOT removed
+
+The Class C table above is the pre-removal half of this record; these are the decisions the
+removal itself produced. This section is worth more than the deletions: it is what stops the
+next sweep re-litigating the same files.
+
+| Not removed | Why it survived |
+| --- | --- |
+| **B1 — three copies of "every regular file under root"** | One copy (`s3.walk_files`) was dead and went in step 1. The two survivors, `praxis/cloud.py:140` and `praxis/share.py:140`, are byte-identical, but collapsing them means one of the two sync backends importing the other or a new shared module — a **refactor with a behaviour risk**, not a removal. Two live callers, two test suites, no dead code. Left deliberately; it is a design question for whoever adds the fifth backend through `register_backend()`. |
+| **B2 — `SyncResult` in `cloud.py:66` and `share.py:62`** | Same argument as B1, same two files. Identical dataclass and `to_dict()`, both live. Collapsing it couples the S3 backend to the WebDAV one for eight lines. |
+| **B4 — `make bundle` vs `scripts/bundle-macos.sh`** | Not a duplicate to collapse: the script adds the signing decision and the version check, and `docs/reference/packaging.md` is its contract. Re-recorded so the next sweep does not re-open it. |
+| **`technologies.md`** | Named only by `README.md`'s History paragraph, which step 2 rewrote. It is a **document**, not code, and the tasklist's scope is code — deciding whether a history file earns its place is the docs sweep's call, not this one's. |
+| **`praxis/authored.py`, the refusal paths, the four maintenance CLIs, `scripts/check-tasklist-categories.mjs`** | Class C above, unchanged by the removals. Each is exercised by a test or is a stated contract that says it is unexercised. |
+| **The 22 `ui/src` exports and the 12 `src-tauri` zero-reference items** | Class C above. Nothing removable in either language: no TS export has zero references including its own module, and `cargo build` emits no `dead_code` warning. |
+
+### Two defects the removal surfaced but did not fix
+
+Both are in `generate_docs.py`, both predate this sweep, and neither is dead code — fixing
+either changes what a generator writes, which is a behaviour change and belongs to the docs
+sweep that runs after this one. Recorded here so it is not re-discovered:
+
+1. `main()` writes `docs/gap-analysis.md`, but the file it regenerates lives at
+   `docs/explanation/gap-analysis.md`. Running `make docs` today writes a **second, orphaned
+   copy** rather than updating the tracked one.
+2. `gen_gap_analysis()` does not emit the `> **Status:** … · **Updated:** … · **Owner:** …`
+   banner the tracked file carries, so a regeneration would silently drop it.
+
+Both are why step 4's three prose lines were applied to
+`docs/explanation/gap-analysis.md` directly after diffing it against a fresh
+`gen_gap_analysis()` — that diff is exactly these two findings plus the three intended lines,
+and nothing else.
