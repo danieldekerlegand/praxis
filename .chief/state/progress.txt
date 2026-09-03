@@ -1,194 +1,66 @@
-# Chief Progress — 87-run-the-gating-backfill
-Started: Thu Aug 27 00:19:17 CDT 2026
+# Chief Progress — 900-dead-code-paydown
+Started: Thu Sep  3 10:04:17 CDT 2026
 ---
 
 ## Codebase Patterns
 
-- **No LLM key is configured in this worktree.** `praxis.llm.load_config()` raises
-  `LLMConfigError`; there is no `~/.config/praxis/config.json` and no `ANTHROPIC_API_KEY`
-  / `OPENAI_API_KEY` / `AGORA_BASE_URL`. The gating batches therefore cannot be driven by
-  a provider here — use `praxis/authored.py` (added in US-1), which serves the model's
-  half from `<slug>.checks.draft.json` beside the notebook while every grading and write
-  rule downstream runs unchanged.
-- **Author a draft, then grade it before running the batch.** `/tmp/grade.py` pattern:
-  `generate_checks(domain, topic, client=AuthoredClient.for_domain(domain), attempts=1,
-  write=False, force=True)` gives the grader's sentences in ~0.1s without touching disk.
-  Iterate there; run `python3 -m praxis.authored run <DIR>` once the drafts are clean.
-- **Drafts are git-ignored** (`*.checks.draft.json`). They persist in the worktree across
-  iterations but never reach a commit — the accepted `<slug>.checks.json` is the artifact.
-- **The suite pins gate counts.** Anything that raises coverage will fail
-  `tests/test_gateaudit.py`, `tests/test_regate.py` and
-  `tests/test_launcher_api.py::test_an_ungated_seed_notebook_is_open_and_says_so` unless
-  those assertions are floors/properties. US-1 converted all three; if a new one appears,
-  convert it rather than freezing the corpus.
-- **`module_gates()` locks ungated topics too.** A topic with no checks is locked while an
-  *earlier* topic in the same module is gated and unfinished. So gating a domain locks the
-  rest of that domain behind its first gate — intended (sequential progression), but it
-  invalidates any test that assumes "ungated implies unlocked".
-- **The full suite is ~6.5 minutes**; `scripts/validate_nbgrader.py notebooks` is instant
-  (it no-ops on released notebooks — the real nbgrader run happens inside
-  `publish_graded_cells` on a staging copy). Budget for the pytest run, not the validator.
+- **Grep the whole tree, not just code.** A naive `grep -E "praxis[./]<mod>"` reported
+  `praxis/suggestion_review.py` as callerless; it has six callers reached through
+  `from praxis import gap, jd_extract, suggest, suggestion_review`. Multi-name `from X import a, b`
+  is the form that defeats a per-module regex. Use `git ls-files | xargs grep -n '\b<name>\b'`.
+- **Count self-references too.** A definition-level scan that only counts *external* references
+  reports every private helper. Requiring zero external AND zero in-file references cuts ~900
+  candidates to 4.
+- **`.chief/verify.sh` is path-scoped.** A change touching only `docs/explanation/*.md` runs the
+  doc-link ratchet and nothing else. Touching any `.py`, `Makefile`, `README.md`, `scripts/` or the
+  three version manifests pulls in `validate_nbgrader.py` + `praxis.gatefloor` + the full pytest run.
+- **Commit, then `chief verify`.** The verdict is only recorded for a committed clean tree; the
+  runtime `.chief/state/*` files count as dirt, so update them and commit before the final verify.
 
 ---
 
-## US-1 — A domain is backfilled end to end, and its gates are audited (2026-08-27)
+## US-1 — An inventory, measured before anything is removed (2026-09-03)
 
-**Done.** `notebooks/01-symbolic-ai-logic` taken 0/15 → 15/15 gated with the shipped
-runner. Library coverage 24/245 (8 of 14 domains) → 39/245 (9 of 14).
+**Added:** `docs/explanation/dead-code-inventory.md` (250 lines). Nothing else changed; this story
+deliberately removes nothing.
 
-Domain choice: 15 notebooks with 14 runnable + 1 conceptual, so both branches of the
-`runnable` rule are exercised (a code check required / forbidden). Deliberately not the
-9-notebook domain.
+**Method (three passes, all reproducible from the doc):**
+1. AST definition-level reachability over every tracked `.py` outside `notebooks/`, counting
+   word-boundary hits in every tracked `.py .md .json .ts .tsx .rs .sh .mjs .html .toml .yml .css`
+   file AND inside the defining file. Zero+zero = candidate.
+2. Whole-file reachability for each top-level script and subsystem.
+3. Duplication: hash every 8-line window of normalized non-blank non-comment Python lines.
 
-**Files changed**
-- `praxis/authored.py` (new) — the author-in-the-loop client + CLI (`prompts` / `status`
-  / `run`). Owns no gating rule; `backfill_domain(domain, client=…, attempts=1)` is the
-  whole integration.
-- `tests/test_authored.py` (new, 11 tests) — the `<topic>`-tag round trip against
-  `build_prompt`, and each refusal (bad reference solution, test that passes an empty
-  submission, missing rubric section) pinned against a file rather than a model.
-- 15 × `notebooks/01-symbolic-ai-logic/*.checks.json` (new) + the 15 notebooks
-  (graded cells published).
-- `tests/test_gateaudit.py`, `tests/test_regate.py`, `tests/test_launcher_api.py` —
-  exact-count pins → floors + properties.
-- `docs/explanation/gating-backfill-cost.md` (new) + `docs/README.md` link,
-  `CLAUDE.md`, `.gitignore`.
+**Findings:**
+- **Class A (genuinely dead, ~1,400 lines + 4,330 in `ralph/`):** `curriculum.all_manifest_topics`,
+  `praxis.checks.NBGRADER_METADATA_KEYS`, `praxis.jd.delete_jd`, `praxis.s3.walk_files` (whose
+  `pragma: no cover` claims a caller in `cloud.sync` that does not exist), `generate_notebooks.py`
+  (691), `enhance_notebooks.py` (205), `sync_curriculum.py` (141), `ralph/` + `.ralphy/` (24 files).
+- **Class B (duplicated implementations):** three copies of the mirror walk; `SyncResult` in
+  `cloud.py`/`share.py`; the Ralph construction path vs `construct.py` + `tasklist.py`;
+  `make bundle` vs `scripts/bundle-macos.sh` (recorded, not a defect).
+- **Class C (looked dead, is not):** 11 rows — every `praxis/` module, the four maintenance CLIs a
+  test exercises, `scripts/check-tasklist-categories.mjs` (never *run*, but `tests/test_tasklist.py`
+  reads its source), the refusal paths, all declared dependencies, all 18 launcher routes.
+- **Class D:** 9 unused imports.
+- TypeScript and Rust: nothing removable. 0 zero-reference TS exports, 0 `dead_code` warnings.
 
-**Measured**
-- 15/15 gated in 47.1 s — 3.1 s/notebook. 90 checks: 45 choice, 31 short, 14 code.
-- `gateaudit` 0 flagged (domain and library); `regate` 39/39 hold.
-- `validate_nbgrader` 39 notebooks 0 failures; pytest 1161 passed, 1 skipped, 0 failed.
-- Authoring: ~15.4 kB of notebook prose read and ~10.5 kB of gate written per notebook.
-- Review: 2 of 15 drafts rejected on the first pass, both by the machine, one round each.
+**Gate:** `chief verify` → `doc-links: 0 dead vs 0 on main`, `verify: PASS`, exit 0.
 
-**Learnings for future iterations**
-- The 3-part cost split is what US-2's scope decision needs: compute is negligible
-  (~1 minute per domain), review is cheap *because* the grader is strict, and authoring
-  is the whole bill and scales with prose read. 206 notebooks remain ≈ 3.2 MB to read.
-- Write a code check's `test` so the *starter stub* and an *empty submission* both fail —
-  `gateaudit` runs both and rejects the set otherwise. A stub of `...` (returns None)
-  plus a first assertion comparing against a concrete value does it.
-- Be careful that a `choice` distractor in one section does not give away another
-  section's answer: the learner sees each explanation after answering.
-- Watch for *unsound* reference algorithms. The write path caught one (a "hidden single"
-  rule that is valid for a permutation constraint but not for a general all-different) —
-  it failed on a one-variable input. Prefer the argument the real system uses.
+### Learnings for future iterations
 
----
-
-## Resumed: Thu Aug 27 02:35:31 CDT 2026
-
-The runner truncated this file to its header on restart; the content above was restored
-from the last commit. Do not replace this file — append.
-
-## US-2 — The remaining domains are run, or the scope is deliberately cut (2026-08-27)
-
-**Done.** Every domain that had no gate at all now has one. An earlier, interrupted pass
-of this story had already gated three of them (`07-proprietary-coding-ai` 9/9,
-`10-data-analysis-research` 15/15, `09-procedural-generation` 16/16 — commits 1c4914c,
-c08cb47, 97885e8). This pass added the last two:
-
-- `notebooks/04-agentic-ai` 0/16 -> 16/16, 96 checks, 45.3 s (2.8 s/notebook)
-- `notebooks/05-speech-audio` 0/22 -> 22/22, 132 checks, 64.5 s (2.9 s/notebook)
-
-Library: **117/245 (48%), 14 of 14 domains**, up from 24/245 in 8 of 14 when the band
-opened. `gateaudit` over the whole library: 117 gates, 702 checks, **0 flagged**.
-`regate`: 117/117 hold. `validate_nbgrader notebooks`: 117 notebooks, 0 failures.
-
-**The scope decision, and where it lives.** The 128 notebooks still ungated are all in
-four *partially* gated domains and none of them is unsuitable for gating — the constraint
-is authoring attention. So they are **deferred, with the decision on disk**:
-
-- `notebooks/ungated.json` — the tracked register: one entry per domain, each with a
-  `reason` and a `decided` date, and the queue order (02 -> 08 -> 03 -> 11).
-- `praxis/ungated.py` (new) — loads and **grades** it against the live library rows, so a
-  stale entry (a domain that now gates everything, a `rel` overtaken by a gate) is a
-  failure rather than a belief. It is a *record, not a rule*: nothing is excluded from
-  `backfill_targets()`, because a register that shrank the queue would turn "we decided to
-  wait" back into "we forgot".
-- `praxis/coverage.py` folds it in: the complement of `gated` now splits into **deferred**
-  and **omitted**. Omitted is the number to watch and it is **0**.
-
-**Files changed**
-- 38 x `notebooks/{04-agentic-ai,05-speech-audio}/*.checks.json` (new) + the 38 notebooks
-  (graded cells published).
-- `praxis/ungated.py`, `notebooks/ungated.json`, `tests/test_ungated.py` (new, 24 tests).
-- `praxis/coverage.py` (+`deferred`/`omitted`), `tests/test_coverage.py` (shape),
-  `tests/test_launcher_api.py` (one claim moved off the library), `CLAUDE.md`,
-  `docs/explanation/gating-backfill-cost.md`.
-
-**Learnings for future iterations**
-- **Author code checks as stdlib re-implementations of the notebook's own mechanism.**
-  Every one of the 38 does this (the lifecycle handshake, the durable task resumed by id,
-  the state reducer that clobbers without a merge rule, the blank that saves a double
-  letter, the soft alignment that has a gradient where a repeat has none). It is the only
-  reliable way to clear `gateaudit` *and* be worth grading, and it makes the `short`
-  checks write themselves because you already know what the mechanism is FOR.
-- **Expect 1-2 rejected drafts per 10 and budget one repair round each.** In this pass the
-  write path caught: a reference solution that disagreed with its own test, an expected
-  frame count off by one, a float tolerance too tight for the `eps` in the formula
-  underneath it, and a mel-filterbank claim that is false at a 400-point transform (the
-  lowest filters collapse to zero width). None would have been caught by reading.
-- **Two cheap authoring rules that avoid most rejections.** (1) Never assert an exact
-  count you have not computed — run the reference solution first and paste the number.
-  (2) `gateaudit` needs the test to fail an empty submission *and* the starter stub, so
-  make the first assertion compare against a concrete value rather than a shape.
-- **A test that fails because coverage rose is the tool working.** Four have now moved
-  (`test_gateaudit`, `test_regate`, and two in `test_launcher_api`). The newest:
-  "a module carrying no gate locks nothing" could no longer find such a module in the
-  seed library, so it now asserts the rule against `progress.module_gates()` directly.
-  When you hit one, move the claim to where the rule lives; do not freeze the corpus.
-- **The `notebooks/ungated.json` register must be kept current by the next batch.** Gating
-  a domain to 100% makes its entry stale, and `tests/test_ungated.py` will say so.
-
----
-
-## US-3 — Coverage stops being discoverable only by audit (2026-08-27)
-
-**Done.** The coverage figure now lives where a reader meets it and where the merge gate
-enforces it, instead of only behind a command nobody had run.
-
-**Files changed**
-- `praxis/gatefloor.py` (new) — the ratchet. `measure()` (a fold over
-  `backfill.coverage()`), `load_floor()`, `regressions()`, `claim()` / `claim_failures()`
-  / `write_claim()`, `record()`, `report()` / `render()`, CLI `[--json|--record]`.
-- `notebooks/coverage-floor.json` (new) — the recorded floor: 117/245, 14 of 14 domains,
-  per domain, dated. Beside `ungated.json` and for the same reason.
-- `tests/test_gatefloor.py` (new, 20 tests).
-- `README.md` — the claim sentence in the intro; the ratchet in **The gate**; the Roadmap
-  paragraph re-marked (the backfill shipped *and ran*).
-- `ROADMAP.md` — Current State bullet, the gating-backfill section ⬜ proposed → ✅ shipped
-  and run, all three rows, the "still open" note, a `chief/87` entry in Tasklist Status.
-- `CLAUDE.md` — the `gatefloor` paragraph after the coverage/ungated ones, and **Gates**.
-- `.chief/verify.sh` + `.github/workflows/ci.yml` — `python3 -m praxis.gatefloor` beside
-  `validate_nbgrader.py`, in both, with the same comment.
-
-**Measured**
-- `python3 -m praxis.gatefloor` → `coverage HOLDS`, exit 0, 1.8 s.
-- Live drop demonstrated: held back one `13-interpretability` sidecar → exit 1, naming
-  `13-interpretability: 2/3 gated, below the recorded floor of 3` **and** the library
-  line. Tree restored, `git status` clean.
-- `pytest -q tests/` → **1205 passed, 1 skipped, 0 failed** (434 s).
-- `validate_nbgrader.py notebooks` → 117 notebooks, 0 failures.
-- `check-doc-links.mjs --ratchet --base main` → 0 dead vs 0 on main.
-
-**Learnings for future iterations**
-- **The floor is not coverage, and the code says so out loud.** `coverage.py`'s rule is
-  "no number here is ever stored"; the ratchet keeps it by never *reading* the stored
-  number as coverage — coverage is always measured, the floor is always loaded, and the
-  only thing compared is the direction. Keep that split if you extend it.
-- **`measure()` folds `backfill.coverage()`, not a new scan.** That is what keeps
-  `is_gated()` the single definition of a gate *and* makes the check core-only (no
-  fastapi, so it does not `importorskip` itself away in a bare environment).
-  `tests/test_gatefloor.py` pins it against the view-model report as well, so the two
-  altitudes still agree.
-- **A doc claim that a test reads must be strict about its own shape.** `CLAIM` is a
-  precise regex over one README sentence and `claim()` *raises* when it is gone — a loose
-  pattern would keep matching after somebody rewrote the paragraph, which is the failure
-  mode this whole story is about. `record()` rewrites the floor and the sentence together
-  for the same reason; do not hand-edit one.
-- **`write_claim()` substitutes a single line**, so keep the claim sentence on its own
-  line in the README or a `--record` will unwrap the paragraph around it.
-- **Raising coverage from here is two commands**, in this order: gate the notebooks, then
-  `python3 -m praxis.gatefloor --record` (and update `notebooks/ungated.json`, which
-  `tests/test_ungated.py` will otherwise report as stale).
+- **`chief/86` marked "delete the dead generators" as passing and did not delete them.** Both files
+  are still in the tree and its `notes` restates the story premise instead of an observation. When
+  US-2 removes them, the note must say what `git ls-files | wc -l` and the gate actually reported.
+- **`ROADMAP.md:282` already declares `ralph/`/`.ralphy/` historical and superseded.** That is the
+  repo's own evidence for the largest Class-A item, but removal strands `Makefile`'s `ralph` and
+  `tasklists` targets, `README.md:124,305,345-353`, `curriculum.py:20`, `generate_docs.py:82` and
+  `docs/explanation/gap-analysis.md:9`. Those edits belong in the SAME commit — the docs tasklist
+  (901) is for docs that are wrong, not for references a removal strands.
+- **The second-order check is the one worth running.** Re-running pass 1 with the Class-A files
+  removed from the corpus produced the *same* four symbols and no new orphans, which is what proves
+  nothing in `curriculum.py` or `praxis/` is kept alive only by the legacy scripts. Re-run it after
+  each removal step in US-2.
+- **US-2 should be several commits, one subsystem each** (AC: "reviewable steps rather than one
+  sweep"): symbols+imports · legacy generators · sync_curriculum · ralph. Removing `ralph/` will
+  touch `Makefile` and `README.md`, which pulls the FULL python gate in — budget for the pytest run.
