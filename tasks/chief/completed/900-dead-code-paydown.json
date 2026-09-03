@@ -1,0 +1,62 @@
+{
+  "project": "praxis",
+  "category": "fix",
+  "branchName": "chief/900-dead-code-paydown",
+  "dependsOn": [],
+  "touches": [
+    "."
+  ],
+  "iters": 8,
+  "description": "Find and remove dead, stale and duplicated CODE, so the tree is what it claims to be.\n\nRUN THIS LAST, DELIBERATELY. It carries a high number because a cleanup that runs before the work is finished deletes scaffolding that was about to be used, and then the next tasklist re-adds it. The roadmap should be substantially complete before this executes.\n\nWHAT COUNTS AS DEAD. Unreferenced modules, functions and files; duplicated implementations of one behaviour; code behind flags that can no longer be set; scripts nothing runs; dependencies nothing imports; commented-out blocks kept 'just in case'. What does NOT count: code a test exercises, code an external consumer calls, and code that is deliberately unexercised and says so.\n\nTHE STANDARD OF PROOF, AND IT IS THE WHOLE TASKLIST. This portfolio has repeatedly found things that LOOKED dead and were not — a Prolog corpus reached by a path nobody found, `content_qa` declared callerless when it had a caller, `docs/studioos` cited by 93 files. Deletion is irreversible in effect even when git remembers, because nobody re-reads a deleted file. Every removal names the search that found nothing.\n\nPAIRED WITH THE DOCS SWEEP, WHICH RUNS AFTER. Removing code changes what the docs should say, so the docs tasklist depends on this one. Do not fix docs here beyond what a removal strands.",
+  "userStories": [
+    {
+      "id": "US-1",
+      "title": "An inventory, measured before anything is removed",
+      "passes": true,
+      "notes": "docs/explanation/dead-code-inventory.md, 250 lines. Method is three passes (AST definition-level reachability counting self-refs, whole-file reachability, 8-line-window duplication scan) and every candidate carries its exact `git ls-files | xargs grep` command and that command's output. Class A: 7 genuinely-dead findings — 4 symbols (all_manifest_topics, NBGRADER_METADATA_KEYS, delete_jd, s3.walk_files) plus generate_notebooks.py 691 + enhance_notebooks.py 205 + sync_curriculum.py 141 + ralph//.ralphy 4330 lines. Class B: 4 duplicated implementations (three copies of the mirror walk, SyncResult in cloud.py/share.py, the Ralph construction path vs construct.py+tasklist.py, make bundle vs bundle-macos.sh). Class C: 11 rows of looked-dead-and-is-not, incl. the deliberately-unexercised refusal paths and a naive grep that wrongly called praxis/suggestion_review.py callerless when launcher/app.py has six. Class D: 9 unused imports. TS and Rust passes found nothing removable (0 zero-ref exports, 0 cargo dead_code warnings). GATE: chief verify -> 'doc-links: 0 dead vs 0 on main', 'verify: PASS', exit 0.",
+      "acceptanceCriteria": [
+        "Produce a checked-in inventory of candidates with, for each, the SEARCH that found it unreferenced — the command and its scope. A candidate list without its method is unreviewable, and this is the artifact a human approves before deletion.",
+        "Separate genuinely-dead from deliberately-unexercised. The second class exists here on purpose (refusal paths, guards, unreached tiers that say so) and deleting it removes a stated contract.",
+        "Include duplicated implementations as first-class findings, not just unused ones — two implementations of one behaviour is the failure mode that costs most later, because they drift.",
+        "GATES: the repo's own verify green."
+      ]
+    },
+    {
+      "id": "US-2",
+      "title": "Removal, with the tree still green and the reason recorded",
+      "passes": true,
+      "notes": "Five commits, one subsystem each: 0051526 the four dead symbols (all_manifest_topics, NBGRADER_METADATA_KEYS, delete_jd, s3.walk_files) + 8 unused imports; b8858f5 the legacy generators (896 lines); 58cecd3 sync_curriculum.py (141); 942ed91 ralph/+.ralphy/ (24 files, 4,330 lines) with every stranded reference fixed in the SAME commit (Makefile targets, 6 README sites, curriculum.py, generate_docs.py + its output gap-analysis.md, ROADMAP.md, nbstatus.py, pyproject.toml, tests/test_notebooks.py, notebook-rubric.md); 6793c59 the record. Each candidate was re-searched with `git ls-files | xargs grep` immediately before removal. MEASURED: 27 files removed, 545 tracked where there were 571, 5,455 deletions vs 35 insertions outside .chief/. `python3 -m pytest -q tests/` ran after EVERY step and read 1205 passed, 1 skipped each time — identical before and after; NO test was deleted, skipped or adjusted. Re-running the inventory's pass 1 over the reduced tree returns 0 candidates (was 4), so nothing new was orphaned. NOT removed and recorded with why: B1/B2 (the mirror walk and SyncResult duplicated across cloud.py/share.py — both copies live, collapsing couples S3 to WebDAV), B4 (make bundle vs bundle-macos.sh, the script adds signing + version check), technologies.md (a document, not code), and all of Class C. Plus two pre-existing generate_docs.py defects the removal surfaced and left for the docs sweep (main() writes the gap analysis into the docs/ root instead of docs/explanation/ where the tracked file is, and the generator drops the Status banner). GATE: chief verify -> 'doc-links: 0 dead vs 0 on main', 'coverage HOLDS', pytest 1205 passed 1 skipped, 'verify: PASS', exit 0.",
+      "acceptanceCriteria": [
+        "Remove what US-1 established, in reviewable steps rather than one sweep. A single commit deleting hundreds of lines across unrelated subsystems cannot be reviewed and cannot be partially reverted.",
+        "The full gate passes after each step. A removal that needs a test deleted to stay green is a removal of something live — say so and stop rather than adjusting the test.",
+        "Anything NOT removed that looked dead is recorded with why it survived. That record is worth more than the deletions: it is what stops the next sweep re-litigating the same files.",
+        "GATES: the repo's own verify green."
+      ]
+    },
+    {
+      "id": "US-3",
+      "title": "What the sweep could not decide",
+      "passes": true,
+      "notes": "docs/explanation/dead-code-inventory.md 335 -> 428 lines; no code changed, which is the story: every Class E row is LEFT IN PLACE. Ten undecidable rows, each naming what would have to be checked outside this tree: the 145 public symbols in shipped modules with zero references outside their own file (pyproject.toml publishes praxis + launcher, so any is importable by a consumer git ls-files cannot reach); the two [project.scripts] entry points (launcher.app:main has NO python caller, launch_lab has one, Makefile:68); the four #[tauri::command] fns reached only by a TS string literal (invoke(\"app_info\") - cargo emits no dead_code via generate_handler!, tsc sees a string, neither links the pair); the 30 Jinja view-model keys; scaffold_notebooks.reorg() + 3 LEGACY_* constants, a completed one-shot migration measured to move 0 items (0 of LEGACY_ROOT_NOTEBOOKS and 0 of LEGACY_SECTION_DIRS present, no test names it) whose remaining trigger is a user's disk; the x-agora-* header vocabulary and the chief run-id/outcome/exit/summary records, both consumed by reference from another program (tests drive a FAKE chief); operator-only env vars (PRAXIS_NO_EMBED, CHIEF_LOCAL_*) set by no tracked file; the six on-disk JSON schemas live on users' disks; and the two protocol fakes. LIMITS, all measured: pass 1's corpus is module-level defs only, 1230 of them, while ast.walk finds 1489 - 259 definitions were NEVER candidates, including all 27 route handlers across 18 paths nested in create_app(); three cross-language string boundaries no compiler spans; 0 of 245 seed notebooks import a repo module (measured negative - the corpus keeps no python symbol alive, only metadata keys); and NO reflection anywhere - all 16 getattr sites take a literal, zero importlib/__import__/globals()/eval/exec in any tracked .py outside notebooks/. GATE: chief verify -> 1205 passed, 1 skipped, 'verify: PASS', exit 0.",
+      "acceptanceCriteria": [
+        "Report candidates the sweep could not resolve — reachable only through dynamic dispatch, reflection, generated code, or a consumer outside this repo — and leave them in place. An honest 'undecidable' list is a legitimate result.",
+        "State the limits of the method: what a static search over this tree cannot see. Cross-repo consumers are the obvious one, and this portfolio has already been bitten by exactly that.",
+        "GATES: the repo's own verify green."
+      ]
+    }
+  ],
+  "mergedToMain": "cccdf03",
+  "gates": {
+    "local": {
+      "state": "passed",
+      "detail": "the project verify hook (verify.sh) ran and exited 0"
+    },
+    "ci": [
+      {
+        "workflow": "CI",
+        "state": "unknown",
+        "detail": "a push of main can start it; whether it RAN for cccdf03 is not recorded here — chief makes no network call on the merge path. `chief cigate` is what asks GitHub."
+      }
+    ]
+  }
+}
