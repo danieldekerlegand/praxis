@@ -115,3 +115,62 @@ the WebDAV one, which is a refactor with behaviour risk rather than a removal. B
   is what a static grep over *this* tree cannot see — a cross-repo consumer of `praxis/`
   (agora, chief), the `_RESOLVERS`/`_AVAILABLE` dispatch tables, `register_backend()`'s
   external seam, and names reached only through `getattr`/`importlib`/route decorators.
+
+---
+
+## US-3 — What the sweep could not decide (2026-09-03)
+
+**Changed:** `docs/explanation/dead-code-inventory.md` only, 335 → 428 lines. **No code
+changed, and that is the story** — every Class E row is left in place by design.
+
+**Class E — ten undecidable rows**, each naming what would have to be checked *outside this
+tree* to settle it:
+
+- The **145 public symbols** in shipped modules with zero references outside their own file.
+  `pyproject.toml` publishes `praxis` + `launcher`, so any is importable by a consumer
+  `git ls-files` cannot reach. Pass 1 correctly never flagged them (all have in-file refs);
+  this sizes the population rather than clearing it.
+- The two `[project.scripts]` entry points. `launcher.app:main` has **no** Python caller at
+  all; `launch_lab`'s only one is `Makefile:68`. Zero callers is an entry point's normal state.
+- The four `#[tauri::command]` fns, reached only by a **TS string literal**
+  (`invoke<AppInfo>("app_info")`). `cargo` sees them via `generate_handler!` and warns nothing;
+  `tsc` sees a string. Neither compiler links the pair — both are green on a broken one.
+- The 30 Jinja view-model keys in `launcher/templates/index.html`.
+- `scaffold_notebooks.reorg()` + the three `LEGACY_*` constants (~50 lines): a **completed
+  one-shot migration**. Measured 0 of `LEGACY_ROOT_NOTEBOOKS` and 0 of `LEGACY_SECTION_DIRS`
+  present, no test names it — every run moves 0 items. Its remaining trigger is a *user's*
+  older checkout, which is a disk this repo cannot see.
+- The `x-agora-*` headers and the chief `run-id`/`outcome`/`exit`/`summary` records — both
+  consumed **by reference** from another program; `tests/test_headless.py` drives a *fake* chief.
+- Operator-only env vars (`PRAXIS_NO_EMBED`, `CHIEF_LOCAL_ENDPOINT`, `CHIEF_LOCAL_MODEL`),
+  read by one file and set by no tracked file.
+- The six on-disk JSON schemas, live on users' disks; and the two protocol fakes.
+
+**Limits of the method, all measured (not asserted):**
+
+| Blind spot | Measurement |
+| --- | --- |
+| Nested definitions | Pass 1's corpus is module-level only: **1,230** defs. `ast.walk` finds **1,489** → **259 were never candidates**, including all **27 route handlers across 18 paths** nested in `create_app()`. |
+| Cross-language strings | Three boundaries no compiler spans: TS→Rust `invoke()`, Python→Jinja, Python↔TS over JSON. |
+| Generated corpora | **0 of 245** seed notebooks import `curriculum`/`praxis`/`nbstatus`/`scaffold_notebooks` — a measured *negative*: the notebook corpus keeps no Python symbol alive, only metadata keys. |
+| Reflection | **None.** All 16 `getattr` sites take a *literal* name; zero `importlib`/`__import__`/`globals()`/`eval`/`exec` in any tracked `.py` outside `notebooks/`. The one dispatch table is `storage._RESOLVERS` & co., keyed by a `kind` from disk. |
+| Cross-repo | The largest, and the one this portfolio was bitten by. Every "0 references" in the doc means 0 *in this tree*. |
+
+**Gate:** `chief verify` → `1205 passed, 1 skipped`, `verify: PASS`, exit 0.
+
+### Learnings for future iterations
+
+- **A "0 references" search has a scope, and the scope is the finding.** The useful output of
+  this story was not a list of things to delete but the *size* of what the method cannot see:
+  259 invisible definitions and 145 externally-unreferenced public symbols. Quote both numbers
+  before any future sweep promotes an absence of hits to a deletion.
+- **`getattr(x, "literal", default)` is not reflection** and should not be counted as a blind
+  spot. All 16 sites in this tree are that form. The grep that matters is
+  `importlib|__import__|globals()|eval(|exec(`, which returns nothing here.
+- **The Class C row saying "all 18 routes"** is right about *paths* and 9 short of the
+  *handler* count; both numbers are now in the doc. When a count is quoted, say what it counts.
+- **`scaffold_notebooks.reorg()` is the one live-but-purposeless finding.** If a future
+  tasklist ever decides the legacy layout can no longer exist in the wild, that is ~50 lines
+  and a `--no-reorg` flag to retire — but it needs a *release* decision, not a grep.
+- **Only `docs/explanation/*.md` changed and the full python gate still ran** (7m25s pytest).
+  The path predicate pulls docs into the python job; budget for it even on a docs-only story.
