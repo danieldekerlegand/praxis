@@ -121,7 +121,6 @@ replace it.
 | [`launcher/`](launcher/) | The FastAPI browse/launch/render UI. The desktop shell wraps this. |
 | [`notebooks/`](notebooks/) | **245 seed notebooks across 14 domains** (including the legacy DevOps/MLOps library). |
 | [`CURRICULUM.md`](CURRICULUM.md) | Generated human index with live status badges. |
-| [`ralph/`](ralph/README.md) | Tasklists that drive agents to fill notebooks autonomously. |
 | [`src-tauri/`](src-tauri/) + [`ui/`](ui/) | The desktop/web shell — Rust backend, TS/React frontend. |
 
 Notebooks live under `notebooks/<NN-domain>/<topic>.ipynb` and carry their Praxis state
@@ -301,9 +300,8 @@ To edit the **seed** curriculum instead, change [`curriculum.py`](curriculum.py)
 (add/remove topics; `recommended=True` marks suggested additions), then:
 
 ```bash
-python scaffold_notebooks.py        # scaffold new topics
-python ralph/generate_tasklists.py  # rebuild the construction tasklists
-python generate_docs.py             # refresh indices
+python scaffold_notebooks.py  # scaffold new topics
+python generate_docs.py       # refresh indices
 ```
 
 ## Constructing the tutorials
@@ -341,17 +339,11 @@ compile.
 Each constructed notebook also gets its [knowledge checks](#gated-learning) written beside
 it — that second half is what makes it a *gated* tutorial rather than a finished one.
 
-Filling notebooks with an autonomous coding agent instead, via
-[ralphy](https://github.com/michaelshimeles/ralphy) (auto-commits per notebook):
-
-```bash
-./ralph/run.sh 8          # fill one subject (Architectures) — a good first smoke test
-FAST=1 ./ralph/run.sh 8   # ...without the test/lint gate
-./ralph/run.sh            # fill everything, subject by subject
-```
-
-See [`ralph/README.md`](ralph/README.md) for the full workflow. As notebooks are filled,
-re-run `python generate_docs.py` to refresh the indices and badges.
+To drive that same loop unattended, [`praxis/tasklist.py`](praxis/tasklist.py) cuts the live
+library into one-domain units and emits Chief tasklists that run the **shipped** commands, and
+[`praxis/headless.py`](praxis/headless.py) starts them and reads the result back
+([docs/reference/chief-powered-construction.md](docs/reference/chief-powered-construction.md)).
+As notebooks are filled, re-run `python generate_docs.py` to refresh the indices and badges.
 
 ## Gated learning
 

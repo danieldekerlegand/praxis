@@ -77,8 +77,8 @@ def gen_gap_analysis() -> str:
         "## 1. Listed topics — coverage",
         "",
         "Every topic from the original study list now has a notebook (scaffold or filled). "
-        "Status badges below; run `./ralph/run.sh` to fill the 🔴/🟡 ones to the "
-        "[rubric](notebook-rubric.md).",
+        "Status badges below; run `python -m praxis.construct` to fill the 🔴/🟡 ones "
+        "to the [rubric](notebook-rubric.md).",
         "",
     ]
     for d in DOMAINS:
@@ -98,7 +98,8 @@ def gen_gap_analysis() -> str:
         "## 2. Recommended additions (not in the original list)",
         "",
         "High-value neighbors worth a refresher. They're already scaffolded and tagged "
-        "`recommended` in `curriculum.py`, so the launcher and Ralph cover them too. Drop any "
+        "`recommended` in `curriculum.py`, so the launcher and the constructor cover them too. "
+        "Drop any "
         "you don't want by removing the topic from `curriculum.py`.",
         "",
     ]
@@ -121,7 +122,7 @@ def gen_gap_analysis() -> str:
         "The repo already contained **64 MLOps / AWS / GPU-infra notebooks** on a different "
         "curriculum than the study list. Per the project decision they're retained as one domain, "
         "**DevOps/MLOps & Infra** (`notebooks/11-devops-mlops-infra/`), and their 34 template "
-        "stubs are finished by Ralph alongside the new material.",
+        "stubs are finished by the constructor alongside the new material.",
         "",
     ]
     return "\n".join(lines)

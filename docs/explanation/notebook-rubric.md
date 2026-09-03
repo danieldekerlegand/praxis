@@ -3,7 +3,8 @@
 > **Status:** Current · **Updated:** 2026-08-14 · **Owner:** praxis
 
 Every study notebook is a **self-contained refresher** for one topic. This rubric is the
-definition of "complete" and is embedded into every Ralph task. The automated gate is
+definition of "complete" and is what the constructor grades against before it writes
+(`praxis/rubric.py`). The automated gate is
 [`tests/test_notebooks.py`](../../tests/test_notebooks.py).
 
 ## Required structure

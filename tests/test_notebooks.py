@@ -1,4 +1,4 @@
-"""The completion gate Ralph must satisfy.
+"""The completion gate a constructed notebook must satisfy.
 
 Semantics (so unfinished scaffolds never block finished work):
   - EVERY notebook must be valid nbformat — always enforced.
@@ -10,8 +10,8 @@ Semantics (so unfinished scaffolds never block finished work):
     placeholder template text is gone: no placeholder markers, and substantive size.
     While it still has template markers it's skipped (not yet finished).
 
-So a Ralph task is "done" exactly when its notebook passes here; everything still
-to-do is skipped, keeping the suite green for the tasks that ARE complete.
+So a construction target is "done" exactly when its notebook passes here; everything
+still to-do is skipped, keeping the suite green for the notebooks that ARE complete.
 
 The strict checks themselves live in `praxis/rubric.py` — this file decides *which*
 notebooks get graded, `gate_failures()` decides what "graded" means. The AI constructor

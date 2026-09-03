@@ -22,7 +22,7 @@ DOMAIN  ?=
         run dev ui-dev launch lab web \
         build build-ui build-lite build-rust bundle bundle-app \
         test test-py verify check \
-        doctor curriculum define scaffold construct docs tasklists ralph \
+        doctor curriculum define scaffold construct docs \
         clean clean-ui clean-lite clean-rust distclean
 
 ## ---------------------------------------------------------------- help
@@ -138,12 +138,6 @@ construct: ## Fill scaffolds to the rubric + write checks: SUBJECT=<slug> or NB=
 
 docs: ## Regenerate CURRICULUM.md + indices with live badges
 	$(PY) generate_docs.py
-
-tasklists: ## Rebuild the ralph construction tasklists from the seed curriculum
-	$(PY) ralph/generate_tasklists.py
-
-ralph: ## Fill notebooks with an autonomous agent: DOMAIN=<NN> for one domain, else all
-	./ralph/run.sh $(DOMAIN)
 
 ## ---------------------------------------------------------------- clean
 

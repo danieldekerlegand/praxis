@@ -17,7 +17,7 @@ subject exactly as it works on a seed domain.
 Drives:
   - scaffold_notebooks.py   (creates blank notebook scaffolds + reorgs the legacy 64)
   - launcher/app.py         (sidebar navigation + completion status)
-  - ralph/generate_tasklists.py (one ralphy task per notebook below the rubric bar)
+  - praxis/tasklist.py      (one Chief unit per domain still below the rubric bar)
   - CURRICULUM.md / docs/explanation/gap-analysis.md (generated human indices)
 
 Domains 1-10 are the seed study curriculum (explicit topic lists below).

@@ -14,7 +14,7 @@ dependencies = [
 
 [project.optional-dependencies]
 # The launcher UI + live notebooks. Kept optional so the core (curriculum,
-# scaffolder, Ralph generators) stays dependency-light.
+# scaffolder, gate) stays dependency-light.
 launch = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.27",
