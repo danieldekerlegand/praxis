@@ -1,176 +1,106 @@
-# Chief Progress — 900-dead-code-paydown
-Started: Thu Sep  3 10:04:17 CDT 2026
+# Chief Progress — 901-docs-tell-the-truth
+Started: Thu Sep  3 12:01:48 CDT 2026
 ---
 
 ## Codebase Patterns
 
-- **Grep the whole tree, not just code.** A naive `grep -E "praxis[./]<mod>"` reported
-  `praxis/suggestion_review.py` as callerless; it has six callers reached through
-  `from praxis import gap, jd_extract, suggest, suggestion_review`. Multi-name `from X import a, b`
-  is the form that defeats a per-module regex. Use `git ls-files | xargs grep -n '\b<name>\b'`.
-- **Count self-references too.** A definition-level scan that only counts *external* references
-  reports every private helper. Requiring zero external AND zero in-file references cuts ~900
-  candidates to 4.
-- **`.chief/verify.sh` is path-scoped.** A change touching only `docs/explanation/*.md` runs the
-  doc-link ratchet and nothing else. Touching any `.py`, `Makefile`, `README.md`, `scripts/` or the
-  three version manifests pulls in `validate_nbgrader.py` + `praxis.gatefloor` + the full pytest run.
-- **Commit, then `chief verify`.** The verdict is only recorded for a committed clean tree; the
-  runtime `.chief/state/*` files count as dirt, so update them and commit before the final verify.
+- **The docs gates are a PAIR, and they live in three places that must stay in step:**
+  `scripts/check-doc-links.mjs` (local references resolve — a **ratchet** vs the base) and
+  `scripts/check-docs-structure.mjs` (index coverage · banners · closed directory set — a
+  **wall**). Both are wired into `.chief/verify.sh` *and* `.github/workflows/ci.yml`.
+  CLAUDE.md's "change one and change the other" rule applies: verify.sh + ci.yml + the
+  guard's own header comment.
+- **`chief verify` runs the MAIN CHECKOUT's `.chief/verify.sh`, not the worktree's.**
+  Observed 2026-09-03: the header line reads
+  `>> chief verify: /Users/dldekerlegand/Development/praxis/.chief/verify.sh (cwd=<worktree>)`.
+  So a NEW step added to `.chief/verify.sh` inside a worktree is **not exercised by
+  `chief verify` on that branch** — it only takes effect after the merge. Run the new
+  check directly and say so in the story notes.
+- **NEVER `git checkout .chief/state/prd.json`.** It is deliberately *uncommitted* runtime
+  state; HEAD's copy is the PREVIOUS tasklist's finished PRD (all stories `passes: true`).
+  I did this and clobbered 901's PRD with 900's. Recovery, should it happen again: the
+  git-tracked `tasks/chief/<name>.json` is a byte-identical copy of the runtime PRD as
+  installed, so `cp tasks/chief/<name>.json .chief/state/prd.json` restores it.
+- **Backtick every `docs/...` path you name in a story's `notes`.**
+  `scripts/check-doc-links.mjs` scans tracked JSON for bare `docs/...md` paths, and
+  `tasks/chief/<name>.json` IS tracked — so a note describing a file you deliberately
+  moved away from, or a violation you injected to prove a gate fires, registers as a
+  doc-link REGRESSION and fails the merge. Observed: 3 dead references, all of them
+  prose in my own notes. Backticks suppress it (the scanner's negative lookbehind).
+- **Write JSON back with `ensure_ascii=False`.** Both the PRD and the tasklist are full of
+  `—` and `·`; `json.dumps` defaults to escaping them and turns a 2-line edit into a
+  whole-file diff.
+- The documentation standard's home of record is
+  `/Users/dldekerlegand/Development/rosetta/docs/reference/documentation-standard.md`
+  (private repo — cite as backticked prose, never a relative link). Tier 1 root files:
+  `README.md` `CLAUDE.md` `ROADMAP.md` `CHANGELOG.md` `LICENSE`, nothing else. Seven
+  `docs/` dirs, a ceiling not a quota. R1 index · R2 banner · R3 archive-never-delete.
 
 ---
 
-## US-1 — An inventory, measured before anything is removed (2026-09-03)
+## US-1 — Every document is reachable, banner-stamped, and in the right place  (commit d711aff)
 
-**Added:** `docs/explanation/dead-code-inventory.md` (250 lines). Nothing else changed; this story
-deliberately removes nothing.
+**Measured first.** 4 of 13 `docs/` files had no banner, not the tasklist's 3 —
+`docs/explanation/dead-code-inventory.md` arrived from `900-dead-code-paydown` after that
+measurement was taken. 3 were unreachable from `docs/README.md` (dead-code-inventory,
+domain-addition-policy, seed-refresh-policy). 1 dead internal link. 0 undeclared
+directories under `docs/`.
 
-**Method (three passes, all reproducible from the doc):**
-1. AST definition-level reachability over every tracked `.py` outside `notebooks/`, counting
-   word-boundary hits in every tracked `.py .md .json .ts .tsx .rs .sh .mjs .html .toml .yml .css`
-   file AND inside the defining file. Zero+zero = candidate.
-2. Whole-file reachability for each top-level script and subsystem.
-3. Duplication: hash every 8-line window of normalized non-blank non-comment Python lines.
+**Files changed**
+- `docs/explanation/{dead-code-inventory,domain-addition-policy,gating-backfill-cost,seed-refresh-policy}.md`
+  — banner added, dated to each file's last content change (`git log -1 --date=short`),
+  not to today. A banner claiming today's date on a doc nobody touched is the lie the
+  banner exists to prevent.
+- `docs/README.md` — rewritten: all 13 subdocs linked; the citation of the standard changed
+  from a relative path into private `rosetta` to backticked prose; a new "shape of this
+  tree" section stating in writing that 0 directories fall outside the seven and why the
+  two generated docs must not be hand-edited.
+- `CURRICULUM.md` → `docs/reference/curriculum.md` (`git mv`), its 245 notebook links
+  repointed `notebooks/` → `../../notebooks/`, and all five citers updated in the same
+  commit: `generate_docs.py`, `curriculum.py`'s docstring, `Makefile`'s `docs` target,
+  `README.md`'s reusable-core table. Verified with `difflib` that the moved file is
+  IDENTICAL to `git show HEAD:CURRICULUM.md` modulo the repointing and the banner.
+- `generate_docs.py` — the two defects `900` explicitly handed to this sweep, both real:
+  `main()` wrote `docs/gap-analysis.md` while the tracked file was
+  `docs/explanation/gap-analysis.md` (so `make docs` produced an orphan and left the real
+  one stale), and neither generator emitted a banner (so regenerating a compliant doc
+  demoted it). Both fixed. Proof it is now in sync: regenerating reproduces
+  `gap-analysis.md` byte-identically apart from the banner date.
+- `scripts/check-docs-structure.mjs` — NEW. R1/R2/R3 restated in its own header so it is
+  self-contained for a repo that cannot read rosetta.
+- `.chief/verify.sh` + `.github/workflows/ci.yml` — the guard wired in. **CI carried
+  neither doc gate before this**: `check-doc-links.mjs` blocked regressions in verify.sh
+  while a PR that never ran verify.sh merged them anyway.
+- `CLAUDE.md` — Gates section now documents both doc gates and the wall/ratchet split.
 
-**Findings:**
-- **Class A (genuinely dead, ~1,400 lines + 4,330 in `ralph/`):** `curriculum.all_manifest_topics`,
-  `praxis.checks.NBGRADER_METADATA_KEYS`, `praxis.jd.delete_jd`, `praxis.s3.walk_files` (whose
-  `pragma: no cover` claims a caller in `cloud.sync` that does not exist), `generate_notebooks.py`
-  (691), `enhance_notebooks.py` (205), `sync_curriculum.py` (141), `ralph/` + `.ralphy/` (24 files).
-- **Class B (duplicated implementations):** three copies of the mirror walk; `SyncResult` in
-  `cloud.py`/`share.py`; the Ralph construction path vs `construct.py` + `tasklist.py`;
-  `make bundle` vs `scripts/bundle-macos.sh` (recorded, not a defect).
-- **Class C (looked dead, is not):** 11 rows — every `praxis/` module, the four maintenance CLIs a
-  test exercises, `scripts/check-tasklist-categories.mjs` (never *run*, but `tests/test_tasklist.py`
-  reads its source), the refusal paths, all declared dependencies, all 18 launcher routes.
-- **Class D:** 9 unused imports.
-- TypeScript and Rust: nothing removable. 0 zero-reference TS exports, 0 `dead_code` warnings.
+**Verification**
+- `node scripts/check-docs-structure.mjs` → `docs-structure: OK`, exit 0. **Proved it
+  fires**, which matters more: an injected undeclared `docs/planning/x.md` → 3 violations,
+  exit 1; a banner-less `docs/reference/y.md` → 2 violations, exit 1.
+- `node scripts/check-doc-links.mjs` → `dead references 0 (0 distinct targets)`, before
+  and after.
+- `chief verify` → `doc-links: 0 dead vs 0 on main` · `nbgrader validate: 117 notebooks,
+  0 failures` · `coverage HOLDS` (117/245, 14/14 domains) · `1205 passed, 1 skipped` ·
+  `verify: PASS`, exit 0. Identical test counts to `900`'s — nothing was skipped or
+  adjusted to get there.
 
-**Gate:** `chief verify` → `doc-links: 0 dead vs 0 on main`, `verify: PASS`, exit 0.
+**Deliberately NOT done, and said out loud rather than left silent**
+- The Tier-1 root-file rule is **not** enforced by the new guard. `technologies.md` is
+  still at the root pending US-3's archival, and a gate that is red the day it lands is a
+  gate someone switches off. The guard's header says so; US-3 should add the rule when it
+  archives that file.
+- The new verify.sh step was not exercised by `chief verify` (see Codebase Patterns —
+  `chief verify` runs the main checkout's script). It was run directly instead.
 
-### Learnings for future iterations
-
-- **`chief/86` marked "delete the dead generators" as passing and did not delete them.** Both files
-  are still in the tree and its `notes` restates the story premise instead of an observation. When
-  US-2 removes them, the note must say what `git ls-files | wc -l` and the gate actually reported.
-- **`ROADMAP.md:282` already declares `ralph/`/`.ralphy/` historical and superseded.** That is the
-  repo's own evidence for the largest Class-A item, but removal strands `Makefile`'s `ralph` and
-  `tasklists` targets, `README.md:124,305,345-353`, `curriculum.py:20`, `generate_docs.py:82` and
-  `docs/explanation/gap-analysis.md:9`. Those edits belong in the SAME commit — the docs tasklist
-  (901) is for docs that are wrong, not for references a removal strands.
-- **The second-order check is the one worth running.** Re-running pass 1 with the Class-A files
-  removed from the corpus produced the *same* four symbols and no new orphans, which is what proves
-  nothing in `curriculum.py` or `praxis/` is kept alive only by the legacy scripts. Re-run it after
-  each removal step in US-2.
-- **US-2 should be several commits, one subsystem each** (AC: "reviewable steps rather than one
-  sweep"): symbols+imports · legacy generators · sync_curriculum · ralph. Removing `ralph/` will
-  touch `Makefile` and `README.md`, which pulls the FULL python gate in — budget for the pytest run.
-
----
-
-## US-2 — Removal, with the tree still green and the reason recorded (2026-09-03)
-
-**Five commits, one subsystem each** (AC: "reviewable steps rather than one sweep"):
-
-| Commit | Removed |
-| --- | --- |
-| `0051526` | A1–A4 (`all_manifest_topics`, `NBGRADER_METADATA_KEYS`, `delete_jd`, `s3.walk_files`) + Class D (8 imports) |
-| `b8858f5` | A5 — `generate_notebooks.py` (691) + `enhance_notebooks.py` (205) |
-| `58cecd3` | A6 — `sync_curriculum.py` (141) |
-| `942ed91` | A7/B3 — `ralph/` + `.ralphy/` (24 files, 4,330 lines) + every stranded reference |
-| `6793c59` | The record, appended to `docs/explanation/dead-code-inventory.md` (250 → 335 lines) |
-
-**Gate:** `chief verify` → `doc-links: 0 dead vs 0 on main`, `coverage HOLDS`, `1205 passed, 1 skipped`, `verify: PASS`, exit 0.
-
-**Measured:** 27 files removed, 545 tracked (was 571), 5,455 deletions vs 35 insertions
-outside `.chief/`. `python3 -m pytest -q tests/` after **every** step: **1205 passed, 1
-skipped**, identical each time. No test deleted, skipped or adjusted at any step.
-
-**Second-order check re-run:** pass 1 over the reduced tree returns **0 candidates** (was 4).
-Nothing was kept alive only by the removed code.
-
-**Not removed, recorded with why** (the inventory's new "What looked dead and was NOT
-removed" table): B1/B2 — the mirror walk and `SyncResult` duplicated across
-`cloud.py`/`share.py` are live in *both* copies, and collapsing them couples the S3 backend to
-the WebDAV one, which is a refactor with behaviour risk rather than a removal. B4. And
-`technologies.md`, which is a document — the tasklist's scope is code.
-
-### Learnings for future iterations
-
-- **The stranded-reference set was bigger than the inventory predicted.** US-1 listed six
-  sites for `ralph/`; the actual grep after deletion found **eleven** — the extra five are
-  docstrings that say "Ralph" without saying `ralph/` (`nbstatus.py:2,9`,
-  `tests/test_notebooks.py:1,13`, `pyproject.toml:17`,
-  `docs/explanation/notebook-rubric.md:6`). After any file removal, grep the *concept* name
-  case-insensitively, not just the path. The inventory's A7 list is otherwise accurate.
-- **`docs/explanation/gap-analysis.md` is generated, so its prose edits belong in
-  `generate_docs.py` too** — edit both or the next `make docs` reverts you. Diff the file
-  against a fresh `gen_gap_analysis()` before editing either.
-- **Two live `generate_docs.py` defects found and deliberately NOT fixed** (behaviour
-  changes, so they belong to 901): `main()` writes `docs/gap-analysis.md` while the tracked
-  file is `docs/explanation/gap-analysis.md`, and `gen_gap_analysis()` omits the
-  `> **Status:** …` banner the tracked file carries. Both recorded in the inventory.
-- **The `.venv` does not exist in this worktree** — `python3` on PATH has the deps. `verify.sh`
-  handles it; a bare `.venv/bin/python -m pytest` fails with "no such file or directory".
-- **US-3 is a report, not a change.** Its raw material is already here: the undecidable class
-  is what a static grep over *this* tree cannot see — a cross-repo consumer of `praxis/`
-  (agora, chief), the `_RESOLVERS`/`_AVAILABLE` dispatch tables, `register_backend()`'s
-  external seam, and names reached only through `getattr`/`importlib`/route decorators.
-
----
-
-## US-3 — What the sweep could not decide (2026-09-03)
-
-**Changed:** `docs/explanation/dead-code-inventory.md` only, 335 → 428 lines. **No code
-changed, and that is the story** — every Class E row is left in place by design.
-
-**Class E — ten undecidable rows**, each naming what would have to be checked *outside this
-tree* to settle it:
-
-- The **145 public symbols** in shipped modules with zero references outside their own file.
-  `pyproject.toml` publishes `praxis` + `launcher`, so any is importable by a consumer
-  `git ls-files` cannot reach. Pass 1 correctly never flagged them (all have in-file refs);
-  this sizes the population rather than clearing it.
-- The two `[project.scripts]` entry points. `launcher.app:main` has **no** Python caller at
-  all; `launch_lab`'s only one is `Makefile:68`. Zero callers is an entry point's normal state.
-- The four `#[tauri::command]` fns, reached only by a **TS string literal**
-  (`invoke<AppInfo>("app_info")`). `cargo` sees them via `generate_handler!` and warns nothing;
-  `tsc` sees a string. Neither compiler links the pair — both are green on a broken one.
-- The 30 Jinja view-model keys in `launcher/templates/index.html`.
-- `scaffold_notebooks.reorg()` + the three `LEGACY_*` constants (~50 lines): a **completed
-  one-shot migration**. Measured 0 of `LEGACY_ROOT_NOTEBOOKS` and 0 of `LEGACY_SECTION_DIRS`
-  present, no test names it — every run moves 0 items. Its remaining trigger is a *user's*
-  older checkout, which is a disk this repo cannot see.
-- The `x-agora-*` headers and the chief `run-id`/`outcome`/`exit`/`summary` records — both
-  consumed **by reference** from another program; `tests/test_headless.py` drives a *fake* chief.
-- Operator-only env vars (`PRAXIS_NO_EMBED`, `CHIEF_LOCAL_ENDPOINT`, `CHIEF_LOCAL_MODEL`),
-  read by one file and set by no tracked file.
-- The six on-disk JSON schemas, live on users' disks; and the two protocol fakes.
-
-**Limits of the method, all measured (not asserted):**
-
-| Blind spot | Measurement |
-| --- | --- |
-| Nested definitions | Pass 1's corpus is module-level only: **1,230** defs. `ast.walk` finds **1,489** → **259 were never candidates**, including all **27 route handlers across 18 paths** nested in `create_app()`. |
-| Cross-language strings | Three boundaries no compiler spans: TS→Rust `invoke()`, Python→Jinja, Python↔TS over JSON. |
-| Generated corpora | **0 of 245** seed notebooks import `curriculum`/`praxis`/`nbstatus`/`scaffold_notebooks` — a measured *negative*: the notebook corpus keeps no Python symbol alive, only metadata keys. |
-| Reflection | **None.** All 16 `getattr` sites take a *literal* name; zero `importlib`/`__import__`/`globals()`/`eval`/`exec` in any tracked `.py` outside `notebooks/`. The one dispatch table is `storage._RESOLVERS` & co., keyed by a `kind` from disk. |
-| Cross-repo | The largest, and the one this portfolio was bitten by. Every "0 references" in the doc means 0 *in this tree*. |
-
-**Gate:** `chief verify` → `1205 passed, 1 skipped`, `verify: PASS`, exit 0.
-
-### Learnings for future iterations
-
-- **A "0 references" search has a scope, and the scope is the finding.** The useful output of
-  this story was not a list of things to delete but the *size* of what the method cannot see:
-  259 invisible definitions and 145 externally-unreferenced public symbols. Quote both numbers
-  before any future sweep promotes an absence of hits to a deletion.
-- **`getattr(x, "literal", default)` is not reflection** and should not be counted as a blind
-  spot. All 16 sites in this tree are that form. The grep that matters is
-  `importlib|__import__|globals()|eval(|exec(`, which returns nothing here.
-- **The Class C row saying "all 18 routes"** is right about *paths* and 9 short of the
-  *handler* count; both numbers are now in the doc. When a count is quoted, say what it counts.
-- **`scaffold_notebooks.reorg()` is the one live-but-purposeless finding.** If a future
-  tasklist ever decides the legacy layout can no longer exist in the wild, that is ~50 lines
-  and a `--no-reorg` flag to retire — but it needs a *release* decision, not a grep.
-- **Only `docs/explanation/*.md` changed and the full python gate still ran** (7m25s pytest).
-  The path predicate pulls docs into the python job; budget for it even on a docs-only story.
+**Learnings for future iterations**
+- US-2 has real material already located: `curriculum.py`'s module docstring says "the 11
+  hand-written study domains" and "Domains 1-10" while the live figure is **14 domains /
+  245 notebooks** — a stale count in exactly the class US-2 names. Grep for other counts
+  before trusting any of them.
+- `docs/reference/curriculum.md` and `docs/explanation/gap-analysis.md` are GENERATED.
+  Never hand-edit them; run `make docs` and commit the output.
+- Don't touch `README.md`'s gate-coverage sentence casually — `praxis.gatefloor.claim()`
+  parses it, and `verify.sh` fails the merge if it disagrees with
+  `notebooks/coverage-floor.json`.
+- Editing `README.md` or anything under `scripts/` pulls in the full python job (~7 min of
+  pytest). Budget for it.
