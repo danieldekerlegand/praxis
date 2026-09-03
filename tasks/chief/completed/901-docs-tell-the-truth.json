@@ -51,5 +51,19 @@
         "GATES: the repo's own verify green."
       ]
     }
-  ]
+  ],
+  "mergedToMain": "03c30df",
+  "gates": {
+    "local": {
+      "state": "passed",
+      "detail": "the project verify hook (verify.sh) ran and exited 0"
+    },
+    "ci": [
+      {
+        "workflow": "CI",
+        "state": "unknown",
+        "detail": "a push of main can start it; whether it RAN for 03c30df is not recorded here — chief makes no network call on the merge path. `chief cigate` is what asks GitHub."
+      }
+    ]
+  }
 }
