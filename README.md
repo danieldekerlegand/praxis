@@ -24,6 +24,9 @@ everywhere is what the gate is worth to a learner — and `python3 -m praxis.gat
 fails the merge gate if coverage ever drops below the number stated above, so the claim
 cannot go stale the way it did while the library sat at 24/245.
 
+**[`docs/`](docs/README.md) is the map** — every document this repo keeps is linked from
+there, and one that is not linked there does not exist.
+
 ## Install
 
 ### If you are here to learn: open the app
@@ -120,7 +123,7 @@ replace it.
 | [`praxis/llm.py`](praxis/llm.py) | **The BYO-key LLM client** every construction step calls through (see below). |
 | [`launcher/`](launcher/) | The FastAPI browse/launch/render UI. The desktop shell wraps this. |
 | [`notebooks/`](notebooks/) | **245 seed notebooks across 14 domains** (including the legacy DevOps/MLOps library). |
-| [`CURRICULUM.md`](CURRICULUM.md) | Generated human index with live status badges. |
+| [`docs/reference/curriculum.md`](docs/reference/curriculum.md) | Generated human index with live status badges. |
 | [`src-tauri/`](src-tauri/) + [`ui/`](ui/) | The desktop/web shell — Rust backend, TS/React frontend. |
 
 Notebooks live under `notebooks/<NN-domain>/<topic>.ipynb` and carry their Praxis state
@@ -139,8 +142,8 @@ library is preserved under [`notebooks/11-devops-mlops-infra/`](notebooks/11-dev
 
 - **Your data is yours and lives in one place**: subjects, tutorials and progress are
   written under a single storage root — one directory you can copy. Keep it on this
-  computer (the default), on a **drive** you pick, or in an **S3-compatible bucket**
-  Praxis mirrors and syncs; choose in the app under *storage*. Switching only changes
+  computer (the default), on a **drive** you pick, or in an **S3-compatible bucket** or a
+  **WebDAV share** Praxis mirrors and syncs; choose in the app under *storage*. Switching only changes
   where Praxis looks — nothing is moved or deleted. See [docs/reference/storage.md](docs/reference/storage.md).
 
 The subject-definition, AI-construction, gating, and storage capabilities land
@@ -390,13 +393,20 @@ them, their checks, and your progress — lands under **one root** you can copy:
 ```
 
 The seed `notebooks/` are not that; they ship with the app and are never written to.
-Three backends ship, differing only in where the root is:
+**Four** backends ship, differing only in where the root is:
 
 | backend | root | |
 |---|---|---|
 | `app` *(default)* | this computer's app-data directory | private, no setup |
 | `drive` | the folder you pick, verbatim | an external disk, a share, a synced folder |
 | `cloud` | a local mirror, synced with an S3-compatible bucket | AWS, MinIO, R2, B2 — and still writable offline |
+| `webdav` | a local mirror, synced with a WebDAV share | Nextcloud, ownCloud, Synology, Box, `rclone serve webdav` — offline-writable the same way |
+
+> **[CORRECTED 2026-09-03 — this said "Three backends ship" and listed three. `webdav`
+> shipped alongside them (`praxis/share.py` over `praxis/webdav.py`, registered through
+> the public `register_backend()` seam) and this table never grew the row.
+> `docs/reference/storage.md` has had four all along, which is the two-copies-of-one-fact
+> failure this table is: the contract is that page, and this is a summary of it.]**
 
 Choose one in the app under **storage** (the form is generated from what the backend
 declares, and a stored secret is reported as "set", never given back), or:
@@ -430,10 +440,21 @@ a window onto it, and holds no logic of its own.
 | `GET /api/jd` · `GET /api/jd/<id>` | imported job descriptions — summaries · one, with its canonical text |
 | `POST /api/jd` | `{"text": "..."}` → a pasted posting, normalized and persisted (no key needed) |
 | `POST /api/jd/upload?filename=` | the file's raw bytes — `.txt`/`.md`/`.pdf`/`.docx` → the same document |
+| `GET /api/jd/<id>/suggestions` · `POST` | one posting's tutorial suggestions — read the reviewed set · (re)build it from the extraction → gap → suggestion funnel (spends tokens) |
+| `PUT` \| `PATCH` \| `DELETE /api/jd/<id>/suggestions/<sid>` | edit one suggestion's goal · the same · drop it |
+| `POST /api/jd/<id>/suggestions/<sid>/accept` | → **201** and a subject generated from that goal (spends tokens) |
+| `POST /api/jd/<id>/suggestions/<sid>` | `{"action": "edit"\|"drop"\|"accept"}` — the same three, for a client that uses one mutation verb |
 | `GET /api/storage` | which backend is holding your work, and whether it's reachable |
 | `POST /api/storage` | `{"kind": "drive", "options": {...}}` → keep it somewhere else |
-| `POST /api/storage/sync` | push/pull the cloud backend's mirror |
+| `POST /api/storage/sync` | push/pull the mirror of whichever syncing backend is active (`cloud` or `webdav`) |
 | `GET /render/<rel>` | a notebook, rendered read-only |
+| `GET /healthz` | the liveness probe the desktop shell waits on before it opens the window |
+
+> **[CORRECTED 2026-09-03 — this table introduces itself as "the whole product over HTTP"
+> and was missing the seven JD-suggestion routes (`chief/77`–`78`) and `/healthz`. A route
+> table that is silently partial is worse than none: a reader concludes the endpoint does
+> not exist. `launcher/app.py`'s decorators are the source; this table is now checked
+> against them rather than appended to.]**
 
 ## The desktop shell
 
@@ -507,15 +528,37 @@ Artifact paths per OS, prerequisites, signing status and the CI gate:
 **[docs/reference/packaging.md](docs/reference/packaging.md)**.
 
 Every PR to `main` runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml), which
-mirrors `.chief/verify.sh`: `npm run build`, `cargo build`, and `pytest tests/`, each
-scoped to what the PR touched.
+mirrors `.chief/verify.sh` check for check, each scoped to what the PR touched — the list
+is under [The gate](#the-gate).
 
 ## The gate
+
+[`.chief/verify.sh`](.chief/verify.sh) is the merge gate and the one home of the list;
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) mirrors it check for check, with
+the same path predicates, so a change to one is a change to both. Six checks, each run
+only when the diff touches what it covers:
+
+| check | scope |
+|---|---|
+| `node scripts/check-doc-links.mjs --ratchet --base <base>` | any `.md` — every local reference resolves; a **ratchet**, so only a regression blocks |
+| `node scripts/check-docs-structure.mjs` | any `.md` — every `docs/` file linked from [`docs/README.md`](docs/README.md) and banner-stamped, the directory set closed, and the repo root Tier-1 only; a **wall** |
+| `npm run build` in `ui/` | `ui/` |
+| `cargo build` in `src-tauri/` | `src-tauri/` (the frontend builds first — `src-tauri` embeds `ui/dist` at compile time) |
+| `python scripts/validate_nbgrader.py notebooks` · `python -m praxis.gatefloor` · `python -m pytest -q tests/` | any Python, notebook, `scripts/`, the three version manifests, `Makefile`, this file, and `docs/reference/gate-authority.md` |
+
+By hand, the two worth knowing:
 
 ```bash
 pytest                          # validates nbformat + enforces the rubric on completed tutorials
 python3 -m praxis.gatefloor     # fails if gate coverage dropped below the recorded floor
 ```
+
+> **[CORRECTED 2026-09-03 — this file, `docs/reference/packaging.md` and
+> `.github/workflows/ci.yml`'s own header each described the gate as *three* checks
+> (`npm run build`, `cargo build`, `pytest tests/`). It has been more than three since
+> `validate_nbgrader.py` and `praxis.gatefloor` were added, and six since the two doc
+> gates landed on 2026-09-03. Three statements of one list is why it drifted; the list is
+> now here and the other two point at it.]**
 
 A tutorial is "complete" only when `nbstatus.py` reports ✅ **and**
 `tests/test_notebooks.py` passes for it. Never flip a status on an unfilled notebook, and
@@ -565,4 +608,8 @@ fallback so externally-authored legacy notebooks keep working.
 The legacy generators `generate_notebooks.py` and `enhance_notebooks.py` were removed
 by the hygiene sweep — `curriculum.py` + `scaffold_notebooks.py` superseded them, nothing
 imported or invoked them, and git holds them if they are ever wanted again
-(`docs/explanation/dead-code-inventory.md`, A5). `technologies.md` is kept for history.
+(`docs/explanation/dead-code-inventory.md`, A5). The original study list praxis was built
+from is kept for history at `docs/archive/technologies.md` **[CORRECTED 2026-09-03 — it
+was at the repo root and banner-stamped `Current`; it is neither current nor a Tier-1
+root file, and 6 of its 145 hand-maintained "notebook not yet written" entries had a
+notebook. The generated `docs/reference/curriculum.md` is the live catalog]**.

@@ -10,8 +10,11 @@ Two idempotent steps:
   1. reorg()    - move the 7 root notebooks and the 5 legacy notebooks/<section>/
                   folders under notebooks/11-devops-mlops-infra/ (git mv when possible).
   2. scaffold() - write a scaffold for every topic that has no notebook yet, across the
-                  seed manifest (curriculum.py domains 1-10) AND every user-defined
-                  subject persisted under notebooks/subjects/ (see praxis/curriculum_gen).
+                  seed manifest (curriculum.py's 14 domains) AND every user-defined
+                  subject, persisted under the active storage backend's
+                  <root>/subjects/ -- outside this repo (see praxis/curriculum_gen and
+                  praxis/storage.py). CORRECTED 2026-09-03: said "domains 1-10" and
+                  "notebooks/subjects/"; both predate domains 12-15 and storage backends.
 
 Both kinds of curriculum are `Domain`/`Topic` objects, so scaffolding needs no branch for
 a generated subject — only `domain_path()` differs, which resolves a subject's modules

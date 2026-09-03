@@ -4,25 +4,34 @@
 A **curriculum** is a subject broken into modules, each module a list of topics, each
 topic exactly one notebook. Two kinds share that one shape:
 
-  seed       the 11 hand-written study domains enumerated below — Praxis ships them as
+  seed       the 14 hand-written study domains enumerated below — Praxis ships them as
              the example library and as worked examples of a finished tutorial.
   generated  a user-defined subject: free text -> praxis/curriculum_gen.py asks the LLM
              for the same structure -> persisted as JSON under
-             notebooks/subjects/<slug>/curriculum.json and read back with load_subject().
+             <storage root>/subjects/<slug>/curriculum.json and read back with
+             load_subject(). The root is the active storage backend's, resolved by
+             subjects_dir() below -- NOT a path inside this repo.
 
 Because both resolve to the same `Domain`/`Topic` objects, everything downstream —
 scaffold_notebooks.py, launcher/app.py, nbstatus.py, the gate — works on a generated
 subject exactly as it works on a seed domain.
 
 Drives:
-  - scaffold_notebooks.py   (creates blank notebook scaffolds + reorgs the legacy 64)
+  - scaffold_notebooks.py   (creates blank notebook scaffolds; also reorgs the legacy
+                             library into 11-devops-mlops-infra, long since done)
   - launcher/app.py         (sidebar navigation + completion status)
   - praxis/tasklist.py      (one Chief unit per domain still below the rubric bar)
-  - CURRICULUM.md / docs/explanation/gap-analysis.md (generated human indices)
+  - docs/reference/curriculum.md / docs/explanation/gap-analysis.md (generated human indices)
 
-Domains 1-10 are the seed study curriculum (explicit topic lists below).
+Domains 01-10 and 12-15 are the seed study curriculum (explicit topic lists below);
+06 is a permanently reserved hole (docs/explanation/domain-addition-policy.md).
 Domain 11 (DevOps/MLOps & Infra) is the relocated legacy library; its topics are
 discovered from the filesystem (source="filesystem"), not enumerated here.
+
+CORRECTED 2026-09-03: this docstring said "the 11 hand-written study domains" and
+"Domains 1-10", and pointed generated subjects at notebooks/subjects/. All three were
+stale -- 12-15 were added later, and storage backends moved a user's subjects out of the
+repo entirely. len(DOMAINS) is 14 and sum of topics is 180 over 245 notebooks on disk.
 
 Each Topic carries:
   slug         kebab-case file stem -> notebooks/<domain.dir>/<slug>.ipynb
@@ -405,7 +414,8 @@ def topic_path(domain: Domain, topic: Topic) -> Path:
 
 Module = Domain  # a subject's modules are Domains: a titled group of topics
 
-# notebooks/subjects/<slug>/curriculum.json + notebooks/subjects/<slug>/<NN-module>/*.ipynb
+# <root>/subjects/<slug>/curriculum.json + <root>/subjects/<slug>/<NN-module>/*.ipynb
+# where <root> is the active storage backend's root -- see subjects_dir() below.
 SUBJECTS_ROOT = "subjects"
 CURRICULUM_FILE = "curriculum.json"
 

@@ -1,6 +1,6 @@
 # jupyterquiz — assessed, declined
 
-> **Status:** Current · **Updated:** 2026-08-22 · **Owner:** praxis
+> **Status:** Current · **Updated:** 2026-09-03 · **Owner:** praxis
 > **Decision: DECLINE.** Measured 2026-08-22. Revisit only on the trigger at the end.
 
 The 2026-08-13 portfolio scan proposed jupyterquiz as a socket rather than a
@@ -57,8 +57,16 @@ borderline on that rule alone. It is not, however, the reason for the decline.
 
 ## What it would actually carry
 
-Measured against the seed library as it ships: **24 checksets, 144 checks — 72 `choice`,
+Measured against the seed library on 2026-08-22: **24 checksets, 144 checks — 72 `choice`,
 48 `short`, 24 `code`.**
+
+> **[CORRECTED 2026-09-03 — "as it ships" was true on 2026-08-22 and is not now: `chief/87`
+> ran the gating backfill and the library carries 117 checksets, 702 checks — 354
+> `choice`, 236 `short`, 112 `code` (`python3 -m praxis.gateaudit`). Re-measured rather
+> than assumed, because the decline below rests on the *proportions*, not the totals: they
+> are 50% / 34% / 16%, against the 50% / 33% / 17% argued from here. The paragraph's
+> conclusion is unchanged and the figures below are left at the sizes the decision was
+> actually taken on, which is what a record of a decision is for.]**
 
 - `choice` (72, 50%) maps cleanly onto jupyterquiz's `multiple_choice` / `many_choice`.
 - `short` (48, 33%) maps only loosely. jupyterquiz's `string` type is an exact or

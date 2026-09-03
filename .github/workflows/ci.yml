@@ -1,7 +1,12 @@
-# The merge gate, in CI. This mirrors `.chief/verify.sh` — same three checks, same
-# path-scoping, same order (the frontend builds before the Rust job's cargo build,
-# because src-tauri embeds ui/dist at compile time and a missing dist silently becomes
-# a placeholder page). Keep the two in sync: verify.sh is what agents run locally.
+# The merge gate, in CI. This mirrors `.chief/verify.sh` — same checks, same path-scoping,
+# same order (the frontend builds before the Rust job's cargo build, because src-tauri
+# embeds ui/dist at compile time and a missing dist silently becomes a placeholder page).
+# Keep the two in sync: verify.sh is what agents run locally.
+#
+# Six checks as of 2026-09-03, and the reader-facing list is README.md's "The gate"
+# section — the one home, so it cannot drift a fourth time. This header said "same three
+# checks" until 2026-09-03, which had been wrong since validate_nbgrader.py and
+# praxis.gatefloor were added and doubly so once the two doc gates below landed.
 name: CI
 
 on:
@@ -23,6 +28,7 @@ jobs:
       ui: ${{ steps.scope.outputs.ui }}
       rust: ${{ steps.scope.outputs.rust }}
       python: ${{ steps.scope.outputs.python }}
+      docs: ${{ steps.scope.outputs.docs }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,7 +46,34 @@ jobs:
             echo "ui=$(has '^ui/')"
             echo "rust=$(has '^src-tauri/')"
             echo "python=$(has '\.(py|ipynb)$|^notebooks/|^tests/|^scripts/|^pyproject\.toml$|^ui/package\.json$|^src-tauri/tauri\.conf\.json$|^Makefile$|^README\.md$|^docs/reference/gate-authority\.md$')"
+            echo "docs=$(has '\.md$|^docs/')"
           } >> "$GITHUB_OUTPUT"
+
+  # Documentation gates — the pair verify.sh runs, mirrored here. CI carried NEITHER of
+  # them until 2026-09-03, which is exactly the drift the "change one and change the
+  # other" rule exists to stop: verify.sh blocked a doc regression locally and a PR that
+  # never ran verify.sh merged it anyway.
+  #
+  # check-doc-links is a RATCHET against the PR base (pre-existing rot is retired
+  # deliberately, never in one forced sweep); check-docs-structure is a WALL (index coverage,
+  # banners, the closed directory set, and the Tier-1 repo root), because the tree was brought
+  # fully compliant on 2026-09-03 and has no rot left to grandfather.
+  docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: doc links (ratchet vs base)
+        run: |
+          base="${{ github.event.pull_request.base.sha || 'HEAD' }}"
+          node scripts/check-doc-links.mjs --ratchet --base "$base"
+      - run: node scripts/check-docs-structure.mjs
 
   frontend:
     needs: changes

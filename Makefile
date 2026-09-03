@@ -136,7 +136,7 @@ construct: ## Fill scaffolds to the rubric + write checks: SUBJECT=<slug> or NB=
 	@test -n '$(SUBJECT)$(NB)' || { echo 'usage: make construct SUBJECT=<slug> | NB=<path.ipynb>'; exit 2; }
 	$(PY) -m praxis.construct $(if $(SUBJECT),--subject $(SUBJECT)) $(NB)
 
-docs: ## Regenerate CURRICULUM.md + indices with live badges
+docs: ## Regenerate docs/reference/curriculum.md + indices with live badges
 	$(PY) generate_docs.py
 
 ## ---------------------------------------------------------------- clean

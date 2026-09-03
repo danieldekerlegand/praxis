@@ -1,5 +1,7 @@
 # Seed refresh policy
 
+> **Status:** Current · **Updated:** 2026-08-21 · **Owner:** praxis
+
 The notebooks under `notebooks/` are shipped product assets. They are never
 rewritten by the running app. Refreshing one is repo maintenance: a maintainer
 runs the refresh entry point, reviews the resulting diff, and commits the

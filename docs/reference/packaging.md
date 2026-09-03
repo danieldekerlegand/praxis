@@ -1,6 +1,6 @@
 # Packaging Praxis
 
-> **Status:** Current · **Updated:** 2026-08-14 · **Owner:** praxis
+> **Status:** Current · **Updated:** 2026-09-03 · **Owner:** praxis
 
 Two distributable shapes come out of this repo, and both wrap the same Python core:
 
@@ -97,7 +97,8 @@ scripts/check-versions.py     # prints the agreed version, or names the files th
 - **Every PR** that touches one of the three manifests (or `scripts/`, or any Python) runs
   it — `tests/test_packaging.py` asserts on it, so it rides in CI's existing `python`
   job. `.github/workflows/ci.yml` and `.chief/verify.sh` scope those files into that job
-  for exactly this reason; the three checks stay three.
+  for exactly this reason — the version check rides an existing job rather than adding
+  one.
 - **Every release**: `scripts/bundle-macos.sh` runs it before building and refuses (exit
   2) a mismatch, so the disagreement costs a second rather than a ten-minute build. The
   plan line is followed by `bundle: version <x> in step across …`.
@@ -299,12 +300,24 @@ that is the fastest way to browse a library over SSH.
 
 ## CI
 
-`.github/workflows/ci.yml` mirrors `.chief/verify.sh`: the frontend build, the Rust
-build, and `pytest tests/`, each scoped to whether the PR touched `ui/`, `src-tauri/`, or
-Python/notebooks — plus `scripts/` and the three version manifests, which scope into the
-python job because that is where packaging is asserted. The Rust job builds the frontend first — `src-tauri` embeds `ui/dist`
-at compile time, and `build.rs` writes a placeholder when it is missing, so a green cargo
-build over an unbuilt frontend proves nothing.
+`.github/workflows/ci.yml` mirrors `.chief/verify.sh` check for check, each scoped to what
+the PR touched. The list of checks lives in the README's [gate
+section](../../README.md#the-gate) and is not restated here.
+
+Two things about it are packaging's, and are the reason this page mentions it at all:
+
+- **`scripts/` and the three version manifests scope into the python job**, because that
+  is where packaging is asserted (`tests/test_packaging.py`) — a lone version bump in
+  `src-tauri/tauri.conf.json` must still reach a gate.
+- **The Rust job builds the frontend first.** `src-tauri` embeds `ui/dist` at compile
+  time and `build.rs` writes a placeholder when it is missing, so a green `cargo build`
+  over an unbuilt frontend proves nothing.
 
 CI installs `.[launch,dev]` so the launcher API tests run rather than skipping
 themselves.
+
+> **[CORRECTED 2026-09-03 — this section listed the gate as "the frontend build, the Rust
+> build, and `pytest tests/`". That was three of the six checks CI actually runs; it had
+> been out of date since `validate_nbgrader.py` and `praxis.gatefloor` were added, and the
+> two documentation gates landed on 2026-09-03. The list now has one home and this page
+> points at it rather than keeping a third copy.]**

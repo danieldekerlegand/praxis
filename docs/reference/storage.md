@@ -1,6 +1,6 @@
 # Storage — where your work is kept
 
-> **Status:** Current · **Updated:** 2026-08-19 · **Owner:** praxis
+> **Status:** Current · **Updated:** 2026-09-03 · **Owner:** praxis
 
 Praxis writes five kinds of thing, and all five belong to **you**: the subjects you
 define, the curricula generated for them, the tutorials constructed into them (notebooks
@@ -175,7 +175,12 @@ clear, so treat it as you would `~/.aws/credentials`.
 |---|---|
 | `GET /api/storage` | the active backend, its root, whether it's there, and every backend's form |
 | `POST /api/storage` | `{kind, options}` — switch. **400** with the reason if unusable; the old selection stands |
-| `POST /api/storage/sync` | push/pull the cloud mirror. **503** with the reason if the bucket is unreachable |
+| `POST /api/storage/sync` | push/pull the mirror of whichever syncing backend is active — `cloud` or `webdav`. **503** with the reason if the remote is unreachable |
+
+> **[CORRECTED 2026-09-03 — this row described `POST /api/storage/sync` as the *cloud*
+> mirror's. `webdav` registers a `_SYNC` of its own through `register_backend()`
+> (`praxis/storage.py`), so the route has served both since the fourth backend landed and
+> this table named only the third.]**
 
 Every *other* write in the launcher is refused with **503** while the active backend is
 unwritable — one middleware in `launcher/app.py`, so no endpoint can forget. `/api/storage`
