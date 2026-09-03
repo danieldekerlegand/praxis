@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Shared notebook status detection, used by the launcher, tests, and Ralph generator.
+"""Shared notebook status detection, used by the launcher, the tests and the constructor.
 
 Three states:
   scaffold  - blank Praxis scaffold, or a legacy template with placeholder text
   partial   - has real content but is thin / still below the rubric bar
   complete  - substantive content, no placeholders, enough sections and code
 
-This is a heuristic for the UI badge and for *selecting* which notebooks Ralph
-should work on. The authoritative gate is tests/test_notebooks.py.
+This is a heuristic for the UI badge and for *selecting* which notebooks the
+constructor should work on. The authoritative gate is tests/test_notebooks.py.
 """
 
 from __future__ import annotations

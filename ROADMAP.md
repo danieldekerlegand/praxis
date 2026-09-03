@@ -279,8 +279,9 @@ cross-repo dependency (`chief:80-headless-programmatic-invocation`, bands `80`�
   `84` because it is `84`'s *released* notebooks that are safe to hand to an untrusted browser.
 - The 6-tasklist built program is complete; the 16 proposed forward tasklists above are authored
   but unrun (open work once scheduled). (Earlier offline notebook-filling runs used
-  Ralph/ralphy — `ralph/`, `.ralphy/` — and are historical, superseded by the in-app
-  construction agent from band 30.)
+  Ralph/ralphy — `ralph/`, `.ralphy/` — historical and superseded by the in-app construction
+  agent from band 30; `chief/900` removed both trees, see
+  [`docs/explanation/dead-code-inventory.md`](docs/explanation/dead-code-inventory.md) A7.)
 
 ---
 

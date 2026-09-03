@@ -92,10 +92,6 @@ KINDS = ("choice", "code", "short")
 # nbgrader 0.9.x (the version used by the project); keeping this value here makes the
 # producer explicit instead of quietly inventing a second schema.
 NBGRADER_SCHEMA_VERSION = 3
-NBGRADER_METADATA_KEYS = (
-    "grade", "solution", "locked", "task", "grade_id", "points",
-    "schema_version", "checksum",
-)
 
 # What the model calls them when it isn't reading carefully.
 KIND_ALIASES = {

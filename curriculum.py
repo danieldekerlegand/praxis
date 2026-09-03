@@ -17,7 +17,7 @@ subject exactly as it works on a seed domain.
 Drives:
   - scaffold_notebooks.py   (creates blank notebook scaffolds + reorgs the legacy 64)
   - launcher/app.py         (sidebar navigation + completion status)
-  - ralph/generate_tasklists.py (one ralphy task per notebook below the rubric bar)
+  - praxis/tasklist.py      (one Chief unit per domain still below the rubric bar)
   - CURRICULUM.md / docs/explanation/gap-analysis.md (generated human indices)
 
 Domains 1-10 are the seed study curriculum (explicit topic lists below).
@@ -37,10 +37,9 @@ Each Topic carries:
 from __future__ import annotations
 
 import json
-import os
 import re
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -394,10 +393,6 @@ def domain_path(domain: Domain) -> Path:
 
 def topic_path(domain: Domain, topic: Topic) -> Path:
     return domain_path(domain) / f"{topic.slug}.ipynb"
-
-
-def all_manifest_topics() -> list[tuple[Domain, Topic]]:
-    return [(d, t) for d in DOMAINS for t in d.topics]
 
 
 # ---------------------------------------------------------------------------

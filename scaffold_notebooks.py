@@ -20,13 +20,10 @@ notebook exists is skipped, so re-scaffolding a partly-filled curriculum only fi
 
 Run:  python scaffold_notebooks.py [--no-reorg] [--no-scaffold] [--no-subjects]
       python scaffold_notebooks.py --subject <slug>     # just one defined subject
-
-Supersedes generate_notebooks.py / enhance_notebooks.py (kept as legacy).
 """
 
 from __future__ import annotations
 
-import json
 import shutil
 import subprocess
 import sys

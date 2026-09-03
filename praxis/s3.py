@@ -30,7 +30,6 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from typing import Iterator
 
 ALGORITHM = "AWS4-HMAC-SHA256"
 SERVICE = "s3"
@@ -290,9 +289,3 @@ def _parse_listing(body: bytes) -> tuple[list[RemoteObject], str]:
 def md5_of(data: bytes) -> str:
     """The hex digest a single-part PUT of `data` would come back with as its ETag."""
     return hashlib.md5(data).hexdigest()  # noqa: S324 - S3's ETag, not a security digest
-
-
-def walk_files(root) -> Iterator:  # pragma: no cover - trivial, exercised via cloud.sync
-    """Every regular file under `root`, in a stable order."""
-    for path in sorted(p for p in root.rglob("*") if p.is_file()):
-        yield path
