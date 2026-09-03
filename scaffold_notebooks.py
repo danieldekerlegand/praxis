@@ -26,7 +26,6 @@ Supersedes generate_notebooks.py / enhance_notebooks.py (kept as legacy).
 
 from __future__ import annotations
 
-import json
 import shutil
 import subprocess
 import sys

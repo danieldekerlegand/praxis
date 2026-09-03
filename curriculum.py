@@ -37,10 +37,9 @@ Each Topic carries:
 from __future__ import annotations
 
 import json
-import os
 import re
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -394,10 +393,6 @@ def domain_path(domain: Domain) -> Path:
 
 def topic_path(domain: Domain, topic: Topic) -> Path:
     return domain_path(domain) / f"{topic.slug}.ipynb"
-
-
-def all_manifest_topics() -> list[tuple[Domain, Topic]]:
-    return [(d, t) for d in DOMAINS for t in d.topics]
 
 
 # ---------------------------------------------------------------------------

@@ -41,7 +41,7 @@ from praxis.tasklist import (  # noqa: E402
     write_tasklist,
 )
 from scaffold_notebooks import scaffold_subject  # noqa: E402
-from test_backfill import CURRICULUM, domain, subjects_root  # noqa: E402, F401
+from test_backfill import domain, subjects_root  # noqa: E402, F401
 from test_construct import FakeClient, good_cells  # noqa: E402
 from test_construct import reply as cell_reply  # noqa: E402
 

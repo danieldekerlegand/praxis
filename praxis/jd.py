@@ -150,15 +150,6 @@ def list_jds() -> list[dict]:
     return summaries
 
 
-def delete_jd(jd_id: str) -> bool:
-    """Remove one document. True if there was one to remove."""
-    try:
-        jd_path(jd_id).unlink()
-    except OSError:
-        return False
-    return True
-
-
 # --- normalizing ------------------------------------------------------------
 
 #: Whitespace a posting picks up from a web page or a word processor and means as a

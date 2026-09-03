@@ -7,8 +7,6 @@ Run:  python generate_docs.py
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from curriculum import DOMAINS, NOTEBOOKS_DIR, ROOT, Domain
 from nbstatus import BADGE, notebook_status
 
