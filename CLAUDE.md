@@ -531,8 +531,9 @@ keeps them compliant instead of demoting them. The rules' home of record is
 `rosetta/docs/reference/documentation-standard.md`; a path into a private repo is written as
 backticked prose, never a relative link that would be broken for every outside reader.
 
-`.github/workflows/ci.yml` is the same three checks on every PR to `main`, with the same
-path predicates — change one and change the other. Its Rust job builds the frontend first
+`.github/workflows/ci.yml` is the same checks on every PR to `main`, with the same
+path predicates — change one and change the other. Six of them as of 2026-09-03; the
+reader-facing list has one home, README.md's **The gate** section. Its Rust job builds the frontend first
 for the reason in **Build order** above.
 
 ## Bundling

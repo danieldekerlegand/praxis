@@ -1,11 +1,18 @@
 # Chief-powered construction — the batch, driven unattended and for free
 
-> **Status:** Current · **Updated:** 2026-08-22 · **Owner:** praxis
+> **Status:** Current · **Updated:** 2026-09-03 · **Owner:** praxis
 
 Praxis builds a tutorial one model call at a time: define the subject, scaffold the
 notebooks, construct each one to the rubric, write its gate. In the app that is a job you
-watch. Across the seed library it is **221 ungated notebooks**, and nobody is going to sit
-in front of that.
+watch. Across the seed library that was **221 ungated notebooks** when this mode was
+built, and nobody is going to sit in front of that. The current backlog is whatever
+`python3 -m praxis.coverage` says it is; this page keeps no count of its own.
+
+> **[CORRECTED 2026-09-03 — this page stated 221 ungated notebooks in the present tense.
+> That was the measurement of 2026-08-22; `chief/87` has since run the batch, and
+> `python3 -m praxis.coverage` reports 117 of 245 gated (48%) in 14 of 14 domains, so the
+> backlog is 128. A page that restates a number a batch is moving is stale the day the
+> batch runs, so the figure now lives only where it is measured.]**
 
 This is the mode that runs it with nobody in front of it: praxis emits a **Chief**
 tasklist per unit of batch work and starts it **headlessly**, routed through **local
@@ -32,7 +39,7 @@ $ python3 -m praxis.tasklist
 gate-11-devops-mlops-infra          64 pending,   1 done  (python3 -m praxis.backfill 11-devops-mlops-infra)
 gate-03-llm-inference-training-optimization  28 pending,   5 done  (…)
 …
-221 topics pending across 10 of 14 units
+128 topics pending across 4 of 14 units
 ```
 
 `python3 -m praxis.headless` turns that into a plan — the preset it resolved, the units it

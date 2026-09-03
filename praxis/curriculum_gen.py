@@ -4,7 +4,10 @@
 The user types a goal ("I want to get good at embedded Rust"); this asks the model
 configured in praxis/llm.py for modules -> topics, each topic sized to be exactly one
 notebook, and normalizes the answer into a `curriculum.Subject`. The result is persisted
-under notebooks/subjects/<slug>/curriculum.json for review before anything is scaffolded.
+under <storage root>/subjects/<slug>/curriculum.json for review before anything is
+scaffolded -- the root is the active storage backend's (praxis/storage.py), not a path
+in this repo. CORRECTED 2026-09-03: this said notebooks/subjects/, which is where
+subjects lived before storage backends landed.
 
 The model is asked for JSON and nothing else, but models still wrap answers in prose or
 a fenced block, so `extract_json` is deliberately forgiving. Everything past that point

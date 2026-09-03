@@ -1,7 +1,12 @@
-# The merge gate, in CI. This mirrors `.chief/verify.sh` — same three checks, same
-# path-scoping, same order (the frontend builds before the Rust job's cargo build,
-# because src-tauri embeds ui/dist at compile time and a missing dist silently becomes
-# a placeholder page). Keep the two in sync: verify.sh is what agents run locally.
+# The merge gate, in CI. This mirrors `.chief/verify.sh` — same checks, same path-scoping,
+# same order (the frontend builds before the Rust job's cargo build, because src-tauri
+# embeds ui/dist at compile time and a missing dist silently becomes a placeholder page).
+# Keep the two in sync: verify.sh is what agents run locally.
+#
+# Six checks as of 2026-09-03, and the reader-facing list is README.md's "The gate"
+# section — the one home, so it cannot drift a fourth time. This header said "same three
+# checks" until 2026-09-03, which had been wrong since validate_nbgrader.py and
+# praxis.gatefloor were added and doubly so once the two doc gates below landed.
 name: CI
 
 on:

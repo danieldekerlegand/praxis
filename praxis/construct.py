@@ -26,7 +26,11 @@ invariants — a set that isn't gradable is never written, an existing one is sk
 so a topic whose notebook is already ✅ but has no checks yet gains them on a re-run.
 
 CLI:
-    python -m praxis.construct notebooks/subjects/rust/01-basics/ownership.ipynb
+    python -m praxis.construct <root>/subjects/rust/01-basics/ownership.ipynb
+        # <root> is the active storage backend's (python -m praxis.storage prints it).
+        # CORRECTED 2026-09-03: this example read notebooks/subjects/..., the
+        # pre-storage-backend location; a subject is the user's data and is
+        # written outside the repo.
     python -m praxis.construct --force <path>      # rebuild an already-complete notebook
     python -m praxis.construct --no-checks <path>  # notebook only, no knowledge checks
     python -m praxis.construct --execute <path>    # also run it through nbconvert

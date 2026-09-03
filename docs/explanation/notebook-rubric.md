@@ -1,6 +1,6 @@
 # Notebook Completion Rubric
 
-> **Status:** Current · **Updated:** 2026-08-14 · **Owner:** praxis
+> **Status:** Current · **Updated:** 2026-09-03 · **Owner:** praxis
 
 Every study notebook is a **self-contained refresher** for one topic. This rubric is the
 definition of "complete" and is what the constructor grades against before it writes
@@ -116,5 +116,15 @@ Three things make the gate real rather than decorative:
 - **What is recorded is the outcome, not a boolean** — the learner's answer verbatim, who
   graded it and when, because "did they pass" is a record.
 
-Progress is one JSON file per learner under `PRAXIS_PROGRESS_DIR` (default `.praxis/`),
-so it survives closing the app.
+Progress is one JSON file per learner under the active storage backend's `progress/`
+directory, so it survives closing the app. Where that root is, and what else lives beside
+it, is [Storage — where your work is kept](../reference/storage.md); this page states no
+path of its own.
+
+> **[CORRECTED 2026-09-03 — this said progress lives under `PRAXIS_PROGRESS_DIR`,
+> "default `.praxis/`". That default was removed when storage backends landed:
+> `praxis.progress.progress_dir()` is a one-line delegate to `praxis.storage`, whose
+> default root is the app-data directory, and `.praxis/` is now only the pre-backend
+> location `docs/reference/storage.md` tells you to move out of. `PRAXIS_PROGRESS_DIR` is
+> still an override, but it is the test suite's escape hatch rather than the shape of the
+> thing — and stating a path here at all was the second copy that let it drift.]**

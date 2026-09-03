@@ -1,6 +1,6 @@
 # The gate's authority — which process holds the answer key
 
-> **Status:** Current · **Updated:** 2026-08-22 · **Owner:** praxis
+> **Status:** Current · **Updated:** 2026-09-03 · **Owner:** praxis
 
 Praxis gates a tutorial behind knowledge checks, and a gate is only worth having if the
 learner cannot open it themselves. Since [JupyterLite](jupyterlite.md) became the runtime,
@@ -40,10 +40,17 @@ promise read in both directions: one keeps the key from reaching the browser, th
 keeps the browser's *opinion* from being mistaken for a grade.
 
 A rendered page is HTML the learner can read with devtools, so `/render/<rel>` is the same
-untrusted surface the site is and gets the same notebook filter. It did not always: the 24
-gated seed notebooks carry 168 graded cells whose assertions were plain text in any full
-render. The questions are served by `/api/study/<rel>`, which knows what this learner has
-unlocked; a static render cannot, so it shows the tutorial body and nothing graded.
+untrusted surface the site is and gets the same notebook filter. It did not always: when
+the leak was found on 2026-08-22 the 24 gated seed notebooks carried 168 graded cells whose
+assertions were plain text in any full render. The questions are served by
+`/api/study/<rel>`, which knows what this learner has unlocked; a static render cannot, so
+it shows the tutorial body and nothing graded.
+
+> **[CORRECTED 2026-09-03 — "the 24 gated seed notebooks" read as the library's present
+> state; it was the size of the leak when the filter was added. The backfill has since
+> taken the library to 117 gated notebooks / 702 checks, which makes the filter cover
+> nearly five times what it was written for and changes nothing about the rule. The live
+> figure is `python3 -m praxis.coverage`; this page states none.]**
 
 `src-tauri/src/lite.rs` refuses any `*.checks.json` target with **403** before looking
 anything up. `praxis/lite.py` stages only `.ipynb`, so a built site contains no key at all
