@@ -584,13 +584,21 @@ remaining 128 deferred by a dated decision rather than forgotten. What it cost p
 notebook is measured in
 [`docs/explanation/gating-backfill-cost.md`](docs/explanation/gating-backfill-cost.md).
 
-Three forward programs are authored as Chief tasklists but not yet run: **JD-driven
-tutorial suggestion** (`chief/74`–`78` — ingest a job description, gap-analyze it against
-the library, suggest only what's genuinely missing), **chief-powered construction**
-(`chief/82` — batch construction/gating as headless Chief tasklists on local inference),
-and **hardening + seed-library upkeep** (`chief/70`–`73`, `83` — signed/notarized bundles,
-an embedded interpreter, storage depth, library refresh). The full reality-checked picture
-is **[ROADMAP.md](ROADMAP.md)**.
+The three forward programs have since **merged** as well: **JD-driven tutorial suggestion**
+(`chief/74`–`78` — ingest a job description, gap-analyze it against the library, suggest
+only what's genuinely missing), **chief-powered construction** (`chief/82` — batch
+construction/gating as headless Chief tasklists on local inference), and **hardening +
+seed-library upkeep** (`chief/70`–`73`, `83` — signed/notarized bundles, an embedded
+interpreter, storage depth, library refresh). The full reality-checked picture — including
+which merged record overstates what landed, and what upkeep stays open — is
+**[ROADMAP.md](ROADMAP.md)**, which is canonical for this repo's state.
+
+> **[CORRECTED 2026-09-11 — this paragraph said the three programs were "authored as Chief
+> tasklists but not yet run". Every tasklist it names is in `tasks/chief/completed/` carrying a
+> `mergedToMain` (`70` → `ed96395` … `83` → `d22667d`), and `ROADMAP.md` has said so since its
+> 2026-09-11 reconciliation. A README restating a roadmap's state is the two-copies-of-one-fact
+> failure this file has hit twice before; the state has one home and this paragraph now points
+> at it.]**
 
 ## Renaming note
 
