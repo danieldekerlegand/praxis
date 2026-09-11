@@ -1,0 +1,19 @@
+# roadmap-truth-allow.txt — rows that legitimately stay OPEN while naming a MERGED tasklist.
+#
+# Read by scripts/check-roadmap-truth.sh (STALE leg). One stem per line. A stem
+# belongs here ONLY when the roadmap row is deliberately BROADER than the tasklist
+# that merged under it — the code landed, and the row tracks something the code
+# alone cannot close. Every entry states what remains, so the exemption can be
+# retired when it does.
+#
+# This is not a place to silence drift. A row that is simply out of date gets
+# fixed, not exempted.
+#
+# Recorded 2026-09-11, each verified by reading the row it exempts.
+
+# Seed-library upkeep. The tasklist delivered the part that can be owned in code —
+# the rot audit, the refresh policy, the promotion path for the gap-analysis §2
+# additions, and the domain-addition policy. What REMAINS is the upkeep itself:
+# keeping 245 seed notebooks across 14 domains and their coverage current as
+# tooling evolves is continuous, and no merge can assert it done.
+83-seed-library-refresh

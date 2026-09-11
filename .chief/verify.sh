@@ -3,6 +3,21 @@
 # and skip a check gracefully if its toolchain isn't installed (so early bootstrap branches pass).
 set -uo pipefail
 
+# --- roadmap truth guard -----------------------------------------------------
+# UNCONDITIONAL and first: not path-scoped, not skipped on an empty diff. The
+# property it defends is ROADMAP.md vs tasks/chief/completed/ — a property of the
+# TREE rather than of the diff — and the rot it catches happens on branches that
+# touch neither file. Three legs: COVERAGE (every completed tasklist is named by
+# its FULL stem, in the roadmap or in the generated ledger), STALE (no row marked
+# open names a tasklist that has merged) and PARK (a parked tasklist reads as
+# PARKED at every mention). Fully local and milliseconds; where it cannot measure
+# it SKIPs LOUDLY rather than passing quietly. A row that legitimately outlives
+# the tasklist beneath it goes in scripts/roadmap-truth-allow.txt saying what
+# REMAINS — that file is not a silencer, and a row merely out of date gets fixed.
+echo "verify: roadmap truth — ROADMAP.md vs tasks/chief/completed/ (coverage · stale · park)"
+bash scripts/check-roadmap-truth.sh \
+  || { echo "verify: roadmap-truth guard (see above)"; exit 1; }
+
 changed="$(git diff --name-only "$CHIEF_BASE_BRANCH"...HEAD)"
 [ -z "$changed" ] && { echo "verify: no diff vs $CHIEF_BASE_BRANCH"; exit 0; }
 
