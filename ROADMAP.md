@@ -7,7 +7,7 @@
 
 **Status:** Feature-complete — the 10→60 Chief program and every forward tasklist (`70`–`87`, `900`, `901`) have merged and the gating backfill has **run**; one merged record (`86`) overstates what landed — in polish + growth mode · **Last updated:** 2026-09-11
 
-> **Reconciled against the tree 2026-09-11.** `tasks/chief/completed/` holds **26** records — **26** merged (every `mergedToMain` sha an ancestor of `HEAD`), **0** retired. `tasks/chief/` holds **0** active. *(2026-08-25 read 23 of 23; `87`, `900` and `901` have merged since.)*
+> **Reconciled against the tree 2026-09-11.** `tasks/chief/completed/` holds **26** records — **26** merged (every `mergedToMain` sha an ancestor of `HEAD`), **0** retired. `tasks/chief/` holds **1** active — `88-finish-86-s3-client-and-llm-retry` (`fix`), which finishes `86`'s two unlanded stories. *(2026-08-25 read 23 of 23; `87`, `900` and `901` have merged since.)*
 >
 > The phase rows below were re-marked against those records on **2026-09-11** (they had last been
 > revised 2026-08-11). A portfolio-wide audit on 2026-08-25 found every roadmap here **understating**
@@ -207,10 +207,13 @@ US-1 alone.** Measured against the tree on 2026-09-11, not read off the record:
 | Status | Milestone | Tasklist |
 |---|---|---|
 | ✅ | **Use the declared `nbformat`** — the production writers (`praxis/construct.py`, `scaffold_notebooks.py`) build cells with `nbformat.v4` and write with `nbformat.write` instead of hand-built dicts | `chief/86-adopt-minio-nbformat-and-delete-legacy` US-1 (`aa944fa`) |
-| ⬜ | **Replace the hand-rolled S3 client** — `praxis/s3.py` is still **291** hand-rolled lines and no S3 library is in `pyproject.toml`. The story's other half — deleting the dead `generate_notebooks.py` / `enhance_notebooks.py` — was done later by `chief/900` (`b8858f5`) | `chief/86` US-2 — marked passing, **not done** |
-| ⬜ | **Real LLM retry semantics** — retry with backoff on 429 / 5xx. No 429, `Retry-After` or backoff handling exists anywhere in `praxis/` or `launcher/` | `chief/86` US-3 — marked passing, **not done** |
+| ⬜ | **Replace the hand-rolled S3 client** — `praxis/s3.py` is still **291** hand-rolled lines and no S3 library is in `pyproject.toml`. The story's other half — deleting the dead `generate_notebooks.py` / `enhance_notebooks.py` — was done later by `chief/900` (`b8858f5`) | `chief/86` US-2 — marked passing, **not done** · finishing: `chief/88-finish-86-s3-client-and-llm-retry` US-1 |
+| ⬜ | **Real LLM retry semantics** — retry with backoff on 429 / 5xx. No 429, `Retry-After` or backoff handling exists anywhere in `praxis/` or `launcher/` | `chief/86` US-3 — marked passing, **not done** · finishing: `chief/88-finish-86-s3-client-and-llm-retry` US-2 |
 
-The record is left as chief wrote it; this table is the correction.
+The record is left as chief wrote it; this table is the correction. The two open rows are authored
+as `chief/88-finish-86-s3-client-and-llm-retry` (category `fix`, unrun): minio-py behind
+`praxis.s3`'s existing surface with `tests/mocks3.py` kept as the oracle, and tenacity-driven retry
+inside `praxis/llm.py`'s `complete()` with `_urlopen` kept as the urllib seam. Its US-3 flips these rows.
 
 ### Gating backfill program — ✅ shipped and run (2026-08-27)
 
@@ -315,7 +318,7 @@ cross-repo dependency (`chief:80-headless-programmatic-invocation`, bands `80`�
   higher number, because those three write the schema it adopts; `chief/85` (JupyterLite) depends on
   `84` because it is `84`'s *released* notebooks that are safe to hand to an untrusted browser.
 - The 6-tasklist built program is complete, and so is every forward tasklist above. What is open:
-  `86`'s two unfinished stories (the S3 client, LLM retry), the 128 deferred notebooks, and the
+  `86`'s two unfinished stories (the S3 client, LLM retry — authored as `chief/88`), the 128 deferred notebooks, and the
   two upkeep threads. *(This read "the 16 proposed forward tasklists above are authored but unrun";
   rewritten 2026-09-11.)* (Earlier offline notebook-filling runs used
   Ralph/ralphy — `ralph/`, `.ralphy/` — historical and superseded by the in-app construction
