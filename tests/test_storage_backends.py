@@ -13,7 +13,9 @@ claims US-2 makes that are easy to fake and expensive to get wrong:
   the internal disk;
 * the remote round trips are real ones. `tests/mocks3.py` serves the S3 protocol and
   `tests/mockdav.py` serves WebDAV, each on a loopback port, so `praxis/s3.py` signs and
-  `praxis/webdav.py` walks against the wire format the real servers use.
+  `praxis/webdav.py` walks against the wire format the real servers use. That stayed the
+  oracle when the S3 client moved onto minio-py: the same assertions, a different client
+  underneath, which is the only way the swap proves anything.
 """
 
 from __future__ import annotations
@@ -35,7 +37,7 @@ from curriculum import save_subject, subject_from_dict  # noqa: E402
 from praxis import cloud, share, storage  # noqa: E402
 from praxis.checks import CheckOutcome  # noqa: E402
 from praxis.progress import record_outcome  # noqa: E402
-from praxis.s3 import S3Client, S3Error  # noqa: E402
+from praxis.s3 import S3Client, S3Error, md5_of  # noqa: E402
 
 CURRICULUM = {
     "title": "Coastal Navigation",
@@ -225,6 +227,84 @@ def test_the_s3_client_follows_continuation_tokens(s3):
 def test_a_missing_bucket_is_an_error_with_the_reason(s3):
     with pytest.raises(S3Error, match="404"):
         cloud.client_for(s3.options(bucket="nope")).head_bucket()
+
+
+# --- the adapter over minio-py ----------------------------------------------
+
+
+def test_the_s3_client_is_an_adapter_and_hand_rolls_no_protocol(s3):
+    """No signing chain, no XML, no hand-rolled HTTP: minio does the protocol now."""
+    import ast
+
+    import minio
+
+    from praxis import s3 as s3mod
+
+    tree = ast.parse(Path(s3mod.__file__).read_text())
+    imported = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            imported.add(node.module or "")
+    assert not imported & {"hmac", "urllib.request", "xml.etree.ElementTree"}
+
+    client = cloud.client_for(s3.options())
+    assert isinstance(client._minio, minio.Minio)
+
+
+@pytest.mark.parametrize("options, status", [
+    ({"bucket": "nope"}, 404),                            # no such bucket
+    ({"access_key_id": "", "secret_access_key": ""}, 403),  # unsigned, require_auth
+])
+def test_every_minio_failure_arrives_as_an_s3_error_with_its_status(s3, options, status):
+    """`praxis/storage.py` catches exactly one exception type, so mapping is the contract."""
+    with pytest.raises(S3Error) as caught:
+        cloud.client_for({**s3.options(), **options}).head_bucket()
+    assert caught.value.status == status
+    assert "praxis-test-secret" not in str(caught.value)
+
+
+def test_a_closed_port_is_an_s3_error_with_no_status_and_inside_the_timeout(s3):
+    """`Backend.available()` calls in from the UI, so this must not wait on minio's clock."""
+    endpoint = s3.endpoint
+    s3.stop()
+    timeout = 5.0
+    started = time.monotonic()
+    with pytest.raises(S3Error) as caught:
+        S3Client(endpoint=endpoint, bucket="praxis", timeout=timeout).head_bucket()
+    elapsed = time.monotonic() - started
+    assert caught.value.status == 0
+    assert elapsed < timeout + 2
+
+
+def test_an_endpoint_minio_refuses_is_an_s3_error_and_never_a_traceback():
+    with pytest.raises(S3Error, match="path in endpoint"):
+        S3Client(endpoint="https://example.invalid/some/path", bucket="praxis")
+
+
+def test_an_object_larger_than_a_multipart_part_still_puts_in_one_piece(s3):
+    """`cloud.py` compares `md5_of(local)` to the ETag, which multipart would break.
+
+    minio's default part size is 5 MiB; this is over it, and mocks3 serves no multipart.
+    """
+    client = cloud.client_for(s3.options())
+    data = b"praxis" * (1024 * 1024)  # 6 MiB
+    assert client.put_object("big/notebook.ipynb", data) == md5_of(data)
+    assert client.get_object("big/notebook.ipynb") == data
+
+
+def test_a_second_sync_moves_nothing_for_a_file_over_the_multipart_threshold(s3):
+    storage.select_backend("cloud", s3.options())
+    write_a_subject_and_some_progress()
+    big = storage.subjects_dir() / "coastal-navigation" / "big.bin"
+    big.write_bytes(b"praxis" * (1024 * 1024))  # 6 MiB
+    storage.sync_active()
+    uploaded = len(s3.puts)
+
+    again = storage.sync_active()
+    assert again["moved"] == 0
+    assert len(s3.puts) == uploaded
 
 
 # --- the cloud backend ------------------------------------------------------

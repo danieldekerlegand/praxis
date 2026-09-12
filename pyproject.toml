@@ -10,6 +10,16 @@ requires-python = ">=3.10"
 dependencies = [
     "nbformat>=5.9",
     "nbgrader==0.9.5",
+    # The S3 client behind the `cloud` backend (praxis/s3.py). Core, not an extra:
+    # `cloud` is selectable in the core app, so a missing client is a broken backend
+    # rather than a skipped feature. Ceiling because praxis/s3.py pages through
+    # `Minio._list_objects` for `max_keys`, which a major bump may move.
+    "minio>=7.2,<8",
+    # The retry policy around praxis/llm.py's one network seam. Core for the same
+    # reason: every band that reaches a model goes through `complete()`, so without it
+    # a rate limit is a failed notebook rather than a wait. Apache-2.0, no runtime
+    # dependencies of its own, and its floor (3.9) is under praxis's.
+    "tenacity>=9.0,<10",
 ]
 
 [project.optional-dependencies]

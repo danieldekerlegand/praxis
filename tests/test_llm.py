@@ -1,11 +1,20 @@
 """The BYO-key contract: where credentials come from, and what goes on the wire.
 
-No key is ever committed and no test touches the network — `praxis.llm._urlopen` is
-the only seam, and every routing mode is exercised against a mocked response.
+No key is ever committed and no test reaches the internet — `praxis.llm._urlopen` is
+the only seam for the routing tests, and every routing mode is exercised against a
+mocked response.
+
+The retry tests at the bottom are the exception, deliberately: what the client does
+with a 429 depends on a header urllib parsed, so those run against `tests/mockllm.py`
+on a loopback port. Nothing in this file sleeps for real either — `praxis.llm._sleep`
+is stubbed out for every test here, and the retry cases inject a clock that moves only
+when the client waits, so a backoff schedule can be asserted second by second in no
+time at all.
 """
 
 from __future__ import annotations
 
+import email.utils
 import io
 import json
 import sys
@@ -17,6 +26,7 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from mockllm import MockLLM, Reply, ok, rate_limited, server_error  # noqa: E402
 from praxis import llm  # noqa: E402
 
 # Env vars that would otherwise leak a developer's real credentials into a test.
@@ -26,6 +36,8 @@ LEAKY = (
     "PRAXIS_LLM_API_KEY",
     "PRAXIS_LLM_BASE_URL",
     "PRAXIS_LLM_TIMEOUT",
+    "PRAXIS_LLM_RETRY_ATTEMPTS",
+    "PRAXIS_LLM_RETRY_BUDGET",
     "PRAXIS_CONFIG",
     "ANTHROPIC_API_KEY",
     "OPENAI_API_KEY",
@@ -42,6 +54,18 @@ def clean_env(monkeypatch, tmp_path):
         monkeypatch.delenv(name, raising=False)
     # Never read the developer's real ~/.config/praxis/config.json.
     monkeypatch.setattr(llm, "default_config_path", lambda: tmp_path / "missing.json")
+
+
+@pytest.fixture(autouse=True)
+def never_sleep(monkeypatch):
+    """The suite's wall time must not be the retry policy's.
+
+    Every failure case below now goes through the retry loop, and several of them are
+    a 429 or a 5xx — the two things it is built to wait for. Stubbing the module's one
+    wait seam keeps those tests asserting what they always asserted (the message, the
+    call count) at the speed they always ran at.
+    """
+    monkeypatch.setattr(llm, "_sleep", lambda seconds: None)
 
 
 class _Response(io.BytesIO):
@@ -702,3 +726,283 @@ def test_the_llm_module_needs_no_agora_environment():
     assert config.routed_via_agora is False
     assert config.endpoint == DIRECT_WIRE["openai"]["url"]
     assert config.describe() == DIRECT_WIRE["openai"]["describe"]
+
+
+# --- retrying a transient failure ----------------------------------------
+#
+# A 429 or a 5xx is the provider asking us to wait, not the call being wrong. Absorbing
+# it here is what keeps construct.py's three attempts spent on the *grader*: before this
+# existed, one rate limit cost a repair attempt, and three of them failed a notebook in
+# milliseconds having never been told anything about the notebook.
+#
+# These run against `tests/mockllm.py` rather than a patched `_urlopen`, because the
+# decisions under test are read off the wire: a `Retry-After` the client honours is one
+# urllib parsed from a real header. The waiting is the only faked part — a clock that
+# moves only when the client sleeps, so the schedule is asserted exactly and instantly.
+
+
+class FakeClock:
+    """Time that passes only when the client decides to wait."""
+
+    #: An arbitrary fixed "now", so an HTTP-date can be written relative to it.
+    WALL = 1_600_000_000.0
+
+    def __init__(self):
+        self.elapsed = 0.0
+        self.waits: list[float] = []
+
+    def sleep(self, seconds: float) -> None:
+        self.waits.append(seconds)
+        self.elapsed += seconds
+
+    def monotonic(self) -> float:
+        return self.elapsed
+
+    def wall(self) -> float:
+        return self.WALL + self.elapsed
+
+    def policy(self, **overrides) -> llm.RetryPolicy:
+        """A policy on this clock, with jitter at half of its bound unless told otherwise."""
+        return llm.RetryPolicy(
+            sleep=self.sleep, monotonic=self.monotonic, wallclock=self.wall,
+            rng=overrides.pop("rng", lambda: 0.5), **overrides,
+        )
+
+
+@pytest.fixture
+def clock():
+    return FakeClock()
+
+
+@pytest.fixture
+def stub():
+    """A model endpoint on a loopback port; the test scripts what it answers."""
+    servers: list[MockLLM] = []
+
+    def start(*replies):
+        server = MockLLM(*replies)
+        servers.append(server)
+        return server
+
+    try:
+        yield start
+    finally:
+        for server in servers:
+            server.stop()
+
+
+def _client(monkeypatch, server: MockLLM, clock: FakeClock, **overrides) -> llm.LLMClient:
+    """A local-provider client pointed at the stub, on the fake clock."""
+    monkeypatch.setenv("PRAXIS_LLM_BASE_URL", server.base_url)
+    monkeypatch.setenv("PRAXIS_LLM_MODEL", "stub-model")
+    return llm.LLMClient(llm.load_config(), retry=clock.policy(**overrides))
+
+
+def test_a_429_with_retry_after_seconds_is_waited_out(monkeypatch, stub, clock):
+    """(a) The server named two seconds, so the client waits at least two seconds."""
+    server = stub(rate_limited("2"), ok("second time lucky"))
+
+    assert _client(monkeypatch, server, clock).complete("hi") == "second time lucky"
+
+    assert server.calls == 2
+    (wait,) = clock.waits
+    assert 2.0 <= wait <= 2.0 + llm.RETRY_JITTER
+
+
+def test_a_retry_after_date_is_measured_against_the_clock(monkeypatch, stub, clock):
+    """(b) RFC 9110's other form: an HTTP-date, three seconds ahead of now."""
+    when = email.utils.formatdate(clock.wall() + 3, usegmt=True)
+    server = stub(rate_limited(when), ok())
+
+    _client(monkeypatch, server, clock).complete("hi")
+
+    assert server.calls == 2
+    (wait,) = clock.waits
+    assert 3.0 <= wait <= 3.0 + llm.RETRY_JITTER
+
+
+def test_a_retry_after_date_in_the_past_adds_no_extra_wait(monkeypatch, stub, clock):
+    """A stale date is not a negative sleep, and not the backoff schedule either."""
+    when = email.utils.formatdate(clock.wall() - 30, usegmt=True)
+    server = stub(rate_limited(when), ok())
+
+    _client(monkeypatch, server, clock).complete("hi")
+
+    assert server.calls == 2
+    assert clock.waits[0] <= llm.RETRY_JITTER
+
+
+def test_an_unparseable_retry_after_falls_back_to_the_backoff(monkeypatch, stub, clock):
+    server = stub(rate_limited("whenever you like"), ok())
+
+    _client(monkeypatch, server, clock).complete("hi")
+
+    (wait,) = clock.waits
+    assert llm.RETRY_BASE_DELAY <= wait <= llm.RETRY_BASE_DELAY + llm.RETRY_JITTER
+
+
+def test_a_429_without_a_delay_uses_bounded_backoff(monkeypatch, stub, clock):
+    """(c) No header at all: the schedule decides, inside its own bounds."""
+    server = stub(rate_limited(), ok())
+
+    _client(monkeypatch, server, clock).complete("hi")
+
+    assert server.calls == 2
+    (wait,) = clock.waits
+    assert llm.RETRY_BASE_DELAY <= wait <= llm.RETRY_BASE_DELAY + llm.RETRY_JITTER
+
+
+def test_a_500_is_retried_once_and_a_503_twice(monkeypatch, stub, clock):
+    """(d) Any 5xx is transient — Anthropic's 529 `overloaded_error` included."""
+    server = stub(server_error(500), ok("recovered"))
+    assert _client(monkeypatch, server, clock).complete("hi") == "recovered"
+    assert server.calls == 2
+
+    twice = stub(server_error(503), server_error(503), ok("recovered"))
+    second = FakeClock()
+    assert _client(monkeypatch, twice, second).complete("hi") == "recovered"
+    assert twice.calls == 3
+    # Doubling, each wait inside its own bound: 1s then 2s, plus jitter.
+    first_wait, next_wait = second.waits
+    assert llm.RETRY_BASE_DELAY <= first_wait <= llm.RETRY_BASE_DELAY + llm.RETRY_JITTER
+    assert 2 * llm.RETRY_BASE_DELAY <= next_wait <= 2 * llm.RETRY_BASE_DELAY + llm.RETRY_JITTER
+
+
+def test_a_529_from_an_overloaded_model_is_retried(monkeypatch, stub, clock):
+    server = stub(server_error(529), ok("through"))
+    assert _client(monkeypatch, server, clock).complete("hi") == "through"
+    assert server.calls == 2
+
+
+@pytest.mark.parametrize("status", [400, 401, 403, 404, 413, 422])
+def test_a_client_error_fails_on_the_first_attempt(monkeypatch, stub, clock, status):
+    """(e) Retrying a request the provider rejected is just a slower rejection."""
+    server = stub(Reply(status, {"error": {"message": "no"}}))
+
+    with pytest.raises(llm.LLMError) as caught:
+        _client(monkeypatch, server, clock).complete("hi")
+
+    assert server.calls == 1
+    assert clock.waits == []
+    assert str(status) in str(caught.value)
+    assert caught.value.attempts == 1
+
+
+def test_a_bad_response_shape_is_not_retried(monkeypatch, stub, clock):
+    """A 200 that says nothing useful is the provider's answer, not a transient one."""
+    server = stub(Reply(200, {"nothing": "useful"}))
+
+    with pytest.raises(llm.LLMError, match="unexpected response shape"):
+        _client(monkeypatch, server, clock).complete("hi")
+
+    assert (server.calls, clock.waits) == (1, [])
+
+
+def test_a_provider_that_never_lets_up_stops_at_the_attempt_limit(monkeypatch, stub, clock):
+    """(f) The budget's first half: attempts. The last failure is the one raised."""
+    server = stub(rate_limited())
+
+    with pytest.raises(llm.LLMError) as caught:
+        _client(monkeypatch, server, clock).complete("hi")
+
+    assert server.calls == llm.DEFAULT_RETRY_ATTEMPTS
+    assert len(clock.waits) == llm.DEFAULT_RETRY_ATTEMPTS - 1
+    assert clock.elapsed <= llm.DEFAULT_RETRY_BUDGET
+    assert caught.value.attempts == llm.DEFAULT_RETRY_ATTEMPTS
+    assert "429" in str(caught.value)
+
+
+def test_the_elapsed_budget_ends_a_call_the_attempts_would_not(monkeypatch, stub, clock):
+    """The budget's other half: a wait that would cross it is never taken."""
+    server = stub(rate_limited())
+
+    with pytest.raises(llm.LLMError):
+        _client(monkeypatch, server, clock, attempts=50, budget=5.0).complete("hi")
+
+    assert clock.elapsed <= 5.0
+    assert server.calls < 50
+
+
+def test_a_retry_after_beyond_the_budget_gives_up_at_once(monkeypatch, stub, clock):
+    """(g) "Come back in an hour" inside a 45-second budget is a no, not a nap."""
+    server = stub(rate_limited("3600"), ok())
+
+    with pytest.raises(llm.LLMError, match="429"):
+        _client(monkeypatch, server, clock).complete("hi")
+
+    assert (server.calls, clock.waits, clock.elapsed) == (1, [], 0.0)
+
+
+def test_a_closed_port_is_retried_and_bounded(monkeypatch, stub, clock):
+    """(h) A connection-level failure has no status at all, and is still transient."""
+    server = stub(ok())
+    closed = server.base_url
+    server.stop()
+    monkeypatch.setenv("PRAXIS_LLM_BASE_URL", closed)
+
+    with pytest.raises(llm.LLMError) as caught:
+        llm.LLMClient(llm.load_config(), retry=clock.policy()).complete("hi")
+
+    assert "could not reach" in str(caught.value)
+    assert caught.value.status == 0
+    assert caught.value.attempts == llm.DEFAULT_RETRY_ATTEMPTS
+    assert clock.elapsed <= llm.DEFAULT_RETRY_BUDGET
+
+
+def test_every_attempt_sends_the_same_bytes(monkeypatch, stub, clock):
+    """The frozen wire is frozen per attempt, not just per call."""
+    server = stub(rate_limited(), server_error(), ok())
+
+    _client(monkeypatch, server, clock).complete("hi", system="be brief", max_tokens=64)
+
+    assert server.calls == 3
+    first, *rest = server.requests
+    for later in rest:
+        assert later["path"] == first["path"]
+        assert later["json"] == first["json"]
+        assert later["headers"] == first["headers"]
+    assert first["json"] == {
+        "model": "stub-model",
+        "max_tokens": 64,
+        "messages": [{"role": "system", "content": "be brief"},
+                     {"role": "user", "content": "hi"}],
+    }
+
+
+def test_the_router_branch_retries_the_same_way(monkeypatch, stub, clock):
+    """agora is a route, not a policy: a 429 from the router is waited out too, and
+    what finally served the call is what `last_route` describes."""
+    server = stub(rate_limited("2"), ok(**{"x-agora-model": "claude-opus-5",
+                                           "x-agora-provider": "anthropic"}))
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant")
+    monkeypatch.setenv("AGORA_BASE_URL", server.base_url)
+
+    client = llm.LLMClient(llm.load_config(), retry=clock.policy())
+    assert client.complete("hi") == "hello from the stub"
+
+    assert server.calls == 2
+    assert 2.0 <= clock.waits[0] <= 2.0 + llm.RETRY_JITTER
+    assert client.last_route.routed_via_agora is True
+    assert (client.last_route.model, client.last_route.provider) == (
+        "claude-opus-5", "anthropic")
+
+
+def test_the_retry_budget_is_configurable_and_a_bad_value_is_an_error(monkeypatch):
+    """Same rule as PRAXIS_LLM_TIMEOUT's: never a silent fallback."""
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-oai")
+    assert llm.load_config().retry_attempts == llm.DEFAULT_RETRY_ATTEMPTS
+    assert llm.load_config().retry_budget == llm.DEFAULT_RETRY_BUDGET
+
+    monkeypatch.setenv("PRAXIS_LLM_RETRY_ATTEMPTS", "2")
+    monkeypatch.setenv("PRAXIS_LLM_RETRY_BUDGET", "9.5")
+    config = llm.load_config()
+    assert (config.retry_attempts, config.retry_budget) == (2, 9.5)
+    # The client follows the config with nobody plumbing it.
+    assert llm.LLMClient(config).retry.attempts == 2
+
+    monkeypatch.setenv("PRAXIS_LLM_RETRY_ATTEMPTS", "lots")
+    with pytest.raises(llm.LLMConfigError, match="PRAXIS_LLM_RETRY_ATTEMPTS"):
+        llm.load_config()
+    monkeypatch.setenv("PRAXIS_LLM_RETRY_ATTEMPTS", "0")
+    with pytest.raises(llm.LLMConfigError, match="must be positive"):
+        llm.load_config()

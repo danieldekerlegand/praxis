@@ -1,10 +1,15 @@
 """A tiny S3-compatible object store, so the cloud backend can be tested for real.
 
-`praxis/s3.py` speaks SigV4 over HTTP to whatever is at an endpoint. Mocking that at the
+`praxis/s3.py` speaks S3 over HTTP to whatever is at an endpoint. Mocking that at the
 Python level — patching `S3Client` — would test the mock; this serves the actual protocol
 on a loopback port so the request that gets signed is the request that gets parsed, and a
 sync in a *separate process* can reach the same bucket (which is what
 `tests/test_storage_backends.py` needs to prove a cloud round trip survives a restart).
+
+That is also why it stayed when the client moved onto minio-py: it is the only oracle the
+repo has for the swap. Every assertion in `tests/test_storage_backends.py` held across it
+with nothing here changed — minio sends `delimiter=` and signs the same SigV4 this already
+parsed — and nothing it refuses may be loosened to make a client pass.
 
 Deliberately incomplete: PUT/GET/DELETE one key and ListObjectsV2, path-style addressing,
 in-memory, single-part. That is exactly the surface `praxis/cloud.py` uses, and the parts

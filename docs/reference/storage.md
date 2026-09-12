@@ -1,6 +1,6 @@
 # Storage — where your work is kept
 
-> **Status:** Current · **Updated:** 2026-09-03 · **Owner:** praxis
+> **Status:** Current · **Updated:** 2026-09-12 · **Owner:** praxis
 
 Praxis writes five kinds of thing, and all five belong to **you**: the subjects you
 define, the curricula generated for them, the tutorials constructed into them (notebooks
@@ -85,8 +85,13 @@ sync). **A sync never deletes:** a cleared bucket cannot empty your disk, and a 
 mirror cannot empty the bucket.
 
 It takes any S3-compatible endpoint — AWS, MinIO, Cloudflare R2, Backblaze B2 — using
-path-style addressing and single-part uploads (`praxis/s3.py`, ~250 lines of `urllib` and
-`hmac`; no boto3, because the core stays dependency-light). Options:
+path-style addressing and single-part uploads. The protocol is
+[minio-py](https://github.com/minio/minio-py)'s, not ours: `praxis/s3.py` is a ~250-line
+**adapter** over `minio.Minio` that keeps the four verbs this backend needs and pins the two
+defaults it cannot take — a single PUT for any object up to S3's 5 GiB ceiling, so the `ETag`
+stays the object's MD5 and the change detection above keeps working, and a bounded timeout with
+minio's five built-in retries cut to one, so a backend check made from the UI cannot stall it.
+Still no boto3. Options:
 
 | option | |
 |---|---|
@@ -95,6 +100,14 @@ path-style addressing and single-part uploads (`praxis/s3.py`, ~250 lines of `ur
 | `prefix` | optional key prefix, so one bucket can hold several things |
 | `region` | defaults to `us-east-1` |
 | `access_key_id` / `secret_access_key` | omit both for an unauthenticated endpoint |
+
+> **[CORRECTED 2026-09-12 — this said `praxis/s3.py` was "~250 lines of `urllib` and `hmac`;
+> no boto3, because the core stays dependency-light". The signing, the ListObjectsV2 XML and
+> the hand-rolled HTTP are gone: `chief/88` replaced them with minio-py, finishing a story
+> `chief/86`'s record had marked done. The line count barely moved, which is why the sentence
+> read as current for a fortnight after it stopped being true — none of those lines is
+> protocol any more. "Dependency-light" was never the real reason either; the core already
+> pins `nbformat` and `nbgrader`.]**
 
 ### `webdav` — a share you already have
 

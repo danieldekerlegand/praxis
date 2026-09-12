@@ -21,8 +21,10 @@ So this module is a parser and a normalizer, and nothing else. In particular:
   is not text, and a document that yields no words are each a `JDError` naming the file
   and what to do instead — never an empty document written under a hopeful id.
 
-The four readers are stdlib only, in the same spirit as `praxis/s3.py` being `urllib`
-and `hmac` rather than boto3:
+The four readers are stdlib only, for their own reason: a JD import must work on the
+paste path with nothing installed beyond the core, and three of the four formats are a
+decode or a zip entry. [CORRECTED 2026-09-12 — this cited `praxis/s3.py`'s hand-rolled
+`urllib`+`hmac` client as its precedent; that client is now an adapter over minio-py.]
 
     .txt / .md   decode (BOM-sniffed, then UTF-8, then CP1252), binary refused
     .docx        `word/document.xml` out of the zip: one line per `<w:p>`

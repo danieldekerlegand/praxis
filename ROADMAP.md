@@ -5,7 +5,7 @@
 > learner's progression through them. North star: *demonstrated understanding, not scrolling —
 > a self-hostable tutorial constructor for any topic.*
 
-**Status:** Feature-complete — the 10→60 Chief program and every forward tasklist (`70`–`87`, `900`, `901`) have merged and the gating backfill has **run**; one merged record (`86`) overstates what landed — in polish + growth mode · **Last updated:** 2026-09-11
+**Status:** Feature-complete — the 10→60 Chief program and every forward tasklist (`70`–`87`, `900`, `901`) have merged and the gating backfill has **run**; the two stories the one overstating record (`86`) never landed are **built** in `chief/88` — in polish + growth mode · **Last updated:** 2026-09-12
 
 > **Reconciled against the tree 2026-09-11.** `tasks/chief/completed/` holds **26** records — **26** merged (every `mergedToMain` sha an ancestor of `HEAD`), **0** retired. `tasks/chief/` holds **1** active — `88-finish-86-s3-client-and-llm-retry` (`fix`), which finishes `86`'s two unlanded stories. *(2026-08-25 read 23 of 23; `87`, `900` and `901` have merged since.)*
 >
@@ -14,7 +14,9 @@
 > what shipped and none overstating it; this pass found the first overstatement — **`86`'s record
 > marks 3/3 stories passing, but its merge (`aa944fa`, 3 files, +26/−17) carries US-1 alone** (see
 > the `chief/86` section below). Nothing gates this file — that absence is the measured cause, and
-> the drift rate is about a fortnight.
+> the drift rate is about a fortnight. The finding stands as the record of that audit; the gap it
+> named was **closed by `chief/88-finish-86-s3-client-and-llm-retry`** (`fd6efaf`, `684320d`), and
+> the `chief/86` section carries the result.
 
 This is the single canonical roadmap. Praxis had no prior ROADMAP; this consolidates the
 README, `CLAUDE.md`, the reference docs under [`docs/`](docs/), and the completed 6-tasklist
@@ -66,8 +68,9 @@ desktop/web packaging, the seed library.
 - **BYO-key LLM client** with optional agora routing; browsing/rendering/answering need no key —
   only the two model-backed writes (define, construct) and grading a `short` answer do.
 - **Four storage backends** — `app` (default, per-OS app dir), `drive` (a picked folder,
-  verbatim), `cloud` (a local mirror + S3-compatible sync, no boto3 — still the hand-rolled
-  `praxis/s3.py`, see `chief/86` below) and `webdav` (a local mirror + WebDAV sync, added by
+  verbatim), `cloud` (a local mirror + S3-compatible sync over **minio-py**, no boto3 —
+  `praxis/s3.py` is a 249-line adapter, see `chief/86` below) and `webdav` (a local mirror + WebDAV
+  sync, added by
   `chief/73` through the public `register_backend()` seam) — all writing one root layout,
   selectable in-app. See [`docs/reference/storage.md`](docs/reference/storage.md).
 - **Packaged & CI-gated** — `tauri build` desktop bundles (verified `Praxis_0.1.0_aarch64.dmg`)
@@ -81,9 +84,10 @@ desktop/web packaging, the seed library.
   holds (`praxis/gatefloor.py` over `notebooks/coverage-floor.json`), and the README states it, so
   the number cannot go stale again without failing a build. Per-domain breakdown:
   `python3 -m praxis.coverage`; cost per notebook: `docs/explanation/gating-backfill-cost.md`.
-- **Chief program:** 26/26 tasklists merged, 0 active — the built program (`10`–`60`, 6), the
+- **Chief program:** 26 tasklists merged, `88` in flight — the built program (`10`–`60`, 6), the
   forward tasklists (`70`–`87`, 18) and the two closing sweeps (`900` dead code, `901` docs). One
-  record overstates: `86` merged one of its three stories (below). *(Rewritten 2026-09-11; this read
+  record overstated — `86` merged one of its three stories — and `chief/88` builds the other two
+  (below). *(Rewritten 2026-09-11; this read
   "16 proposed forward tasklists authored … unrun", corrected-in-place 2026-08-25.)*
 
 ---
@@ -198,22 +202,28 @@ needs the Python core and a key, and the docs draw that line.
 | ✅ | **nbgrader cell schema + hidden-test mechanics** — emit `metadata.nbgrader` graded cells with stable `grade_id`s, adopt nbgrader's solution/hidden-test delimiters and release mechanics (deleting the reimplementation), carry `choice`/`short` as a namespaced extension, and make `nbgrader validate` the authoritative gate; the 24 already-gated seeds migrate by an idempotent pass · M/L | `chief/84-nbgrader-cell-schema-adoption` |
 | ✅ | **JupyterLite delivery** — bundle a pinned JupyterLite site in the Tauri app so a learner reaches a running tutorial with zero terminals, zero `pip install` and zero kernel registration; serve only *released* (stripped) notebooks; keep the gate's authority out of the browser; report honestly when a tutorial's deps are not Pyodide-resolvable · M/L | `chief/85-jupyterlite-delivery` |
 
-### Adopt, don't hand-roll — `chief/86` — 🚧 one of three stories landed
+### Adopt, don't hand-roll — `chief/86` — ✅ all three stories landed (two of them in `chief/88`)
 
 `chief/86` (category `replace`) bundled three independent cleanups. Its completed record marks all
 three stories passing and it merged as `aa944fa` — **but that merge is 3 files, +26/−17, and carries
-US-1 alone.** Measured against the tree on 2026-09-11, not read off the record:
+US-1 alone.** That was measured against the tree on 2026-09-11, not read off the record; the two
+stories it left behind are built by `chief/88-finish-86-s3-client-and-llm-retry`, and the rows
+below cite that branch's commits rather than a claim:
 
 | Status | Milestone | Tasklist |
 |---|---|---|
 | ✅ | **Use the declared `nbformat`** — the production writers (`praxis/construct.py`, `scaffold_notebooks.py`) build cells with `nbformat.v4` and write with `nbformat.write` instead of hand-built dicts | `chief/86-adopt-minio-nbformat-and-delete-legacy` US-1 (`aa944fa`) |
-| ⬜ | **Replace the hand-rolled S3 client** — `praxis/s3.py` is still **291** hand-rolled lines and no S3 library is in `pyproject.toml`. The story's other half — deleting the dead `generate_notebooks.py` / `enhance_notebooks.py` — was done later by `chief/900` (`b8858f5`) | `chief/86` US-2 — marked passing, **not done** · finishing: `chief/88-finish-86-s3-client-and-llm-retry` US-1 |
-| ⬜ | **Real LLM retry semantics** — retry with backoff on 429 / 5xx. No 429, `Retry-After` or backoff handling exists anywhere in `praxis/` or `launcher/` | `chief/86` US-3 — marked passing, **not done** · finishing: `chief/88-finish-86-s3-client-and-llm-retry` US-2 |
+| ✅ | **Replace the hand-rolled S3 client** — `praxis/s3.py` is a **249-line adapter over `minio.Minio`** (was 291 lines of hand-rolled SigV4, ListObjectsV2 XML and urllib; 193 removed), `minio>=7.2,<8` is a core dependency, and all four importers are byte-identical — `tests/mocks3.py` kept as the oracle, with its 16 S3/cloud assertions unedited. The story's other half — deleting the dead `generate_notebooks.py` / `enhance_notebooks.py` — was done earlier by `chief/900` (`b8858f5`) | `chief/86` US-2 — marked passing but **not done**; landed by `chief/88-finish-86-s3-client-and-llm-retry` US-1 (`fd6efaf`) |
+| ✅ | **Real LLM retry semantics** — `LLMClient.complete()` retries inside a tenacity `Retrying` on 429, any 5xx (529 included) and connection-level failures, honouring `Retry-After` in both RFC 9110 forms, else bounded exponential backoff with jitter, under a 4-attempt / 45-second budget. `_urlopen` stays the one urllib seam, so the frozen direct wire and its four pinned error strings are unedited | `chief/86` US-3 — marked passing but **not done**; landed by `chief/88-finish-86-s3-client-and-llm-retry` US-2 (`684320d`) |
 
-The record is left as chief wrote it; this table is the correction. The two open rows are authored
-as `chief/88-finish-86-s3-client-and-llm-retry` (category `fix`, unrun): minio-py behind
-`praxis.s3`'s existing surface with `tests/mocks3.py` kept as the oracle, and tenacity-driven retry
-inside `praxis/llm.py`'s `complete()` with `_urlopen` kept as the urllib seam. Its US-3 flips these rows.
+The `86` record is left as chief wrote it; **this table is the correction of record.**
+`chief/88-finish-86-s3-client-and-llm-retry` (category `fix`) built the two rows it had marked
+passing: minio-py behind `praxis.s3`'s existing surface with `tests/mocks3.py` kept as the oracle,
+and tenacity-driven retry inside `praxis/llm.py`'s `complete()` with `_urlopen` kept as the urllib
+seam. Both deliberately swapped one thing at a time — the client but not the test double, the retry
+policy but not the transport — so the existing suites stayed the oracle for the swap. `chief/88`'s
+own merge commit lands in `tasks/chief/completed/88-finish-86-s3-client-and-llm-retry.json` as
+`mergedToMain` and reaches the merged-tasklist bullet below at the next reconcile.
 
 ### Gating backfill program — ✅ shipped and run (2026-08-27)
 
@@ -295,7 +305,8 @@ cross-repo dependency (`chief:80-headless-programmatic-invocation`, bands `80`�
   `70` → `ed96395` · `71` → `6993db2` · `72` → `e005aad` · `73` → `e262757` · `74` → `4ee54b9` ·
   `75` → `49d966f` · `76` → `97fa811` · `77` → `3a7f1da` · `78` → `60eb1c8` · `79` → `f819be6` ·
   `80` → `ada1d1f` · `81` → `9a71a2d` · `82` → `9d0836c` · `83` → `d22667d` · `84` → `1aa111b` ·
-  `85` → `6e55c3d` · `86` → `aa944fa` (**US-1 only** — see its section) · `87` → `d1b4b59`. Of the
+  `85` → `6e55c3d` · `86` → `aa944fa` (**US-1 only** — its other two stories are built in `chief/88`,
+  see its section) · `87` → `d1b4b59`. Of the
   loose wishlist rows, seed-library upkeep has its machinery from `chief/83` and the
   rubric-tightening thread carries no tasklist (`chief/81` shipped its measured rules); both stay
   open as upkeep. *(This bullet read "16 proposed tasklists … all now authored … unrun"; rewritten
@@ -317,10 +328,11 @@ cross-repo dependency (`chief:80-headless-programmatic-invocation`, bands `80`�
   authoritative. `chief/84` (nbgrader schema) had to run **before** `chief/79`–`81` despite its
   higher number, because those three write the schema it adopts; `chief/85` (JupyterLite) depends on
   `84` because it is `84`'s *released* notebooks that are safe to hand to an untrusted browser.
-- The 6-tasklist built program is complete, and so is every forward tasklist above. What is open:
-  `86`'s two unfinished stories (the S3 client, LLM retry — authored as `chief/88`), the 128 deferred notebooks, and the
-  two upkeep threads. *(This read "the 16 proposed forward tasklists above are authored but unrun";
-  rewritten 2026-09-11.)* (Earlier offline notebook-filling runs used
+- The 6-tasklist built program is complete, and so is every forward tasklist above. `86`'s two
+  unfinished stories — the S3 client and LLM retry — are built in `chief/88` (`fd6efaf`,
+  `684320d`), so what is open is the 128 deferred notebooks and the two upkeep threads. *(This read
+  "the 16 proposed forward tasklists above are authored but unrun"; rewritten 2026-09-11. The
+  `86`-gap clause was removed 2026-09-12, when `chief/88` closed it.)* (Earlier offline notebook-filling runs used
   Ralph/ralphy — `ralph/`, `.ralphy/` — historical and superseded by the in-app construction
   agent from band 30; `chief/900` removed both trees, see
   [`docs/explanation/dead-code-inventory.md`](docs/explanation/dead-code-inventory.md) A7.)

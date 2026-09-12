@@ -390,6 +390,22 @@ Two rules keep it opt-in, and `tests/test_llm.py` pins both:
   module, all of it a hint going out and a best effort coming back, so a router that
   ignores or omits every bit of it still behaves like the plain base-URL swap.
 
+Retry lives **inside `complete()`**, not in the repair loops: a tenacity `Retrying` around
+`_urlopen`, which stays the one urllib seam. Retryable is exactly **429, any 5xx** (Anthropic's
+529 among them) **and any connection-level failure**; every other 4xx, a non-JSON body, an
+unexpected shape and `LLMConfigError` fail on the first attempt with no wait. A wait is the
+server's `Retry-After` when it sends one (both RFC 9110 forms), else exponential backoff from
+`RETRY_BASE_DELAY`, doubling, capped at `RETRY_MAX_DELAY`, plus jitter — bounded by
+`DEFAULT_RETRY_ATTEMPTS` attempts **and** `DEFAULT_RETRY_BUDGET` seconds total, whichever runs out
+first. The budget is 45s because `launcher/app.py` grades a `short` answer through this client
+inside an HTTP request, so a rate-limited call has to give up while someone is still watching. Two
+things this must not disturb, and `tests/test_llm.py` pins both: every attempt sends the
+**byte-identical** request `DIRECT_WIRE` froze, and an exhausted loop raises the **same
+`LLMError` string** one failure raises today — the retry's own facts ride as attributes
+(`.status`, `.retry_after`, `.attempts`), never appended to a message. Because the transport
+absorbs the transient failure, `construct.py` / `checks.py` spend their `DEFAULT_ATTEMPTS` on
+grader failures, which is what they exist for.
+
 ## Storage: whose data, and on which disk
 
 `praxis/storage.py` is the only module that knows where the user's data lives. The four
@@ -417,8 +433,17 @@ is exempt because it is the fix. `writable()` is the local, cheap half of `avail
 they differ only for `cloud`, which stays writable offline.
 
 `cloud` and `webdav` are each a **local mirror plus a sync** (`praxis/cloud.py` over
-`praxis/s3.py`, ~250 lines of urllib+hmac rather than boto3; `praxis/share.py` over
-`praxis/webdav.py`, urllib again), because every writer here writes with `Path`.
+`praxis/s3.py`, a 249-line adapter over **minio-py** rather than boto3; `praxis/share.py` over
+`praxis/webdav.py`, urllib on its own rationale), because every writer here writes with `Path`.
+`s3.py` holds no protocol at all now — no signing, no ListObjectsV2 XML, no hand-rolled HTTP — and
+exists for minio's *defaults*, which are wrong for this caller: it forces a **single-part PUT** up
+to S3's 5 GiB ceiling, because `cloud.py` decides "has this file changed?" by comparing
+`md5_of(local)` against the ETag and a multipart ETag is not an MD5; it supplies its own urllib3
+pool built from `timeout` with minio's five built-in retries cut to one, because `Backend.available()`
+runs inside a UI request; and it maps minio's four exception families plus urllib3's back onto the
+one `S3Error(message, status)` that `storage.py` catches, with the HTTP status on `.status`
+(0 when there never was one) and no credential in the text. Keep that surface — the four importers
+are unchanged since it was hand-rolled, and `tests/mocks3.py` was the oracle for the swap.
 The merge rule is content-based: `.praxis-sync.json` records the digest both sides last
 agreed on, so the side that *changed* wins and mtimes only break a true conflict — a
 timestamp rule alone loses an edit made in the same second as the previous sync. A sync
@@ -459,8 +484,10 @@ whatever the file it arrived as. Three properties carry the weight:
   configured — BYO-key starts one band later, at extraction. A test asserts a restart
   reading a JD back never loads `praxis.llm`.
 - **No parser for a format that doesn't need one.** `.txt`/`.md` are a decode; `zipfile`
-  and `zlib` are imported *inside* the `.docx` and `.pdf` readers. All four are stdlib,
-  the same call `praxis/s3.py` makes against boto3.
+  and `zlib` are imported *inside* the `.docx` and `.pdf` readers. All four are stdlib —
+  not on a dependency-light principle (the core pins `nbformat`, `nbgrader`, `minio` and
+  `tenacity`), but because a PDF or DOCX reader that only has to reach the text is a page
+  of `zlib`, and a library for it would be carried for one funnel's front door.
 - **Nothing that failed to parse is persisted** — an unsupported extension, bytes that are
   not text (CP1252 decodes anything, so binary is caught *before* the fallback, not by it)
   and a scan with no extractable text are each a `JDError` naming the file and what to do
