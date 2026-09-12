@@ -1,7 +1,9 @@
 """The construction agent: a scaffold in, a notebook that passes the gate out.
 
-No test touches the network — `praxis.llm._urlopen` is the one seam (test_llm.py) and
-`construct_topic` takes an injectable client, so every branch is driven directly.
+No test reaches the internet — `praxis.llm._urlopen` is the one seam (test_llm.py) and
+`construct_topic` takes an injectable client, so every branch is driven directly. The one
+exception is the rate-limit case, which needs a real 429 with a real header on it and so
+runs against `tests/mockllm.py` on a loopback port.
 
 The point of most of these is the anti-fabrication contract: content that would not
 pass tests/test_notebooks.py must never reach the disk, and must never be flagged ✅.
@@ -26,6 +28,7 @@ from curriculum import (  # noqa: E402
     subject_from_dict,
     topic_path,
 )
+from mockllm import MockLLM, Reply, rate_limited  # noqa: E402
 from nbstatus import BADGE, notebook_status  # noqa: E402
 from praxis import checks as checks_mod  # noqa: E402
 from praxis import construct, llm  # noqa: E402
@@ -756,6 +759,34 @@ def test_end_to_end_over_a_mocked_provider(monkeypatch, runnable, subject):
     # The second call is the gate: the notebook it just wrote, back out as questions.
     assert result.checks.status == "generated"
     assert checkset_failures(load_checks(checks_path(result.path))) == []
+
+
+def test_a_rate_limit_costs_a_wait_not_a_repair_attempt(monkeypatch, runnable, subject):
+    """The transport absorbs a 429, so the repair loop's attempts stay the grader's.
+
+    Three attempts exist to answer `construction_failures`. Before the client retried,
+    a provider saying "slow down" spent one of them on a prompt the model never saw —
+    and three rate limits failed a notebook in milliseconds having learned nothing.
+    """
+    module, topic = runnable
+    server = MockLLM(rate_limited("2"), Reply(200, {"choices": [{"message": {
+        "content": reply(good_cells())}}]}))
+    waits: list[float] = []
+    monkeypatch.setenv("PRAXIS_LLM_BASE_URL", server.base_url)
+    monkeypatch.setenv("PRAXIS_LLM_MODEL", "stub-model")
+    client = llm.LLMClient(llm.load_config(),
+                           retry=llm.RetryPolicy(sleep=waits.append, rng=lambda: 0.0))
+
+    try:
+        result = construct_topic(module, topic, client=client, subject=subject,
+                                 checks=False)
+    finally:
+        server.stop()
+
+    assert result.status == "constructed"
+    assert result.attempts == 1          # the 429 cost no attempt at all
+    assert (server.calls, waits) == (2, [2.0])
+    assert notebook_status(result.path)[0] == "complete"
 
 
 # --- the CLI ----------------------------------------------------------------
