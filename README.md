@@ -151,10 +151,17 @@ incrementally; the core above is what they build on.
 
 ## LLM access (bring your own key)
 
-[`praxis/llm.py`](praxis/llm.py) is the single place Praxis talks to a model. It uses
-only the standard library, and it **never reads a key from source** — provider, key,
+[`praxis/llm.py`](praxis/llm.py) is the single place Praxis talks to a model. Its transport
+is the standard library's — one `urllib` seam — with [tenacity](https://github.com/jd/tenacity)
+driving the retry loop around it, and it **never reads a key from source** — provider, key,
 model, and endpoint come from the environment first, then from a JSON config file
 (`$PRAXIS_CONFIG`, else `~/.config/praxis/config.json`).
+
+> **[CORRECTED 2026-09-12 — this paragraph said llm.py "uses only the standard library".
+> That was true until `chief/88` gave the client real retry semantics: a **429** or a
+> **5xx** is the provider asking us to wait, and burning a repair attempt on it in
+> milliseconds is not an answer. tenacity now drives the loop (the one non-stdlib import
+> there); the transport did *not* change, which is what keeps the direct wire frozen.]**
 
 Three direct providers, selected by `PRAXIS_LLM_PROVIDER` or inferred from whichever
 credential is present:
@@ -189,6 +196,15 @@ Other knobs: `PRAXIS_LLM_MODEL` (overrides the per-provider default),
 you point Praxis at a local model** — constructing a notebook is a single ~9000-character
 reply, which a hosted provider streams in under a minute and a local 30B model can take
 ten. Every one of these can also live in the config file instead.
+
+**Retries** are the client's, not the caller's: a **429**, any **5xx** (Anthropic's 529
+included) and a connection-level failure are retried; every other 4xx and every malformed
+reply fail at once. A wait is the server's `Retry-After` when it sends one, else
+exponential backoff with jitter — and the whole call is bounded by
+`PRAXIS_LLM_RETRY_ATTEMPTS` (default 4, the first call included) **and**
+`PRAXIS_LLM_RETRY_BUDGET` (default 45 seconds, sleeps included), whichever runs out
+first. The budget is short on purpose: grading a `short` answer runs through this client
+inside a web request. A bad value in either is an error, not a silent fallback.
 
 ```bash
 python -m praxis.llm     # doctor: prints the resolved route + timeout, spends no tokens
