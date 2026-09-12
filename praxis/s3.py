@@ -3,41 +3,56 @@
 
 Praxis's cloud backend needs four verbs (list · get · put · delete) against anything that
 speaks S3: AWS itself, MinIO, Backblaze B2, Cloudflare R2, a local mock in the test
-suite. That is a small enough surface that `urllib` plus `hmac` beats taking a dependency
-on boto3 — the core of this project is deliberately dependency-light (see `pyproject.toml`:
-only `nbformat` is required), and a storage backend is not a good reason to change that.
+suite. This module is the **adapter** that keeps that four-verb surface stable while
+`minio-py` does the protocol — the signing, the paging and the XML that used to live here
+by hand were ~290 lines of `hmac` and `xml.etree` maintained for no gain over a pinned,
+Apache-2.0 library with no boto3 in its dependency tree.
 
-Two deliberate limits, because a directory mirror needs neither:
+What the adapter is actually for is minio's *defaults*, which do not match what
+`praxis/cloud.py` needs:
 
-* **path-style addressing only** (`<endpoint>/<bucket>/<key>`). Virtual-host style is what
-  breaks first against MinIO and local mocks, and every S3 implementation supports path
-  style.
-* **single-part uploads only**. That keeps `ETag` equal to the object's MD5, which is what
-  `praxis/cloud.py` compares against a local file to decide whether it has changed. A
-  notebook is kilobytes; nothing here is near the 5 GB single-PUT ceiling.
+* **single-part uploads only.** minio switches to multipart above 5 MiB, and a multipart
+  `ETag` is not the object's MD5 — which is exactly what `praxis/cloud.py` compares
+  against a local file to decide whether it has changed. `put_object` therefore sizes the
+  part so that any object the old client could PUT (up to S3's 5 GiB single-PUT ceiling)
+  goes up in one request, and the `ETag` stays `md5_of(data)`.
+* **path-style addressing**, which minio already picks for every non-AWS host. Virtual-host
+  style is what breaks first against MinIO and local mocks.
+* **bounded time.** `Backend.available()` calls in from the UI, so the client supplies its
+  own urllib3 pool built from `timeout` with minio's five built-in retries cut down; the
+  stock client would wait five minutes and retry a dead endpoint five times.
+* **one error type.** `praxis/storage.py` catches `praxis.s3.S3Error`; minio raises four
+  unrelated families plus urllib3's. Everything a caller can see is mapped back here, with
+  the HTTP status on `.status` (0 when there never was one) and no credential in the text.
 
-Credentials come from the backend's saved options and are never logged — `S3Error` carries
-the status and the body of a failure, and the signing inputs stay out of it.
+Credentials come from the backend's saved options and are never logged. Anonymous access
+(no keys at all) stays a supported mode — a public bucket or the test mock needs none.
 """
 
 from __future__ import annotations
 
-import datetime as _datetime
 import hashlib
-import hmac
-import urllib.error
-import urllib.parse
-import urllib.request
-import xml.etree.ElementTree as ET
+import io
+import os
 from dataclasses import dataclass
+from itertools import islice
+from urllib.parse import urlsplit
 
-ALGORITHM = "AWS4-HMAC-SHA256"
-SERVICE = "s3"
-EMPTY_SHA256 = hashlib.sha256(b"").hexdigest()
+import certifi
+import urllib3
+from minio import Minio
+from minio import error as _minio
+from minio.helpers import MAX_PART_SIZE, MIN_PART_SIZE
 
 #: Seconds any single request may take. A backend check must not hang the UI, and the
-#: objects involved are small, so one timeout covers both.
+#: objects involved are small, so one timeout covers both connect and read.
 DEFAULT_TIMEOUT = 10.0
+
+#: How many times urllib3 may retry beneath minio. minio's own default is five with a
+#: backoff, which turns an unreachable bucket into a multi-second stall inside a request
+#: handler; one retry still absorbs a dropped keep-alive. Status codes are never retried —
+#: they are answers, and `S3Error` is how a caller is told about them.
+HTTP_RETRIES = 1
 
 
 class S3Error(RuntimeError):
@@ -58,44 +73,42 @@ class RemoteObject:
     modified: float  # POSIX timestamp, UTC
 
 
-def _quote(value: str, safe: str = "/~") -> str:
-    return urllib.parse.quote(value, safe=safe)
+def _endpoint_parts(endpoint: str) -> tuple[str, bool]:
+    """`http(s)://host[:port]` — the form the settings form saves — as minio wants it.
 
-
-def _sign(key: bytes, message: str) -> bytes:
-    return hmac.new(key, message.encode(), hashlib.sha256).digest()
-
-
-def _parse_iso(value: str) -> float:
-    """S3's `LastModified` (`2026-08-01T12:00:00.000Z`) as a POSIX timestamp."""
-    text = (value or "").strip().replace("Z", "+00:00")
-    try:
-        stamp = _datetime.datetime.fromisoformat(text)
-    except ValueError:
-        return 0.0
-    if stamp.tzinfo is None:
-        stamp = stamp.replace(tzinfo=_datetime.timezone.utc)
-    return stamp.timestamp()
-
-
-def _localname(tag: str) -> str:
-    """`{http://s3.amazonaws.com/doc/2006-03-01/}Key` -> `Key`.
-
-    Implementations disagree about whether the list response is namespaced (AWS uses one,
-    several mocks don't), so every read of the XML goes through this.
+    minio takes `host[:port]` plus `secure=`, and refuses a path itself; anything after the
+    host is handed straight through so that refusal happens (as a `ValueError` the caller
+    turns into an `S3Error`) rather than being silently dropped here.
     """
-    return tag.rsplit("}", 1)[-1]
+    raw = endpoint.strip().rstrip("/")
+    parsed = urlsplit(raw if "//" in raw else "//" + raw)
+    return (parsed.netloc + parsed.path), (parsed.scheme or "https") != "http"
 
 
-def _find(node: ET.Element, name: str) -> str:
-    for child in node:
-        if _localname(child.tag) == name:
-            return (child.text or "").strip()
-    return ""
+def _http_client(timeout: float) -> urllib3.PoolManager:
+    """minio's pool, but on Praxis's clock and with its retries bounded."""
+    return urllib3.PoolManager(
+        timeout=urllib3.Timeout(connect=timeout, read=timeout),
+        maxsize=10,
+        cert_reqs="CERT_REQUIRED",
+        ca_certs=os.environ.get("SSL_CERT_FILE") or certifi.where(),
+        retries=urllib3.Retry(
+            total=HTTP_RETRIES,
+            connect=HTTP_RETRIES,
+            read=HTTP_RETRIES,
+            redirect=0,
+            backoff_factor=0.1,
+            status_forcelist=[],
+        ),
+    )
+
+
+def _status_of(exc: _minio.S3Error) -> int:
+    return int(getattr(getattr(exc, "response", None), "status", 0) or 0)
 
 
 class S3Client:
-    """One bucket on one endpoint, signed with SigV4.
+    """One bucket on one endpoint, over `minio.Minio`.
 
     `endpoint` is the scheme and host (`https://s3.us-east-1.amazonaws.com`,
     `http://127.0.0.1:9000`); the bucket is always the first path segment.
@@ -123,103 +136,44 @@ class S3Client:
         if not self.bucket:
             raise S3Error("no bucket")
 
-    # --- signing ------------------------------------------------------------
-
-    def _signing_key(self, stamp: str) -> bytes:
-        key = _sign(f"AWS4{self.secret_access_key}".encode(), stamp)
-        key = _sign(key, self.region)
-        key = _sign(key, SERVICE)
-        return _sign(key, "aws4_request")
-
-    def _headers(
-        self, method: str, path: str, query: dict, payload: bytes, extra: dict | None = None
-    ) -> dict:
-        """SigV4 headers for one request. Anonymous when no access key is configured.
-
-        A mock or a public bucket needs no credentials, and refusing to talk to one would
-        make the test suite less honest, not more — so an unsigned request is a supported
-        mode rather than an error.
-        """
-        host = urllib.parse.urlsplit(self.endpoint).netloc
-        payload_hash = hashlib.sha256(payload).hexdigest() if payload else EMPTY_SHA256
-        now = _datetime.datetime.now(_datetime.timezone.utc)
-        amzdate = now.strftime("%Y%m%dT%H%M%SZ")
-        stamp = now.strftime("%Y%m%d")
-
-        headers = {
-            "Host": host,
-            "x-amz-content-sha256": payload_hash,
-            "x-amz-date": amzdate,
-            **(extra or {}),
-        }
-        if self.session_token:
-            headers["x-amz-security-token"] = self.session_token
-        if not (self.access_key_id and self.secret_access_key):
-            return headers
-
-        canonical_query = "&".join(
-            f"{_quote(k, '~')}={_quote(str(v), '~')}" for k, v in sorted(query.items())
-        )
-        signed = sorted(headers, key=str.lower)
-        canonical_headers = "".join(
-            f"{name.lower()}:{str(headers[name]).strip()}\n" for name in signed
-        )
-        signed_headers = ";".join(name.lower() for name in signed)
-        canonical_request = "\n".join([
-            method,
-            path,
-            canonical_query,
-            canonical_headers,
-            signed_headers,
-            payload_hash,
-        ])
-        scope = f"{stamp}/{self.region}/{SERVICE}/aws4_request"
-        to_sign = "\n".join([
-            ALGORITHM,
-            amzdate,
-            scope,
-            hashlib.sha256(canonical_request.encode()).hexdigest(),
-        ])
-        signature = hmac.new(
-            self._signing_key(stamp), to_sign.encode(), hashlib.sha256
-        ).hexdigest()
-        headers["Authorization"] = (
-            f"{ALGORITHM} Credential={self.access_key_id}/{scope}, "
-            f"SignedHeaders={signed_headers}, Signature={signature}"
-        )
-        return headers
-
-    # --- the wire -----------------------------------------------------------
-
-    def _request(
-        self,
-        method: str,
-        key: str = "",
-        query: dict | None = None,
-        payload: bytes = b"",
-        extra_headers: dict | None = None,
-    ) -> tuple[int, dict, bytes]:
-        query = dict(query or {})
-        path = "/" + _quote(f"{self.bucket}/{key}".rstrip("/") if key else self.bucket)
-        headers = self._headers(method, path, query, payload, extra_headers)
-        url = self.endpoint + path
-        if query:
-            url += "?" + "&".join(
-                f"{_quote(k, '~')}={_quote(str(v), '~')}" for k, v in sorted(query.items())
-            )
-        request = urllib.request.Request(url, data=payload or None, method=method)
-        for name, value in headers.items():
-            if name != "Host":  # urllib sets Host itself, from the URL
-                request.add_header(name, value)
+        host, secure = _endpoint_parts(self.endpoint)
+        signed = bool(self.access_key_id and self.secret_access_key)
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                return response.status, dict(response.headers), response.read()
-        except urllib.error.HTTPError as exc:
-            body = exc.read()[:400].decode("utf-8", "replace")
-            raise S3Error(f"{method} {path} -> {exc.code} {body}".strip(), exc.code) from exc
-        except (urllib.error.URLError, OSError, ValueError) as exc:
-            reason = getattr(exc, "reason", exc)
+            self._minio = Minio(
+                host,
+                access_key=self.access_key_id if signed else None,
+                secret_key=self.secret_access_key if signed else None,
+                session_token=self.session_token or None,
+                secure=secure,
+                region=self.region,
+                http_client=_http_client(timeout),
+            )
+        except (ValueError, _minio.MinioException) as exc:
+            raise S3Error(f"{self.endpoint}: {exc}") from exc
+
+    # --- everything a caller can see is an S3Error --------------------------
+
+    def _call(self, what: str, call, *args, **kwargs):
+        """Run one minio call, and translate its whole error family into `S3Error`."""
+        try:
+            return call(*args, **kwargs)
+        except _minio.S3Error as exc:
+            status = _status_of(exc)
+            raise S3Error(f"{what} -> {status} {exc.code}: {exc.message}".strip(),
+                          status) from exc
+        except _minio.ServerError as exc:
+            raise S3Error(f"{what} -> {exc.status_code} {exc}", exc.status_code) from exc
+        except _minio.InvalidResponseError as exc:
+            # The only place minio keeps the status of a non-XML reply.
+            status = int(getattr(exc, "_code", 0) or 0)
+            raise S3Error(f"{what} -> {status} {exc}".strip(), status) from exc
+        except (_minio.MinioException, urllib3.exceptions.HTTPError, OSError,
+                ValueError) as exc:
+            reason = getattr(exc, "reason", None) or exc
             raise S3Error(f"{self.endpoint}: {reason}") from exc
+
+    def _where(self, key: str = "") -> str:
+        return f"s3://{self.bucket}/{key}".rstrip("/")
 
     # --- the four verbs -----------------------------------------------------
 
@@ -231,59 +185,63 @@ class S3Client:
         self, prefix: str = "", max_keys: int = 1000, exhaust: bool = True
     ) -> list[RemoteObject]:
         """Every object under `prefix`, following continuation tokens by default."""
-        found: list[RemoteObject] = []
-        token = ""
-        while True:
-            query = {"list-type": "2", "max-keys": str(max_keys)}
-            if prefix:
-                query["prefix"] = prefix
-            if token:
-                query["continuation-token"] = token
-            _, _, body = self._request("GET", query=query)
-            objects, token = _parse_listing(body)
-            found.extend(objects)
-            if not exhaust or not token:
-                return found
+        return self._call(f"LIST {self._where(prefix)}", self._list,
+                          prefix, max_keys, exhaust)
+
+    def _list(self, prefix: str, max_keys: int, exhaust: bool) -> list[RemoteObject]:
+        # minio's public `list_objects` fixes `max-keys` at 1000, and `max_keys` is the
+        # argument `head_bucket` uses to make its check one small request; paging is the
+        # point, so this goes through the paging generator underneath it. The `<8` ceiling
+        # on the dependency in pyproject.toml is what keeps that call honest.
+        # No `encoding-type=url`: S3's XML escaping already carries every key Praxis
+        # writes, and minio's `unquote_plus` of an un-encoded key would corrupt a `+`.
+        page = self._minio._list_objects(  # noqa: SLF001 - see above
+            self.bucket,
+            prefix=prefix or None,
+            delimiter=None,
+            encoding_type=None,
+            max_keys=max_keys,
+        )
+        rows = page if exhaust else islice(page, max_keys)
+        return [
+            RemoteObject(
+                key=obj.object_name or "",
+                size=int(obj.size or 0),
+                etag=(obj.etag or "").strip('"'),
+                modified=obj.last_modified.timestamp() if obj.last_modified else 0.0,
+            )
+            for obj in rows
+        ]
 
     def get_object(self, key: str) -> bytes:
-        return self._request("GET", key)[2]
+        return self._call(f"GET {self._where(key)}", self._get, key)
+
+    def _get(self, key: str) -> bytes:
+        response = self._minio.get_object(self.bucket, key)
+        try:
+            return response.read()
+        finally:
+            response.close()
+            response.release_conn()
 
     def put_object(self, key: str, data: bytes) -> str:
         """Store `data`; returns the ETag (the MD5 of the body for a single-part PUT)."""
-        _, headers, _ = self._request(
-            "PUT", key, payload=data,
-            extra_headers={"Content-Length": str(len(data)),
-                           "Content-Type": "application/octet-stream"},
+        result = self._call(f"PUT {self._where(key)}", self._put, key, data)
+        return (result.etag or "").strip('"')
+
+    def _put(self, key: str, data: bytes):
+        # A part at least as large as the body is one part, so minio never goes multipart
+        # and the ETag stays the MD5 `praxis/cloud.py` compares against. minio clamps a
+        # part to [5 MiB, 5 GiB], which is S3's own single-PUT ceiling.
+        part_size = min(max(len(data), MIN_PART_SIZE), MAX_PART_SIZE)
+        return self._minio.put_object(
+            self.bucket, key, io.BytesIO(data), len(data),
+            content_type="application/octet-stream", part_size=part_size,
         )
-        return (headers.get("ETag") or headers.get("etag") or "").strip('"')
 
     def delete_object(self, key: str) -> None:
-        self._request("DELETE", key)
-
-
-def _parse_listing(body: bytes) -> tuple[list[RemoteObject], str]:
-    """`(objects, continuation token)` from a ListObjectsV2 response."""
-    try:
-        root = ET.fromstring(body)
-    except ET.ParseError as exc:
-        raise S3Error(f"unreadable listing from the bucket: {exc}") from exc
-
-    objects: list[RemoteObject] = []
-    token = ""
-    for node in root:
-        name = _localname(node.tag)
-        if name == "Contents":
-            objects.append(RemoteObject(
-                key=_find(node, "Key"),
-                size=int(_find(node, "Size") or 0),
-                etag=_find(node, "ETag").strip('"'),
-                modified=_parse_iso(_find(node, "LastModified")),
-            ))
-        elif name == "NextContinuationToken":
-            token = (node.text or "").strip()
-        elif name == "IsTruncated" and (node.text or "").strip().lower() != "true":
-            token = token or ""
-    return objects, token
+        self._call(f"DELETE {self._where(key)}",
+                   self._minio.remove_object, self.bucket, key)
 
 
 def md5_of(data: bytes) -> str:

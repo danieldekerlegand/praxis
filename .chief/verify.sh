@@ -84,9 +84,15 @@ fi
 # environment, so repair it in place with the same editable install CI runs before giving
 # up. `praxis.checks` resolves nbgrader's console script beside the running interpreter,
 # so the interpreter that runs the tests must be the one that has it.
+#
+# `minio` is in that probe for exactly the same reason: it is the S3 client behind the
+# `cloud` backend (praxis/s3.py), a pinned CORE dependency, and a .venv predating that
+# pin fails every cloud test on ImportError instead of skipping. CI needs no change —
+# ci.yml installs -e '.[launch,dev]' into a fresh interpreter on every run, so it has
+# whatever pyproject.toml declares.
 if echo "$changed" | grep -qE '\.(py|ipynb)$|^notebooks/|^tests/|^scripts/|^pyproject\.toml$|^ui/package\.json$|^src-tauri/tauri\.conf\.json$|^Makefile$|^README\.md$|^docs/reference/gate-authority\.md$'; then
   ready(){ [ -x "$1" ] || command -v "$1" >/dev/null 2>&1 || return 1
-           "$1" -c 'import pytest, nbformat, nbgrader' >/dev/null 2>&1; }
+           "$1" -c 'import pytest, nbformat, nbgrader, minio' >/dev/null 2>&1; }
   bootstrap(){ echo "verify: installing the pinned python deps into $1"
                if command -v uv >/dev/null 2>&1; then
                  uv pip install --quiet --python "$1" -e . >/dev/null 2>&1
@@ -112,7 +118,7 @@ if echo "$changed" | grep -qE '\.(py|ipynb)$|^notebooks/|^tests/|^scripts/|^pypr
     run "$py" -m praxis.gatefloor
     run "$py" -m pytest -q tests/
   else
-    echo "skip: pytest/nbformat/nbgrader not installed (create .venv: uv venv .venv && uv pip install --python .venv/bin/python -e '.[launch,dev]')"
+    echo "skip: pytest/nbformat/nbgrader/minio not installed (create .venv: uv venv .venv && uv pip install --python .venv/bin/python -e '.[launch,dev]')"
   fi
 fi
 

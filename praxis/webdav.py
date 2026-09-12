@@ -4,9 +4,10 @@
 The other remote Praxis speaks is an object store (`praxis/s3.py`). This is the one most
 people already have without buying anything: Nextcloud, ownCloud, a Synology, Box, a
 Fastmail file store, `rclone serve webdav`, Apache's `mod_dav`. All of them are HTTP with
-five extra verbs, which is a small enough surface that `urllib` beats a dependency — the
-core of this project is deliberately dependency-light (`pyproject.toml` requires only
-`nbformat`), and a storage backend is not a good reason to change that.
+five extra verbs, which is a small enough surface that `urllib` beats a dependency: there
+is no maintained WebDAV client to adopt the way `praxis/s3.py` adopted minio-py, and a
+handful of verbs is not worth vendoring one. [CORRECTED 2026-09-12 — this said the core
+requires only `nbformat`, which was already false once `nbgrader` was pinned.]
 
 Five verbs, and two deliberate limits:
 

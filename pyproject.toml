@@ -10,6 +10,11 @@ requires-python = ">=3.10"
 dependencies = [
     "nbformat>=5.9",
     "nbgrader==0.9.5",
+    # The S3 client behind the `cloud` backend (praxis/s3.py). Core, not an extra:
+    # `cloud` is selectable in the core app, so a missing client is a broken backend
+    # rather than a skipped feature. Ceiling because praxis/s3.py pages through
+    # `Minio._list_objects` for `max_keys`, which a major bump may move.
+    "minio>=7.2,<8",
 ]
 
 [project.optional-dependencies]

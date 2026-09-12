@@ -28,8 +28,10 @@ A sync **never deletes**. A bucket that has lost an object cannot take a noteboo
 disk, and a mirror you cleared cannot empty the bucket. Removing something is a thing the
 user does in one place, on purpose, not something a background copy infers.
 
-`ETag` is the object's MD5 (single-part PUTs only — see `praxis/s3.py`), which is what
-lets "has this file changed?" be answered without a download.
+`ETag` is the object's MD5, which is what lets "has this file changed?" be answered
+without a download. That holds only for a single-part PUT, and it is `praxis/s3.py`'s job
+to keep it holding: the minio client underneath it would switch to multipart above 5 MiB,
+and a multipart ETag is not an MD5 of anything this module could compute.
 """
 
 from __future__ import annotations
